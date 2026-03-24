@@ -19,3 +19,17 @@ gradle-app.setting
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+
+# IntelliJ IDEA
+.idea/
+
+# Claude Code
+.claude/
+
+# 작업 메모 (개인용)
+Temp.md
+context.md
+GLOSSARY.md
+
+# Kafka Connect 데이터 (테스트 산출물)
+connect-data/
