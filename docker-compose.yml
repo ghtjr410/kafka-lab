@@ -10,11 +10,11 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
-      # 리스너 설정
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # 리스너 설정 (HOST=호스트용, INTERNAL=컨테이너간 통신)
+      KAFKA_LISTENERS: HOST://:9092,INTERNAL://:9094,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,INTERNAL://kafka:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HOST:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
 
       # 브로커 기본 설정
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
@@ -30,3 +30,16 @@ services:
       # 로그 보존
       KAFKA_LOG_RETENTION_HOURS: 1
       KAFKA_LOG_SEGMENT_BYTES: 104857600
+
+  kafka-connect:
+    image: apache/kafka:3.7.0
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+    volumes:
+      - ./connect-distributed.properties:/opt/kafka/config/connect-lab.properties
+      - ./connect-data:/tmp/connect-data
+    command: /opt/kafka/bin/connect-distributed.sh /opt/kafka/config/connect-lab.properties
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
