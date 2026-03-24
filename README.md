@@ -59,8 +59,8 @@ docker-compose up -d
 ./gradlew test
 
 # 특정 Step만 실행
-./gradlew test --tests "com.example.kafka.producer.*"
-./gradlew test --tests "com.example.kafka.rebalancing.*"
+./gradlew test --tests "com.example.kafka.s01_producer.*"
+./gradlew test --tests "com.example.kafka.s04_rebalancing.*"
 
 # 특정 테스트 클래스만 실행
 ./gradlew test --tests "ProducerAcksTest"
@@ -288,41 +288,41 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 
 ```
 src/test/java/com/example/kafka/
-├── KafkaTestBase.java              <- 공통 베이스 (UUID 토픽/그룹, sendSync, pollValues)
-├── producer/                       <- Step 1, 1+
+├── KafkaTestBase.java
+├── s01_producer/                    <- Step 1: Producer Guarantee + Advanced
 │   ├── ProducerAcksTest.java
 │   ├── ProducerRecordStructureTest.java
 │   ├── ProducerBatchingTest.java
 │   └── ProducerBackpressureTest.java
-├── consumer/                       <- Step 2, 2+
+├── s02_consumer/                    <- Step 2: Consumer Offset + Advanced
 │   ├── ConsumerAckModeTest.java
 │   ├── ConsumerAutoCommitTrapTest.java
 │   ├── ConsumerOffsetResetTest.java
 │   ├── ConsumerLagBasicTest.java
 │   └── ConsumerOffsetResetToolTest.java
-├── partition/                      <- Step 3, 3+
+├── s03_partition/                   <- Step 3: Partition & Ordering + Advanced
 │   ├── PartitionKeyTest.java
 │   ├── PartitionRekeyTest.java
 │   └── PartitionConsumerTest.java
-├── rebalancing/                    <- Step 4
+├── s04_rebalancing/                 <- Step 4: Rebalancing
 │   ├── RebalancingEagerVsCooperativeTest.java
 │   ├── StaticMembershipTest.java
 │   └── MaxPollIntervalTest.java
-├── dlq/                            <- Step 5
+├── s05_dlq/                         <- Step 5: DLQ & Error Handling
 │   └── DefaultErrorHandlerTrapTest.java
-├── eos/                            <- Step 6
+├── s06_eos/                         <- Step 6: Exactly-Once Semantics
 │   ├── IdempotentProducerTest.java
 │   ├── TransactionalProducerTest.java
 │   └── EOSBoundaryTest.java
-├── serialization/                  <- Step 7
+├── s07_serialization/               <- Step 7: Serialization & Schema
 │   ├── JsonSerializerTest.java
 │   └── SchemaEvolutionTest.java
-├── connect/                        <- Step 8
+├── s08_connect/                     <- Step 8: Kafka Connect
 │   └── KafkaConnectTest.java
-├── monitoring/                     <- Step 9
+├── s09_monitoring/                  <- Step 9: Monitoring & Observability
 │   ├── ConsumerLagMonitoringTest.java
 │   └── BrokerMetricsTest.java
-└── broker/                         <- Step 10
+└── s10_broker/                      <- Step 10: Broker Internals & KRaft
     └── BrokerInternalsTest.java
 ```
 

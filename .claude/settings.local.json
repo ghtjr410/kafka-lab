@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(mkdir -p gradle/wrapper)",
+      "Bash(cp /Users/choihoseok_home/resilience4j-lab/gradle/wrapper/gradle-wrapper.jar gradle/wrapper/)",
+      "Bash(cp /Users/choihoseok_home/resilience4j-lab/gradlew .)",
+      "Bash(cp /Users/choihoseok_home/resilience4j-lab/gradlew.bat .)",
+      "Bash(chmod +x gradlew)",
+      "Bash(./gradlew compileJava)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(./gradlew compileTestJava)",
+      "Bash(docker ps:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker pull:*)",
+      "Bash(fi)",
+      "Bash(./gradlew test:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(docker-compose -f /Users/choihoseok_home/personal-repository/kafka-lab/docker-compose.yml ps)",
+      "Bash(docker exec:*)",
+      "Bash(./gradlew dependencies:*)",
+      "Bash(git push:*)",
+      "Bash(curl -s http://localhost:8083/)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker rm:*)",
+      "Bash(curl -s http://localhost:8083/connector-plugins)",
+      "Bash(python3 -m json.tool)",
+      "Read(//Users/choihoseok_home/personal-repository/resilience4j-lab/**)",
+      "Bash(grep -c @Test src/test/java/com/example/kafka/**/*.java)",
+      "Bash(grep -rc @Test src/test/java/com/example/kafka/ --include=*.java)",
+      "Bash(BASE=src/test/java/com/example/kafka)",
+      "Bash(git mv:*)"
+    ]
+  }
+}
