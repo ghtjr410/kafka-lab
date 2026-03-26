@@ -129,11 +129,11 @@ Step 10 "retention.ms를 실수로 잘못 설정하면 어떻게 되는가?"
 |------|------|------|----------|
 | **초급** | Step 1~3 | 메시지를 안전하게 보내고 받는 것 | Java, Spring Boot 기본 |
 | **중급** | Step 4~7 | 리밸런싱, DLQ, EOS, 스키마 진화 | 초급 완료 |
-| **고급** | Step 8~10 + [KAFKA-INTERNALS.md](KAFKA-ARCHITECTURE.md) | 운영, 모니터링, 브로커 내부 구조 | 중급 완료 |
+| **고급** | Step 8~10 + [KAFKA-ARCHITECTURE.md](KAFKA-ARCHITECTURE.md) | 운영, 모니터링, 브로커 내부 구조 | 중급 완료 |
 
 - **초급**은 Kafka를 처음 접하는 개발자를 위한 경로. Producer/Consumer/Partition의 기본 동작과 함정을 체험한다.
 - **중급**은 실무에서 Kafka를 운영하기 시작한 개발자를 위한 경로. 장애 상황과 트레이드오프를 다룬다.
-- **고급**은 [KAFKA-INTERNALS.md](KAFKA-ARCHITECTURE.md)를 먼저 읽고, 클러스터/컨트롤러/코디네이터/리플리케이션의 내부 동작을 이해한 상태에서 Step 8~10을 진행한다. 이 개념들은 Kafka뿐 아니라 **모든 분산 시스템의 기본 패턴**이다.
+- **고급**은 [KAFKA-ARCHITECTURE.md](KAFKA-ARCHITECTURE.md)를 먼저 읽고, 클러스터/컨트롤러/코디네이터/리플리케이션의 내부 동작을 이해한 상태에서 Step 8~10을 진행한다. 이 개념들은 Kafka뿐 아니라 **모든 분산 시스템의 기본 패턴**이다.
 
 ---
 

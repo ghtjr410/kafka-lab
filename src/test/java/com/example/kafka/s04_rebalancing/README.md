@@ -1,6 +1,6 @@
 # Step 4 — Rebalancing
 
-> Group Coordinator가 리밸런싱을 어떻게 조율하는지 내부 동작이 궁금하면 [KAFKA-INTERNALS.md](../../../../KAFKA-INTERNALS.md)를 먼저 읽자.
+> Group Coordinator가 리밸런싱을 어떻게 조율하는지 내부 동작이 궁금하면 [KAFKA-ARCHITECTURE.md](../../../../KAFKA-ARCHITECTURE.md)를 먼저 읽자.
 
 ---
 

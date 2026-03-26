@@ -1,6 +1,6 @@
 # Step 1 — Producer Guarantee + Advanced
 
-> ISR, Replication Factor, Leader/Follower의 내부 동작이 궁금하면 [KAFKA-INTERNALS.md](../../../../KAFKA-INTERNALS.md)를 먼저 읽자.
+> ISR, Replication Factor, Leader/Follower의 내부 동작이 궁금하면 [KAFKA-ARCHITECTURE.md](../../../../KAFKA-ARCHITECTURE.md)를 먼저 읽자.
 
 ---
 

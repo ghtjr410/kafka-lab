@@ -1,6 +1,6 @@
 # Step 10 — Broker Internals & KRaft
 
-> 클러스터, 컨트롤러(KRaft), 리플리케이션의 전체 그림은 [KAFKA-INTERNALS.md](../../../../KAFKA-INTERNALS.md)에서 상세히 다룬다. 이 Step의 테스트가 확인하는 것의 배경이다.
+> 클러스터, 컨트롤러(KRaft), 리플리케이션의 전체 그림은 [KAFKA-ARCHITECTURE.md](../../../../KAFKA-ARCHITECTURE.md)에서 상세히 다룬다. 이 Step의 테스트가 확인하는 것의 배경이다.
 
 ---
 
