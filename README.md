@@ -10,25 +10,48 @@
 ## 목차
 
 - [프로젝트 소개](#프로젝트-소개)
+- [왜 이 lab이 필요한가](#왜-이-lab이-필요한가)
 - [시작하기](#시작하기)
 - [학습 구조](#학습-구조)
+- [레벨별 학습 경로](#레벨별-학습-경로)
+- [학습 순서 가이드](#학습-순서-가이드)
 - [테스트 목록](#테스트-목록)
-- [설계 원칙](#설계-원칙)
 - [이 lab이 다루지 않는 것](#이-lab이-다루지-않는-것)
+- [Kafka Internals — 클러스터, 컨트롤러, 코디네이터, 리플리케이션](KAFKA-ARCHITECTURE.md)
 
 ---
 
 ## 프로젝트 소개
 
 Kafka의 **"잘 되는 것"보다 "안 되는 것"**을 먼저 체험합니다.
-각 Step은 Before(함정)와 After(해결)를 한 클래스에 담아, 설정 하나 차이로 장애가 나는 이유를 직접 증명합니다.
-
-- 모든 **테스트 이름이 곧 증명 명제**입니다
-- **yml 대응** 주석으로 Spring Boot 설정과의 매핑을 명시합니다
-- 테스트가 **자기완결** — 토픽 생성, 발행, 검증까지 한 메서드에서 완결됩니다
+각 Step은 함정을 먼저 밟아보고, 설정 하나로 어떻게 해결되는지 직접 증명합니다.
+모든 테스트 이름이 곧 증명 명제입니다.
 
 > messaging-lab에서 "왜 Kafka가 필요한가"를 체험했다면,
 > 이 lab에서는 "Kafka를 어떻게 제대로 쓰는가"를 증명합니다.
+
+---
+
+## 왜 이 lab이 필요한가
+
+모놀리식 아키텍처에서 하나의 트랜잭션으로 주문·결제·재고·쿠폰을 묶으면 처음엔 단순하지만,
+규모가 커지면 **긴 트랜잭션 → DB 커넥션 점유 → 락 → 전체 서비스 부하**로 이어집니다.
+
+서비스를 도메인 단위로 분리(MSA)하면 각 팀이 독립 배포할 수 있지만, **분산 트랜잭션**이라는 새 문제가 생깁니다.
+서비스별 DB가 달라 하나의 롤백으로 정합성을 맞출 수 없고, **결과적 일관성(Eventual Consistency)**을 설계해야 합니다.
+
+이때 Kafka는 **메시지의 영속성, 재처리(DLQ), 수평 확장, 감사 추적**을 제공하는 도구입니다.
+
+| 판단 기준 | 동기 (한 트랜잭션) | 비동기 (이벤트/Kafka) |
+|-----------|-------------------|---------------------|
+| 실패 시 도메인 불변식이 깨지는가? | YES → 동기 | — |
+| 나중에 보정해도 되는가? | — | YES → 비동기 |
+| UX 상 즉시 응답이 필요한가? | YES → 동기처럼 보이게 (Polling 등) | NO → 비동기 |
+
+> **핵심: Kafka는 목적이 아니라 도구다.**
+> 이벤트는 "멋진 구조"가 아니라, 분산 환경에서 결과적 일관성을 설계하기 위한 수단이다.
+
+> 이벤트 네이밍 원칙, Outbox 패턴(Polling vs CDC), Saga 패턴 등 이벤트 설계와 구현에 대해서는 [messaging-lab](../messaging-lab/)에서 다룬다.
 
 ---
 
@@ -36,9 +59,9 @@ Kafka의 **"잘 되는 것"보다 "안 되는 것"**을 먼저 체험합니다.
 
 ### 기술 스택
 
-- **Java 21** / **Spring Boot 3.4.4** / **spring-kafka 3.3.4**
+- **Java 21** / **Spring Boot 3.4.4** / **spring-kafka 3.3.4** (Kafka 클라이언트 3.7.x)
 - **Docker** — apache/kafka:3.7.0 (KRaft 단일 브로커)
-- **Kafka Connect** — FileStream Source/Sink (Step 8)
+- **Kafka Connect** — FileStream Source/Sink (Step 8, 개발/테스트 전용)
 - **JUnit 5** + **AssertJ** — 학습 테스트
 
 ### 필요 환경
@@ -71,61 +94,118 @@ docker-compose up -d
 ## 학습 구조
 
 ```
-Part 1 — Producer, Consumer, 파티션, 리밸런싱, DLQ, EOS
+Part 1 — 메시지를 안전하게 보내고, 안전하게 받고, 장애에 대응하기
 
-Step 1   Producer Guarantee     acks=0/1/all 차이, min.insync.replicas 함정
-Step 1+  Producer Advanced      linger.ms 배치, buffer.memory 백프레셔, flush()
-Step 2   Consumer Offset        AckMode(BATCH/RECORD/MANUAL), auto-commit 함정
-Step 2+  Consumer Advanced      seekToBeginning, seek, alterConsumerGroupOffsets
-Step 3   Partition & Ordering   key 기반 파티션 분배, 파티션 수 변경 시 매핑 깨짐
-Step 3+  Partition Advanced     Consumer 수 > 파티션 수 → 놀리는 Consumer
-Step 4   Rebalancing            Eager vs Cooperative, Static Membership, max.poll.interval
-Step 5   DLQ & Error Handling   기본 동작은 skip(DLQ 아님!), DLQ 설정
-Step 6   Exactly-Once Semantics 멱등 프로듀서, 트랜잭셔널 프로듀서, EOS 경계
+Step 1  "acks=all이면 안전한 거 아닌가?"
+        → RF=1이면 ISR 축소 시 acks=1로 퇴화. 배치와 백프레셔까지.
+Step 2  "예외를 try-catch로 삼키면 안전한 거 아닌가?"
+        → 기본 AckMode(BATCH)에서 offset이 커밋되어 메시지가 영원히 유실된다.
+Step 3  "파티션 수를 늘리면 처리량이 올라가니까 좋은 거 아닌가?"
+        → 기존 key의 파티션 매핑이 깨진다. concurrency와 파티션의 관계까지.
+Step 4  "Consumer를 롤링 배포하면 왜 순간적으로 처리가 멈추는가?"
+        → Eager 리밸런싱이 모든 파티션을 회수한다.
+Step 5  "Spring Kafka의 기본 에러 핸들러가 DLQ로 보내주는 거 아닌가?"
+        → 아니다. 기본 동작은 최대 10회 시도 후 skip이다.
+Step 6  "Kafka가 Exactly-Once를 지원하니까 중복 걱정 없는 거 아닌가?"
+        → EOS는 Kafka 내부에서만 보장된다.
 
-Part 2 — 직렬화, Connect, 모니터링, 브로커 내부
+Part 2 — 직렬화, 파이프라인, 모니터링, 브로커 내부
 
-Step 7   Serialization & Schema JSON 직렬화, trusted.packages 함정, 스키마 진화
-Step 8   Kafka Connect          Source/Sink Connector, REST API, 일시정지/재개
-Step 9   Monitoring             Consumer Lag 계산, 클러스터 정보, 클라이언트 메트릭
-Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러, Earliest/Latest Offset
+Step 7  "Producer가 필드를 하나 추가했는데 왜 Consumer가 죽는가?"
+        → ObjectMapper 기본값이 알 수 없는 필드를 거부한다.
+Step 8  "DB 변경사항을 Kafka로 보내려면 Producer를 직접 짜야 하나?"
+        → Kafka Connect로 설정만으로 파이프라인을 만든다.
+Step 9  "Consumer가 처리를 못 따라가는 걸 어떻게 알 수 있는가?"
+        → Consumer Lag = LEO - Committed Offset.
+Step 10 "retention.ms를 실수로 잘못 설정하면 어떻게 되는가?"
+        → AdminClient로 브로커 재시작 없이 동적으로 변경한다.
 ```
 
 ---
 
-## 이렇게 읽으세요
+## 레벨별 학습 경로
 
-1. **각 디렉터리의 README를 먼저 읽기** — 그 Step이 증명하는 핵심 함정을 파악합니다
-2. **Before(함정) 테스트를 먼저 실행** — "왜 이것이 문제인지" 체험합니다
-3. **After(해결) 테스트로 넘어가기** — 설정 하나로 어떻게 해결되는지 확인합니다
+| 레벨 | 범위 | 목표 | 선행 지식 |
+|------|------|------|----------|
+| **초급** | Step 1~3 | 메시지를 안전하게 보내고 받는 것 | Java, Spring Boot 기본 |
+| **중급** | Step 4~7 | 리밸런싱, DLQ, EOS, 스키마 진화 | 초급 완료 |
+| **고급** | Step 8~10 + [KAFKA-INTERNALS.md](KAFKA-ARCHITECTURE.md) | 운영, 모니터링, 브로커 내부 구조 | 중급 완료 |
+
+- **초급**은 Kafka를 처음 접하는 개발자를 위한 경로. Producer/Consumer/Partition의 기본 동작과 함정을 체험한다.
+- **중급**은 실무에서 Kafka를 운영하기 시작한 개발자를 위한 경로. 장애 상황과 트레이드오프를 다룬다.
+- **고급**은 [KAFKA-INTERNALS.md](KAFKA-ARCHITECTURE.md)를 먼저 읽고, 클러스터/컨트롤러/코디네이터/리플리케이션의 내부 동작을 이해한 상태에서 Step 8~10을 진행한다. 이 개념들은 Kafka뿐 아니라 **모든 분산 시스템의 기본 패턴**이다.
+
+---
+
+## 학습 순서 가이드
+
+> 총 **72개 학습 테스트**. 각 테스트 이름이 곧 증명 명제입니다.
+
+### 이렇게 읽으세요
+
+1. **각 디렉터리의 README를 먼저 읽기** — 스토리를 따라가며 "왜 이것이 문제인지" 맥락을 잡습니다
+2. **테스트를 실행** — 함정을 직접 체험하고, 해결 방법을 확인합니다
+3. **"직접 답해보자"에 답하기** — README 끝에 있는 질문에 먼저 답해보고, 막히면 테스트로 검증합니다
 4. **yml 대응 주석 확인** — 실무에서 어떤 설정에 매핑되는지 확인합니다
+
+### Step 1 — Producer Guarantee + Advanced
+
+"acks=all이면 안전한 거 아닌가?" — **ISR이 리더 1대로 줄어들면 acks=1로 퇴화한다.** Kafka 3.0+ 기본값(`enable.idempotence=true` → `acks=all` 강제)을 먼저 이해하고, min.insync.replicas 함정, 배치(linger.ms + batch.size), 백프레셔(max.block.ms), delivery.timeout.ms까지 다룬다.
+
+### Step 2 — Consumer Offset + Advanced
+
+"예외를 try-catch로 삼키면 안전한 거 아닌가?" — **기본 AckMode(BATCH)에서 offset이 커밋되어 메시지가 영원히 유실된다.** auto-commit 함정(`auto.commit.interval.ms` 간격), AckMode 제어(BATCH/RECORD/MANUAL/MANUAL_IMMEDIATE), Consumer Lag 개념, seek/AdminClient를 이용한 장애 복구까지.
+
+### Step 3 — Partition & Ordering + Advanced
+
+"파티션 수를 늘리면 처리량이 올라가니까 좋은 거 아닌가?" — **기존 key의 파티션 매핑이 깨진다.** 스티키 파티셔닝(Kafka 2.4+ 기본), murmur2 해시, key 기반 순서 보장, Consumer > 파티션 시 IDLE 문제, **Spring Kafka concurrency와 파티션의 관계**(`concurrency × 인스턴스 수 ≤ 파티션 수`). 파티션 키를 "공유 자원" 기준으로 잡는 실무 패턴까지.
+
+### Step 4 — Rebalancing
+
+"Consumer를 롤링 배포하면 왜 순간적으로 처리가 멈추는가?" — **Eager 리밸런싱이 모든 파티션을 회수한다.** Eager vs Cooperative(2라운드 동작) vs KIP-848(3세대), Kafka 3.0+ 기본 assignor(`[RangeAssignor, CooperativeStickyAssignor]`), Static Membership, 퇴출 메커니즘 두 가지(`session.timeout.ms` vs `max.poll.interval.ms`). 리밸런싱 중 중복 발생과 멱등 처리의 관계까지.
+
+### Step 5 — DLQ & Error Handling
+
+"Spring Kafka의 기본 에러 핸들러가 DLQ로 보내주는 거 아닌가?" — **아니다. 최대 10회 시도 후 조용히 skip한다.** DLQ는 DeadLetterPublishingRecoverer를 명시적으로 설정해야 동작한다. Non-retryable 예외(`DeserializationException` 등)는 재시도 없이 즉시 skip되는 함정까지.
+
+### Step 6 — Exactly-Once Semantics
+
+"Kafka가 Exactly-Once를 지원하니까 중복 걱정 없는 거 아닌가?" — **아니다. EOS는 Kafka 내부에서만 보장된다.** 멱등 프로듀서의 세션 한계, 트랜잭셔널 프로듀서(`transaction-id-prefix` 인스턴스별 고유 필수), read_committed 함정(기본값은 read_uncommitted!), Consumer 멱등키가 최종 방어선인 이유까지.
+
+### Step 7 — Serialization & Schema Evolution
+
+"Producer가 필드를 하나 추가했는데 왜 Consumer가 죽는가?" — **ObjectMapper 기본값이 알 수 없는 필드를 거부한다.** trusted.packages 함정, `__TypeId__` 패키지 불일치, Forward/Backward Compatibility(`@JsonIgnoreProperties(ignoreUnknown = true)`가 가장 확실), 토픽 버저닝은 마지막 수단.
+
+### Step 8 — Kafka Connect
+
+"DB 변경사항을 Kafka로 보내려면 Producer를 직접 짜야 하나?" — **설정만으로 데이터 파이프라인을 만든다.** Standalone vs Distributed 모드, Source/Sink Connector, `tasks.max`, REST API 운영(status 확인 필수), pause/resume.
+
+### Step 9 — Monitoring & Observability
+
+"Consumer가 처리를 못 따라가는 걸 어떻게 알 수 있는가?" — **Consumer Lag = LEO - Committed Offset.** `records-lag-max`(Consumer 자체 보고) vs AdminClient Lag(Consumer 죽어도 감지 가능), Lag 폭증 체험, 클러스터 정보 조회, ISR 확인(under-replicated 감지), Producer/Consumer 클라이언트 메트릭.
+
+### Step 10 — Broker Internals & KRaft
+
+"retention.ms를 실수로 잘못 설정하면 어떻게 되는가?" — **AdminClient로 브로커 재시작 없이 동적으로 변경할 수 있다.** 단, 이미 삭제된 데이터는 복구 불가. `incrementalAlterConfigs`(`alterConfigs`는 전체 교체 사고 위험), KRaft 모드, Earliest/Latest Offset, 토픽 관리(삭제 시 영구 삭제).
 
 ---
 
 ## 테스트 목록
 
-> 총 **72개 학습 테스트**. 각 테스트 이름이 곧 증명 명제입니다.
+> 각 Step의 README에 상세 설명이 있습니다.
 
 <details>
-<summary><b>Step 1 — Producer Guarantee (7개)</b></summary>
+<summary><b>Step 1 — Producer Guarantee + Advanced (12개)</b></summary>
 
 | 테스트 | 증명하는 것 |
 |--------|-----------|
-| acks_0은_브로커_응답을_기다리지_않는다 | 유실 가능, 가장 빠름 |
-| acks_1은_리더_기록_후_응답한다 | 리더 장애 시 유실 가능 |
-| acks_all은_ISR_전체_기록_후_응답한다 | 가장 안전 |
-| 단일_브로커에서_acks_all과_min_insync_replicas_1은_acks_1과_같다 | **함정: RF=1이면 all도 무의미** |
-| send_반환값으로_파티션과_offset을_확인할_수_있다 | RecordMetadata 구조 |
-| RecordMetadata로_발행된_메시지의_위치를_확인할_수_있다 | offset, partition, topic |
-| Header에_correlation_id를_추가할_수_있다 | 메시지 추적 |
-
-</details>
-
-<details>
-<summary><b>Step 1+ — Producer Advanced (5개)</b></summary>
-
-| 테스트 | 증명하는 것 |
-|--------|-----------|
+| acks_0이면_브로커_응답을_기다리지_않는다 | 유실 가능, 가장 빠름 |
+| acks_1이면_leader만_확인한다 | 리더 장애 시 유실 가능 |
+| acks_all이면_모든_ISR이_확인한다 | 가장 안전 |
+| acks_all에_min_insync_replicas_1이면_사실상_acks_1이다 | **함정: ISR 축소 시 퇴화** |
+| send의_반환값을_확인해야_발행_성공을_보장할_수_있다 | Future 확인 필수 |
+| send의_반환값_RecordMetadata에서_메시지_구조를_확인할_수_있다 | offset, partition, topic |
+| Header에_correlation_id를_추가하면_Consumer에서_확인할_수_있다 | 메시지 추적 |
 | linger_ms가_0이면_메시지를_즉시_전송한다 | 배치 효과 없음 |
 | linger_ms를_설정하면_배치로_묶어_전송한다 | 처리량 ↑ 지연 ↑ |
 | flush를_호출하면_linger_ms를_무시하고_즉시_전송한다 | 강제 전송 |
@@ -135,7 +215,7 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 </details>
 
 <details>
-<summary><b>Step 2 — Consumer Offset (11개)</b></summary>
+<summary><b>Step 2 — Consumer Offset + Advanced (14개)</b></summary>
 
 | 테스트 | 증명하는 것 |
 |--------|-----------|
@@ -143,21 +223,13 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 | AckMode_RECORD는_레코드_하나_처리할_때마다_커밋한다 | at-least-once |
 | AckMode_MANUAL_IMMEDIATE는_명시적_호출_시_즉시_커밋한다 | 세밀한 제어 |
 | 예외를_삼키면_offset이_커밋되어_메시지가_유실된다 | **핵심 함정** |
-| auto_commit은_처리_완료와_무관하게_주기적으로_커밋한다 | 유실 위험 |
-| manual_commit은_처리_완료_후_명시적으로_커밋한다 | 안전한 방식 |
-| Spring_Kafka는_enable_auto_commit을_false로_강제한다 | 프레임워크 보호 |
-| earliest는_처음부터_소비한다 | 새 그룹 전용 |
-| latest는_구독_이후_메시지만_소비한다 | 과거 무시 |
-| LEO와_Committed_Offset의_차이가_Consumer_Lag이다 | Lag 개념 |
-| Consumer가_느리면_lag이_누적된다 | Lag 폭증 체험 |
-
-</details>
-
-<details>
-<summary><b>Step 2+ — Consumer Advanced (3개)</b></summary>
-
-| 테스트 | 증명하는 것 |
-|--------|-----------|
+| auto_commit이면_처리_실패해도_offset이_넘어간다 | 유실 위험 |
+| manual_commit에서_커밋_전에_죽으면_중복_소비된다 | at-least-once |
+| Spring_Kafka가_auto_commit을_false로_강제하는_이유를_이해한다 | 프레임워크 보호 |
+| auto_offset_reset_earliest이면_처음부터_모든_메시지를_소비한다 | 새 그룹 전용 |
+| auto_offset_reset_latest이면_기존_메시지를_무시한다 | 과거 무시 |
+| LEO에서_Committed_Offset을_빼면_Consumer_Lag이다 | Lag 개념 |
+| producer_속도가_consumer보다_빠르면_lag이_누적된다 | Lag 폭증 체험 |
 | seekToBeginning으로_처음부터_재소비할_수_있다 | offset 리셋 |
 | seek으로_특정_offset부터_재소비할_수_있다 | 부분 재처리 |
 | AdminClient로_Consumer_Group의_offset을_수동_변경할_수_있다 | 장애 복구 |
@@ -165,25 +237,16 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 </details>
 
 <details>
-<summary><b>Step 3 — Partition & Ordering (5개)</b></summary>
+<summary><b>Step 3 — Partition & Ordering + Advanced (6개)</b></summary>
 
 | 테스트 | 증명하는 것 |
 |--------|-----------|
-| null_key는_라운드로빈으로_분산된다 | 기본 분배 |
-| 같은_key는_항상_같은_파티션에_할당된다 | 순서 보장 |
-| 다른_key는_다른_파티션에_할당될_수_있다 | 병렬 처리 |
-| 파티션_수가_변경되면_기존_key의_파티션_매핑이_깨진다 | **함정: rekey** |
-| 매핑이_깨지면_같은_key의_메시지가_다른_파티션으로_간다 | 순서 보장 파괴 |
-
-</details>
-
-<details>
-<summary><b>Step 3+ — Partition Advanced (2개)</b></summary>
-
-| 테스트 | 증명하는 것 |
-|--------|-----------|
+| key_없이_발행하면_파티션이_분산된다 | 스티키 파티셔닝 기본 |
+| 같은_key로_발행하면_같은_파티션에_들어가_순서가_보장된다 | 순서 보장 |
+| 서로_다른_key는_서로_다른_파티션에_배정될_수_있다 | 병렬 처리 |
+| 파티션_수_변경_후_같은_key가_다른_파티션에_배정된다 | **함정: rekey** |
+| 실제_브로커에서_파티션_수_변경_전후_key_배정이_달라진다 | 순서 보장 파괴 |
 | Consumer_수가_파티션_수보다_많으면_놀리는_Consumer가_발생한다 | **함정: 초과분 IDLE** |
-| Consumer_수가_파티션_수와_같으면_1대_1로_할당된다 | 이상적 분배 |
 
 </details>
 
@@ -193,7 +256,7 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 | 테스트 | 증명하는 것 |
 |--------|-----------|
 | Eager_리밸런싱에서는_새_Consumer_합류_시_모든_파티션이_revoke된다 | stop-the-world |
-| Cooperative_리밸런싱에서는_이동이_필요한_파티션만_revoke된다 | 점진적 리밸런싱 |
+| Cooperative_리밸런싱에서는_이동이_필요한_파티션만_revoke된다 | 점진적 리밸런싱 (2라운드) |
 | Static_Membership_없이_재접속하면_리밸런싱이_발생한다 | 롤링 배포 불안정 |
 | Static_Membership으로_재접속_시_같은_파티션을_유지한다 | group.instance.id |
 | max_poll_interval을_초과하면_Consumer가_강제_퇴출된다 | **함정: 퇴출 + 중복** |
@@ -206,8 +269,8 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 
 | 테스트 | 증명하는 것 |
 |--------|-----------|
-| DefaultErrorHandler의_기본_동작은_10회_재시도_후_skip이다 | **함정: DLQ 아님!** |
-| DeadLetterPublishingRecoverer를_설정하면_DLT_토픽으로_이동한다 | DLQ 설정 |
+| DefaultErrorHandler_기본_동작은_재시도_후_skip이다_DLQ가_아니다 | **함정: 최대 10회 시도 후 skip** |
+| DLQ를_설정하면_실패한_메시지가_DLT_토픽으로_이동한다 | DLQ 설정 |
 
 </details>
 
@@ -216,14 +279,14 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 
 | 테스트 | 증명하는 것 |
 |--------|-----------|
-| 멱등_프로듀서는_세션_내_재시도에서_중복을_방지한다 | PID + sequence |
-| 멱등_프로듀서도_재시작하면_새_세션이라_중복이_발생한다 | **함정: 세션 한계** |
+| 멱등_프로듀서는_같은_세션_내에서_재시도_중복을_방지한다 | PID + sequence |
+| Producer_재시작_후_같은_메시지_발행하면_중복_저장된다 | **함정: 세션 한계** |
 | 트랜잭셔널_프로듀서로_원자적_발행을_할_수_있다 | 전부 or 전무 |
 | 트랜잭션_abort_시_read_committed_Consumer는_메시지를_볼_수_없다 | abort 필터링 |
 | read_committed와_read_uncommitted의_차이를_확인한다 | **함정: 기본값은 read_uncommitted** |
-| Kafka_내부_EOS는_Kafka_안에서만_보장된다 | EOS 범위 |
-| DB_쓰기는_EOS_범위_밖이라_중복이_발생할_수_있다 | **함정: 외부 시스템** |
-| Consumer_멱등키로_외부_시스템_중복을_방어할_수_있다 | 실무 해법 |
+| Kafka_내부_produce에서_consume_offset까지는_exactly_once가_보장된다 | EOS 범위 |
+| Consumer에서_DB_insert_후_장애나면_DB에_중복이_발생한다_EOS_범위_밖 | **함정: 외부 시스템** |
+| Consumer_측_멱등키로_외부_시스템_중복을_방어한다 | 실무 해법 |
 
 </details>
 
@@ -236,8 +299,8 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 | JsonSerializer로_객체를_직접_보내고_JsonDeserializer로_받을_수_있다 | 자동 변환 |
 | trusted_packages를_설정하지_않으면_역직렬화가_거부된다 | **함정: 보안 차단** |
 | Producer가_필드를_추가하면_기존_Consumer는_역직렬화에_실패한다 | **함정: 스키마 깨짐** |
-| FAIL_ON_UNKNOWN_PROPERTIES를_끄면_하위_호환성을_유지할_수_있다 | 하위 호환 |
-| 필수_필드가_없으면_기본값으로_채워진다 | 상위 호환 |
+| FAIL_ON_UNKNOWN_PROPERTIES를_끄면_Forward_Compatibility를_확보한다 | Forward 호환 |
+| 필수_필드가_없으면_기본값으로_채워진다 | Backward 호환 |
 | 메시지_헤더에_스키마_버전을_넣어_호환성을_관리할_수_있다 | 간이 스키마 관리 |
 
 </details>
@@ -265,7 +328,7 @@ Step 10  Broker Internals       토픽 설정 조회/변경, KRaft 컨트롤러,
 | AdminClient로_클러스터_정보를_조회할_수_있다 | describeCluster |
 | AdminClient로_토픽의_파티션_리더와_ISR을_확인할_수_있다 | under-replicated 감지 |
 | Producer_클라이언트_메트릭으로_발행_성능을_확인할_수_있다 | record-send-rate, latency |
-| Consumer_클라이언트_메트릭으로_소비_성능을_확인할_수_있다 | fetch-rate, lag-max |
+| Consumer_클라이언트_메트릭으로_소비_성능을_확인할_수_있다 | fetch-rate, records-lag-max |
 
 </details>
 
@@ -328,17 +391,6 @@ src/test/java/com/example/kafka/
 
 ---
 
-## 설계 원칙
-
-1. **테스트 이름 = 증명 명제** — `@DisplayNameGeneration(ReplaceUnderscores.class)` + 한글
-2. **yml이 보여야 한다** — JavaDoc에 `yml 대응:` 명시
-3. **assertion이 명제를 직접 증명** — `assertThat(lag).isEqualTo(5)`
-4. **테스트가 자기완결** — 토픽 생성, 발행, 검증까지 한 메서드에서 완결
-5. **Before/After는 같은 클래스 안에** — 함정(Before)과 해결(After) 비교
-6. **KafkaTestBase로 격리** — UUID 기반 고유 토픽/그룹ID
-
----
-
 ## 이 lab이 다루지 않는 것
 
 | 주제 | 다루는 곳 |
@@ -346,5 +398,10 @@ src/test/java/com/example/kafka/
 | 왜 Kafka가 필요한가 (이벤트 진화 과정) | messaging-lab |
 | ApplicationEvent → Redis → Kafka 전환 체험 | messaging-lab |
 | Transactional Outbox Pattern 구현 | messaging-lab |
+| 이벤트 네이밍 원칙 (Event vs Command) | messaging-lab |
+| Outbox 릴레이 (Polling vs CDC) | messaging-lab |
 | Saga Pattern (Choreography/Orchestration) | saga-lab (예정) |
-| CDC (Debezium) 기반 Outbox 릴레이 | 별도 주제 |
+| 멀티 브로커 클러스터 운영 (리더 선출, ISR 복구) | 별도 주제 |
+| 보안 (SASL/SSL, ACL) | 별도 주제 |
+| Schema Registry (Avro 기반) | 별도 주제 |
+| Kafka Streams | 별도 주제 |

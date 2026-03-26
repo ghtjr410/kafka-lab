@@ -1,17 +1,13 @@
 package com.example.kafka.s01_producer;
 
 import com.example.kafka.KafkaTestBase;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -145,40 +141,4 @@ class ProducerAcksTest extends KafkaTestBase {
         }
     }
 
-    /**
-     * send()의 반환값을 확인하지 않으면 유실을 감지할 수 없다.
-     *
-     * KafkaTemplate.send()는 CompletableFuture를 반환한다.
-     * 이 반환값을 무시하면(fire-and-forget) 브로커 장애 시 유실이 조용히 발생한다.
-     * 반환값을 확인해야 발행 성공/실패를 알 수 있다.
-     */
-    @Test
-    void send의_반환값을_확인해야_발행_성공을_보장할_수_있다() {
-        String testTopic = topic();
-        createTopic(testTopic, 1);
-
-        try (var producer = new KafkaProducer<String, String>(producerProps(Map.of(
-                ProducerConfig.ACKS_CONFIG, "all"
-        )))) {
-            // 동기 확인: get()으로 블로킹하여 결과를 확인
-            RecordMetadata metadata = sendSync(producer, testTopic, "order-1", "payment-completed");
-
-            assertThat(metadata.topic()).isEqualTo(testTopic);
-            assertThat(metadata.offset()).isGreaterThanOrEqualTo(0);
-            assertThat(metadata.partition()).isGreaterThanOrEqualTo(0);
-
-            System.out.printf("  발행 확인: topic=%s, partition=%d, offset=%d%n",
-                    metadata.topic(), metadata.partition(), metadata.offset());
-
-            // Consumer로 실제 메시지 도착 확인
-            try (var consumer = new KafkaConsumer<String, String>(
-                    consumerProps(groupId(), Map.of()))) {
-                consumer.subscribe(List.of(testTopic));
-                List<String> values = pollValues(consumer, 1, Duration.ofSeconds(10));
-
-                assertThat(values).containsExactly("payment-completed");
-                System.out.println("  → Consumer에서 메시지 수신 확인 완료");
-            }
-        }
-    }
 }

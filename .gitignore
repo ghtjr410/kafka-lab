@@ -27,9 +27,7 @@ gradle-app.setting
 .claude/
 
 # 작업 메모 (개인용)
-Temp.md
-context.md
-GLOSSARY.md
+context/
 
 # Kafka Connect 데이터 (테스트 산출물)
 connect-data/
