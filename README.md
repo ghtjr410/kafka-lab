@@ -82,8 +82,8 @@ docker-compose up -d
 ./gradlew test
 
 # 특정 Step만 실행
-./gradlew test --tests "com.example.kafka.s01_producer.*"
-./gradlew test --tests "com.example.kafka.s04_rebalancing.*"
+./gradlew test --tests "com.example.kafka.{step 폴더명}.*"
+# 예시: ./gradlew test --tests "com.example.kafka.s01_producer.*"
 
 # 특정 테스트 클래스만 실행
 ./gradlew test --tests "ProducerAcksTest"
@@ -143,7 +143,7 @@ Step 10 "retention.ms를 실수로 잘못 설정하면 어떻게 되는가?"
 
 ### 이렇게 읽으세요
 
-1. **각 디렉터리의 README를 먼저 읽기** — 스토리를 따라가며 "왜 이것이 문제인지" 맥락을 잡습니다
+1. **각 Step 폴더의 README를 먼저 읽기 (`src/test/.../s01_producer/README.md`)** — 스토리를 따라가며 "왜 이것이 문제인지" 맥락을 잡습니다
 2. **테스트를 실행** — 함정을 직접 체험하고, 해결 방법을 확인합니다
 3. **"직접 답해보자"에 답하기** — README 끝에 있는 질문에 먼저 답해보고, 막히면 테스트로 검증합니다
 4. **yml 대응 주석 확인** — 실무에서 어떤 설정에 매핑되는지 확인합니다
@@ -405,3 +405,4 @@ src/test/java/com/example/kafka/
 | 보안 (SASL/SSL, ACL) | 별도 주제 |
 | Schema Registry (Avro 기반) | 별도 주제 |
 | Kafka Streams | 별도 주제 |
+| 처리량 튜닝 가이드 (브로커 스케일링, 압축, fetch 튜닝) | throughput-lab (예정) |
