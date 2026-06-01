@@ -19,7 +19,7 @@
 **한 문장**: *"Kafka의 내부 메커니즘과 그것이 보장하는 것."*
 
 ### 다룬다 (Scope)
-- 로그라는 추상 · 복제/ISR · 합의/KRaft · Consumer Group 조정 · 순서·원자성 · 저장 엔진
+- 로그라는 추상 · 복제/ISR · 합의/KRaft · Consumer Group 조정 · 멱등·순서 · 트랜잭션·EOS · 저장 엔진 · 클라이언트 런타임
 - 각 주제를 *무엇을 보장하나 / 왜 이 설계인가 / 어떤 구조·합의 알고리즘인가 / 트레이드오프*로
 - **Kafka 그 자체** — 특정 언어·프레임워크에 중립 (코드는 증명 도구일 뿐)
 
@@ -58,20 +58,23 @@ graph LR
 ```mermaid
 graph TB
     C1["1장 로그/단위"] --> C2["2장 로그 추상"]
-    C2 --> C7["7장 저장 엔진<br/>(물리 구현)"]
+    C2 --> C8["8장 저장 엔진<br/>(물리 구현)"]
     C2 --> C4["4장 합의<br/>(메타도 로그)"]
     C1 --> C3["3장 복제"]
-    C3 -->|"리더 선출"| C4
-    C3 -->|"leader epoch ↔ term"| C4
+    C3 -->|"리더 선출 · leader epoch↔term"| C4
     C4 -->|"Controller↔Coordinator"| C5["5장 조정"]
     C2 --> C5
-    C3 -->|"LSO"| C6["6장 순서·원자성"]
-    C1 --> C6
-    C5 -->|"offset 커밋"| C6
-    C6 -->|"batch 메타"| C7
+    C1 --> C6["6장 멱등·순서"]
+    C6 -->|"멱등 위에 트랜잭션"| C7["7장 트랜잭션·EOS"]
+    C3 -->|"LSO"| C7
+    C5 -->|"offset 커밋"| C7
+    C7 -->|"batch 메타"| C8
+    C1 --> C9["9장 클라이언트 런타임"]
+    C3 -.->|"acks"| C9
+    C6 -.->|"멱등 max.in.flight"| C9
 ```
 
-> 교차 요소(SSOT): **LSO** 정의=3장→사용=6장 · **compaction** 의미=2장/메커니즘=7장 · **leader epoch**(3장)↔**Raft term**(4장) · **"메타데이터=로그"**는 2장에서 정의, 4·5·6장은 링크
+> 교차 요소(SSOT): **LSO** 정의=3장→사용=7장 · **compaction** 의미=2장/메커니즘=8장 · **leader epoch**(3장)↔**Raft term**(4장) · **"메타데이터=로그"**는 2장에서 정의, 4·5·7장은 링크
 
 ---
 
@@ -151,35 +154,58 @@ graph TB
 - 5.10 증명 — eager vs cooperative revoke 범위 / static 재접속
 - 참조: KIP-429/848/345 · (트리거 전수=II권, Spring 설정=III권)
 
-## 6장 — 순서와 원자성: 멱등·트랜잭션   🚧
+## 6장 — 멱등·순서: 중복 없이, 순서대로   🚧
 
-> 보장: *멱등 — 재시도해도 파티션 내 중복 없음. 트랜잭션 — 다중 파티션 쓰기(+offset)가 전부 또는 전무.*
+> 보장: *멱등 — 재시도해도 파티션 내 중복 없음. 순서 — 파티션 내에서 보장.*
 
 - 6.1 파티션 내 순서 한계 (전체 순서 불가)
 - 6.2 "그냥 재시도"의 함정 (ACK 유실 → 중복 append)
 - 6.3 **멱등 프로듀서** — PID + epoch + sequence (요구 조합: `idempotence=true`→`acks=all`·`max.in.flight≤5`)
 - 6.4 멱등의 세션 한계 (재시작=새 PID → 보장 끊김)
-- 6.5 **트랜잭션** — `transactional.id`, Transaction Coordinator, `__transaction_state`, 좀비 펜싱(epoch)
-- 6.6 control record(commit/abort) + **LSO**(3장 정의) + `read_committed`
-- 6.7 read-process-write (consumer offset도 트랜잭션에, `sendOffsetsToTransaction`)
-- 6.8 EOS 경계 — Kafka 내부 한정 (외부 시스템은 멱등키, → III권)
-- 6.9 증명 — 멱등 재시도/세션한계/abort+read_committed/isolation 기본값 함정
-- 참조: KIP-98/129, DDIA 9·7장
+- 6.5 순서와 `max.in.flight` (멱등 off면 재시도 시 순서 역전)
+- 6.6 증명 — 멱등 재시도 중복 없음 / 세션 한계 중복 / 순서 역전
+- 참조: KIP-98, DDIA 9장
 
-## 7장 — 저장 엔진: 디스크인데 왜 빠른가   🚧
+## 7장 — 트랜잭션·EOS: 전부 또는 전무   🚧
+
+> 보장: *다중 파티션 쓰기(+offset 커밋)가 원자적. EOS = 멱등 + 트랜잭션 + read-process-write (Kafka 내부 한정).*
+
+- 7.1 왜 트랜잭션인가 — 다중 파티션 원자성 + read-process-write (6장 멱등 위에 쌓는다)
+- 7.2 `transactional.id` 와 좀비 펜싱 (producer epoch로 옛 인스턴스 차단)
+- 7.3 **Transaction Coordinator** + `__transaction_state` (트랜잭션 상태도 로그 — 2장)
+- 7.4 2단계 흐름 — `AddPartitionsToTxn` → produce → commit/abort
+- 7.5 **control record**(commit/abort marker) + **LSO**(3장 정의) + `read_committed`(abort 배치 스킵)
+- 7.6 read-process-write — `sendOffsetsToTransaction` (consumer offset도 트랜잭션에)
+- 7.7 **EOS의 경계** — Kafka 내부 한정, 외부 시스템은 멱등키(→ III권)
+- 7.8 증명 — abort+read_committed 안 보임 / `isolation.level` 기본값(read_uncommitted) 함정 / read-process-write 원자성
+- 참조: KIP-98/129, Confluent *EOS* 문서, DDIA 9·7장
+
+## 8장 — 저장 엔진: 디스크인데 왜 빠른가   🚧
 
 > 보장: *디스크 기반인데도 순차 IO·OS 최적화로 고처리량.*
 
-- 7.1 로그(2장)의 물리 실체
-- 7.2 디스크인데 빠른 이유 — **순차 IO** / **page cache**(JVM 힙 아님) / **zero-copy(sendfile)**
-- 7.3 **Log Segment** — `.log`/`.index`/`.timeindex`, 파일명=base offset, active segment, rolling(`segment.bytes/ms`)
-- 7.4 **Record Batch v2** — baseOffset·producerId·epoch·압축타입 (멱등/트랜잭션 6장이 여기 박힘)
-- 7.5 조회 — sparse index 점프 → `.log` 순차 스캔
-- 7.6 압축 — producer batch 단위(lz4/zstd/snappy/gzip), 브로커는 그대로 저장·전송
-- 7.7 **log compaction 메커니즘** — cleaner thread, 키별 최신 + tombstone (2장 의미→여기 메커니즘)
-- 7.8 retention — 시간/크기, **세그먼트 단위 삭제**
-- 7.9 증명 — `docker exec`로 `.log` 직접 보기 / `kafka-dump-log` / rolling 관측
+- 8.1 로그(2장)의 물리 실체
+- 8.2 디스크인데 빠른 이유 — **순차 IO** / **page cache**(JVM 힙 아님) / **zero-copy(sendfile)**
+- 8.3 **Log Segment** — `.log`/`.index`/`.timeindex`, 파일명=base offset, active segment, rolling(`segment.bytes/ms`)
+- 8.4 **Record Batch v2** — baseOffset·producerId·epoch·압축타입 (멱등/트랜잭션 6·7장이 여기 박힘)
+- 8.5 조회 — sparse index 점프 → `.log` 순차 스캔
+- 8.6 압축 — producer batch 단위(lz4/zstd/snappy/gzip), 브로커는 그대로 저장·전송
+- 8.7 **log compaction 메커니즘** — cleaner thread, 키별 최신 + tombstone (2장 의미→여기 메커니즘)
+- 8.8 retention — 시간/크기, **세그먼트 단위 삭제**
+- 8.9 증명 — `docker exec`로 `.log` 직접 보기 / `kafka-dump-log` / rolling 관측
 - 참조: Kafka design 문서(Persistence·Efficiency·Compaction), `sendfile(2)`, KIP-405(tiered storage)
+
+## 9장 — 클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나   🚧
+
+> 보장/관점: *send()는 비동기다 — 사용자 스레드와 IO 스레드가 분리돼 있고, 그 경계를 모르면 콜백 한 줄로 처리량을 무너뜨린다.*
+
+- 9.1 Producer 스레드 모델 — 사용자 스레드(send) vs **Sender(IO) 스레드**(`kafka-producer-network-thread`)
+- 9.2 send()의 여정 — 직렬화/파티셔닝 → RecordAccumulator(버퍼) → 배치 → 전송
+- 9.3 콜백/Future 완료는 누가 실행하나 — **Sender(IO) 스레드** → `whenComplete`에서 blocking하면 produce 정지 (★→ III권 코드 함정)
+- 9.4 backpressure — `buffer.memory` 가득 → `send()`가 `max.block.ms`까지 블록 → TimeoutException
+- 9.5 설정 조합 — `buffer.memory × batch.size × linger.ms × max.block.ms` = 처리량·지연·역압
+- 9.6 Consumer 런타임 — 단일 스레드 poll 루프 / 백그라운드 heartbeat 스레드 / `max.poll.records ↔ max.poll.interval`
+- 참조: Kafka producer/consumer design 문서, `KafkaProducer` Javadoc
 
 > 기존 [`KAFKA-ARCHITECTURE.md`](../../../KAFKA-ARCHITECTURE.md)는 3·4·5장 산문화 시 **분해·흡수 예정**.
 

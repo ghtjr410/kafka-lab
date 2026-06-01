@@ -11,10 +11,11 @@
 **목적**: Spring Kafka로 **코드를 어떻게 짜고 어디서 데이나**. 개별 설정 → 설정 조합 → 코드 구조·순서 함정.
 
 ### 다룬다 (Scope)
-- Producer/Consumer/Listener 코드·설정 · 설정 조합 함정 · 코드 구조·순서 함정 · 직렬화 · Connect 사용 (기존 Step s01~s08)
+- Producer/Consumer/Listener 코드·설정 · 설정 조합 함정 · 코드 구조·순서 함정 · 직렬화 (기존 Step s01~s07)
 
 ### 다루지 않는다 (Out of Scope)
 - 내부 원리(보장·알고리즘) → **I권 Internals** · 운영 절차·모니터링·사이징 → **II권 Operations**
+- **Kafka Connect / CDC / Schema Registry / Streams** → **IV권 Beyond Core** (인프라·플랫폼 영역)
 
 > 🤖 "왜 그런가"는 "→ I권", "운영 기준"은 "→ II권" **링크만**. 여기선 코드 관점만 깎는다.
 
@@ -72,7 +73,9 @@ graph LR
 | 5장 | 에러 처리 & DLQ | "기본 핸들러가 DLQ로 보내나?" | 📄 `s05_dlq/README.md` | ✅ 2 |
 | 6장 | EOS & 트랜잭션 | "EOS면 중복 없나?" | 📄 `s06_eos/README.md` | ✅ 8 |
 | 7장 | 직렬화 & 스키마 진화 | "필드 추가했는데 왜 죽나?" | 📄 `s07_serialization/README.md` | ✅ 7 |
-| 8장 | Kafka Connect | "Producer를 직접 짜야 하나?" | 📄 `s08_connect/README.md` | ✅ 4 |
+
+> `s08_connect`(Kafka Connect)는 인프라/통합 주제 → **IV권 Beyond Core**로 이동.
+> `s09_monitoring`·`s10_broker`(운영 성격)는 **II권**으로 분류.
 
 ### 횡단편 — 설정·코드 차원의 함정 (신규)
 
