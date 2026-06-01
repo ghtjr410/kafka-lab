@@ -6,6 +6,31 @@
 
 ---
 
+## 이 권이 다루는 함정의 두 차원
+
+함정은 "설정 하나 잘못 넣는 것"만이 아니다. 더 무서운 건 **개별로는 맞는데 조합·순서가 틀린 것**이다.
+
+```mermaid
+graph TB
+    subgraph C1["① 설정 조합 함정 (개별 유효, 조합이 위험)"]
+        A["enable.idempotence=true"] -.요구.-> B["acks=all"]
+        A -.요구.-> M["max.in.flight ≤ 5"]
+        W1["acks=1로 바꾸면<br/>멱등성이 깨진다 ⚠️"]
+    end
+    subgraph C2["② 코드 구조·순서 함정 (레이어 순서)"]
+        R["retry"] --> D["DLQ/외부호출"]
+        W2["순서·분류가 틀리면<br/>1번 실패를 N번 재시도·집계 ⚠️"]
+    end
+```
+
+> **resilience4j 비유**: `retry`가 앞단, `circuitbreaker`가 뒷단이면 1번 실패할 것을 N번 시도해 N번이 다 서킷에 집계된다.
+> Kafka에도 똑같은 형태가 있다 — non-retryable 예외(역직렬화 실패)를 분류하지 않으면 **절대 성공 못 할 메시지를 10번 재시도**한다. (형제 [resilience4j-lab](../../../../resilience4j-lab/)과 연결)
+
+**그래서 III권의 각 장은 3관점으로 깎는다:**
+`개별 설정의 의미` → `설정 조합의 상호작용(함정)` → `코드 구조·순서의 함정`
+
+---
+
 ## 이 권의 성격
 
 ```mermaid
@@ -18,7 +43,9 @@ graph LR
 
 ---
 
-## 목차 (Spring 적용 축) — 기존 Step 재사용(📄)
+## 목차 (Spring 적용 축)
+
+### 본편 — 기존 Step 재사용(📄)
 
 | 장 | 제목 | 착각 질문 | 본문 위치 | 증명 |
 |----|------|----------|----------|------|
@@ -31,7 +58,13 @@ graph LR
 | 7장 | 직렬화 & 스키마 진화 | "필드 추가했는데 왜 죽나?" | 📄 `s07_serialization/README.md` | ✅ 7 |
 | 8장 | Kafka Connect | "Producer를 직접 짜야 하나?" | 📄 `s08_connect/README.md` | ✅ 4 |
 
-> `s09_monitoring`·`s10_broker`는 운영 성격이 강해 **II권**으로 분류.
+### 횡단편 — 설정·코드 차원의 함정 (신규)
+
+| 장 | 제목 | 다루는 핵심 | 상태 |
+|----|------|------------|------|
+| 9장 | **설정 조합의 함정** | idempotence ↔ acks ↔ max.in.flight / order ↔ retry / `session·heartbeat·max.poll` 3박자 타이밍 / transactional ↔ isolation.level | 📋 예정 |
+| 10장 | **코드 구조·순서의 함정** | ErrorHandler retry↔DLQ 순서·non-retryable 분류 / commit 위치(처리 전 vs 후) / `@RetryableTopic` non-blocking retry / `@Transactional`+Kafka 트랜잭션 경계 / 리스너 내 blocking 호출 → poll 초과 | 📋 예정 |
+| 11장 | **설정 레퍼런스** | Producer/Consumer/Listener 주요 설정의 의미·기본값·버전별 변경 (단일 설정 카탈로그) | 📋 예정 |
 
 ---
 
