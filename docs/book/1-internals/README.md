@@ -46,12 +46,12 @@ graph TB
 |----|------|------------|------|
 | 들어가며 | [Kafka는 무엇을 풀려고 태어났나](./00-prologue.md) | N×M 통합 지옥 → 로그 백본, 생태계의 결핍 | 🚧 초안 |
 | 1장 | [Kafka란 무엇인가](./01-what-is-kafka.md) | 로그·단위·설계 철학 3원칙 | 🚧 초안 |
-| 2장 | 로그라는 추상 | 왜 append-only인가, 상태=로그의 파생물 | 📋 예정 |
-| 3장 | [복제 — 데이터는 어떻게 살아남나](./03-replication.md) | 복제 모델 비교 · ISR · HW/LEO · **leader epoch** · 복제≠합의 | 🚧 요소 추출 stub |
-| 4장 | 합의 — 누가 결정하나 | **왜 Raft인가**(Paxos 비교) · KRaft(메타데이터를 로그로) · Controller | 📋 예정 |
-| 5장 | 조정 — Consumer Group | Coordinator · 리밸런싱 프로토콜 · `__consumer_offsets` | 📋 예정 |
-| 6장 | 순서와 원자성 | 파티션 순서의 한계 · 멱등(PID/epoch/seq) · 트랜잭션(control record/LSO) | 📋 예정 |
-| 7장 | 저장 엔진 | log segment·index · page cache · zero-copy · compaction | 📋 예정 |
+| 2장 | [로그라는 추상](./02-log-abstraction.md) | 왜 append-only인가, 상태=로그의 파생물, compaction의 의미 | 🚧 stub |
+| 3장 | [복제 — 데이터는 어떻게 살아남나](./03-replication.md) | 복제 모델 비교 · ISR · HW/LEO · **leader epoch** · 복제≠합의 | 🚧 stub |
+| 4장 | [합의 — 누가 결정하나](./04-consensus.md) | **왜 Raft인가**(Paxos 비교) · KRaft · `__cluster_metadata` · Controller | 🚧 stub |
+| 5장 | [조정 — Consumer Group](./05-coordination.md) | Coordinator · 리밸런싱 세대(eager/cooperative/KIP-848) · `__consumer_offsets` | 🚧 stub |
+| 6장 | [순서와 원자성](./06-ordering-atomicity.md) | 파티션 순서 한계 · 멱등(PID/epoch/seq) · 트랜잭션(control record/LSO) | 🚧 stub |
+| 7장 | [저장 엔진](./07-storage-engine.md) | log segment·index · page cache · zero-copy · compaction | 🚧 stub |
 
 > 기존 [`KAFKA-ARCHITECTURE.md`](../../../KAFKA-ARCHITECTURE.md)는 3·4·5장의 재료로 **분해·흡수 예정**이다.
 
