@@ -62,30 +62,48 @@
 | spring-kafka | **3.3.x** | Spring Boot BOM 관리 (명시 버전 미고정) |
 | Kafka client | **3.7.x** | spring-kafka가 가져오는 버전 |
 | Apache Kafka (broker) | **3.7.0** | Docker 이미지 `apache/kafka:3.7.0` |
-| 실행 모드 | **KRaft** | ZooKeeper 없음 |
+| 실행 모드 | **KRaft, 3-broker** | ZooKeeper 없음. 운영 관점의 멀티브로커가 기본 |
 | 테스트 | JUnit 5 + AssertJ | spring-boot-starter-test |
 | JSON | Jackson (jackson-databind) | Step 7 |
 
+### 클러스터 토폴로지 (기본 = 멀티브로커)
+
+> "소꿉장난(단일 브로커)"이 아니라 **3-broker KRaft 클러스터**를 기본 전제로 한다.
+> 복제·ISR 축소·리더 선출·leader epoch·KRaft 합의는 멀티브로커에서만 증명된다.
+
+| 항목 | 값 |
+|------|-----|
+| 노드 수 | **3** (각 노드 broker+controller 겸임, KRaft Combined) |
+| Controller Quorum | 3-voter (`1@kafka1:9091,2@kafka2:9091,3@kafka3:9091`) |
+| 호스트 bootstrap | `localhost:9092,localhost:9093,localhost:9094` |
+| 단일 브로커가 필요할 때 | `docker-compose -f docker-compose.single-broker.yml up -d` |
+
 ### 브로커 기본 설정 (docker-compose 기준)
 
-| 설정 | 값 | 영향받는 Step |
-|------|-----|--------------|
-| `num.partitions` (기본) | 3 | Step 3 |
-| `default.replication.factor` | **1** | Step 1 (RF=1 함정의 근원) |
-| `offsets.topic.replication.factor` | 1 | Step 2 |
-| `transaction.state.log.replication.factor` | 1 | Step 6 |
-| `transaction.state.log.min.isr` | 1 | Step 6 |
-| `log.retention.hours` | 1 | Step 10 |
-| `log.segment.bytes` | 104857600 (100MB) | Step 10 |
-| `auto.create.topics.enable` | true | 전체 |
-| Cluster ID | `kafka-lab-cluster-id-01` | Step 10 (KRaft 확인) |
+| 설정 | 값 | 비고 |
+|------|-----|------|
+| `num.partitions` (기본) | 3 | |
+| `default.replication.factor` | **3** | 멀티브로커 운영 기본 |
+| `min.insync.replicas` | **2** | RF=3 + min.isr=2 = "1대 죽어도 무손실" 균형점 |
+| `offsets.topic.replication.factor` | 3 | |
+| `transaction.state.log.replication.factor` | 3 | |
+| `transaction.state.log.min.isr` | 2 | |
+| `log.retention.hours` | 1 | |
+| `log.segment.bytes` | 104857600 (100MB) | |
+| `auto.create.topics.enable` | true | |
+| Cluster ID | `kafka-lab-cluster-id-01` | |
+
+> ⚠️ **마이그레이션 주의**: 기존 함정 Step(s01~s10)은 단일 브로커(RF=1)를 가정해 작성됐다.
+> 멀티브로커 전환으로 일부 테스트의 RF 가정이 달라질 수 있다 → III권으로 재배치하며 점진적으로 조정한다.
+> (`bootstrap=localhost:9092`는 그대로 동작 — 한 브로커만 알려줘도 클러스터를 발견한다.)
 
 ### 동기화 대상 파일
 
 버전/브로커 설정을 바꿀 때 반드시 함께 확인:
 
 - `build.gradle.kts` — Java toolchain, Spring Boot 플러그인 버전
-- `docker-compose.yml` — Kafka 이미지 태그, 브로커 환경변수
+- `docker-compose.yml` — **3-broker** Kafka 이미지 태그, 브로커 환경변수
+- `docker-compose.single-broker.yml` — 단일 브로커 백업본
 - `connect-distributed.properties` — Kafka Connect 설정 (Step 8)
 
 ### 버전 업그레이드 정책 (영구 저장소이기에 중요)
