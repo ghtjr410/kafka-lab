@@ -125,7 +125,7 @@ graph TB
 - 3.9 직접 증명 — follower 정지→ISR 축소 / 2대 정지→쓰기 거부 / leader kill→무손실
 - 참조: KIP-101/279, DDIA 5·9장
 
-## 4장 — 합의: 누가 결정하나 (KRaft)   🚧
+## 4장 — 합의: 누가 결정하나 (KRaft)   ✅ [04-consensus.md](./04-consensus.md)
 
 > 보장: *메타데이터(리더가 누구인지 등)에 모든 노드가 단일 진실로 합의.*
 
