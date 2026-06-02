@@ -139,7 +139,7 @@ graph TB
 - 4.8 증명 — `describeCluster`, active controller kill, 메타데이터 전파
 - 참조: Raft 논문(Ongaro 2014), Paxos(Lamport), KIP-500/595/631, DDIA 9장
 
-## 5장 — 조정: Consumer Group은 어떻게 나눠 읽나   🚧
+## 5장 — 조정: Consumer Group은 어떻게 나눠 읽나   ✅ [05-coordination.md](./05-coordination.md)
 
 > 보장: *그룹 내 각 파티션은 정확히 한 consumer에게 배정(배타성). 멤버 변동 시 리밸런싱으로 유지.*
 
