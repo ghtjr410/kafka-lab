@@ -24,8 +24,8 @@
 | 주제 | 가야 할 곳 |
 |------|-----------|
 | Core 원리(복제·합의·트랜잭션…) | **I권 Internals** |
-| Core 운영(사이징·모니터링·장애) | **II권 Operations** |
-| Spring Kafka 애플리케이션 코드 | **III권 Spring** |
+| Spring Kafka 애플리케이션 코드 | **II권 Spring** |
+| Core 운영(사이징·모니터링·장애) | **III권 Operations** |
 | 이벤트 설계 · **Outbox 패턴 구현** · Saga | messaging-lab / saga-lab |
 
 > 🤖 **경계 주의**: "Outbox/CDC 릴레이를 애플리케이션에서 어떻게 설계하나"는 **messaging-lab**.
@@ -66,7 +66,7 @@
 #### 5장 — Schema Registry   🚧
 - Avro / Protobuf, 데이터 계약(contract)
 - 호환성 모드(backward/forward/full) 강제
-- (III권 7장 "JSON 직렬화"의 다음 단계 — 중앙 스키마 관리)
+- (II권 7장 "JSON 직렬화"의 다음 단계 — 중앙 스키마 관리)
 
 ### C. 멀티클러스터·대규모
 
@@ -82,4 +82,4 @@
 
 ---
 
-← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [II권](../2-operations/README.md) · [III권](../3-spring/README.md)
+← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [II권](../2-spring/README.md) · [III권](../3-operations/README.md)

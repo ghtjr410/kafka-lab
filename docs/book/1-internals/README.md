@@ -26,12 +26,13 @@
 ### 다루지 않는다 (Out of Scope)
 | 주제 | 가야 할 곳 |
 |------|-----------|
-| 운영 절차 · 클러스터 사이징 · 모니터링 · 장애 대응 | **II권 Operations** |
-| Spring Kafka 코드 · 설정 레시피 · 코드 함정 | **III권 Spring** |
+| Spring Kafka 코드 · 설정 레시피 · 코드 함정 | **II권 Spring** |
+| 운영 절차 · 클러스터 사이징 · 모니터링 · 장애 대응 · 보안 | **III권 Operations** |
 | 이벤트 설계 · Outbox · Saga | messaging-lab / saga-lab |
 
-> 🤖 **이 권을 작업하는 AI/작업자에게**: II·III권 주제(운영 절차, Spring 코드)로 새지 말 것.
+> 🤖 **이 권을 작업하는 AI/작업자에게**: II·III권 주제(Spring 코드, 운영 절차)로 새지 말 것.
 > 필요하면 "→ II권" / "→ III권" 링크만 남기고, 여기서는 **원리만** 깎는다.
+> **결정 규칙**: correctness가 변하면 여기(I권), 트레이드오프만 변하면 III권.
 
 ---
 
@@ -176,7 +177,7 @@ graph TB
 - 7.4 2단계 흐름 — `AddPartitionsToTxn` → produce → commit/abort
 - 7.5 **control record**(commit/abort marker) + **LSO**(3장 정의) + `read_committed`(abort 배치 스킵)
 - 7.6 read-process-write — `sendOffsetsToTransaction` (consumer offset도 트랜잭션에)
-- 7.7 **EOS의 경계** — Kafka 내부 한정, 외부 시스템은 멱등키(→ III권)
+- 7.7 **EOS의 경계** — Kafka 내부 한정, 외부 시스템은 멱등키(→ II권)
 - 7.8 증명 — abort+read_committed 안 보임 / `isolation.level` 기본값(read_uncommitted) 함정 / read-process-write 원자성
 - 참조: KIP-98/129, Confluent *EOS* 문서, DDIA 9·7장
 
@@ -201,7 +202,7 @@ graph TB
 
 - 9.1 Producer 스레드 모델 — 사용자 스레드(send) vs **Sender(IO) 스레드**(`kafka-producer-network-thread`)
 - 9.2 send()의 여정 — 직렬화/파티셔닝 → RecordAccumulator(버퍼) → 배치 → 전송
-- 9.3 콜백/Future 완료는 누가 실행하나 — **Sender(IO) 스레드** → `whenComplete`에서 blocking하면 produce 정지 (★→ III권 코드 함정)
+- 9.3 콜백/Future 완료는 누가 실행하나 — **Sender(IO) 스레드** → `whenComplete`에서 blocking하면 produce 정지 (★→ II권 코드 함정)
 - 9.4 backpressure — `buffer.memory` 가득 → `send()`가 `max.block.ms`까지 블록 → TimeoutException
 - 9.5 설정 조합 — `buffer.memory × batch.size × linger.ms × max.block.ms` = 처리량·지연·역압
 - 9.6 Consumer 런타임 — 단일 스레드 poll 루프 / 백그라운드 heartbeat 스레드 / `max.poll.records ↔ max.poll.interval`

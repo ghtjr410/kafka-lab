@@ -1,8 +1,8 @@
-# 📙 III권 — Spring Kafka (코드로 어떻게 쓰는가)
+# 📙 II권 — Spring Kafka (코드로 어떻게 쓰는가)
 
-> ⚠️ **러프 초안 — III권 목차 골격.**
+> ⚠️ **러프 초안 — II권 목차 골격.**
 > *"Spring Kafka로 실제 코드를 어떻게 짜는가, 그리고 어디서 데이는가."*
-> 기존 함정 Step(s01~s08)이 이 권의 주 재료다. 각 설정이 무엇을 보장하는지는 **I권으로 거슬러** 올라간다.
+> 기존 함정 Step(s01~s07)이 이 권의 주 재료다. 각 설정이 무엇을 보장하는지는 **I권으로 거슬러** 올라간다.
 
 ---
 
@@ -14,10 +14,10 @@
 - Producer/Consumer/Listener 코드·설정 · 설정 조합 함정 · 코드 구조·순서 함정 · 직렬화 (기존 Step s01~s07)
 
 ### 다루지 않는다 (Out of Scope)
-- 내부 원리(보장·알고리즘) → **I권 Internals** · 운영 절차·모니터링·사이징 → **II권 Operations**
+- 내부 원리(보장·알고리즘) → **I권 Internals** · 운영 절차·모니터링·사이징 → **III권 Operations**
 - **Kafka Connect / CDC / Schema Registry / Streams** → **IV권 Beyond Core** (인프라·플랫폼 영역)
 
-> 🤖 "왜 그런가"는 "→ I권", "운영 기준"은 "→ II권" **링크만**. 여기선 코드 관점만 깎는다.
+> 🤖 "왜 그런가"는 "→ I권", "운영 기준"은 "→ III권" **링크만**. 여기선 코드 관점만 깎는다.
 
 > 📏 이 README는 **주제를 한 문장으로** 적는 인덱스다. 상세는 개별 `NN-*.md`로. (규칙 → [전체 표지](../README.md))
 
@@ -43,7 +43,7 @@ graph TB
 > **resilience4j 비유**: `retry`가 앞단, `circuitbreaker`가 뒷단이면 1번 실패할 것을 N번 시도해 N번이 다 서킷에 집계된다.
 > Kafka에도 똑같은 형태가 있다 — non-retryable 예외(역직렬화 실패)를 분류하지 않으면 **절대 성공 못 할 메시지를 10번 재시도**한다. (형제 [resilience4j-lab](../../../../resilience4j-lab/)과 연결)
 
-**그래서 III권의 각 장은 3관점으로 깎는다:**
+**그래서 II권의 각 장은 3관점으로 깎는다:**
 `개별 설정의 의미` → `설정 조합의 상호작용(함정)` → `코드 구조·순서의 함정`
 
 ---
@@ -52,8 +52,8 @@ graph TB
 
 ```mermaid
 graph LR
-    I["📘 I권<br/>커밋의 정의 = HW"] --> III["📙 III권<br/>spring.kafka.producer.acks=all<br/>+ ProducerFactory 설정"]
-    III -->|"함정"| T["⚠️ 기본 AckMode(BATCH)에서<br/>예외 삼키면 offset 커밋 → 유실"]
+    I["📘 I권<br/>커밋의 정의 = HW"] --> II["📙 II권<br/>spring.kafka.producer.acks=all<br/>+ ProducerFactory 설정"]
+    II -->|"함정"| T["⚠️ 기본 AckMode(BATCH)에서<br/>예외 삼키면 offset 커밋 → 유실"]
 ```
 
 함정은 버리지 않는다 — **원리를 알고 나서 보는 "현실에서 깨지는 증거"** 로 재배치된다.
@@ -75,7 +75,7 @@ graph LR
 | 7장 | 직렬화 & 스키마 진화 | "필드 추가했는데 왜 죽나?" | 📄 `s07_serialization/README.md` | ✅ 7 |
 
 > `s08_connect`(Kafka Connect)는 인프라/통합 주제 → **IV권 Beyond Core**로 이동.
-> `s09_monitoring`·`s10_broker`(운영 성격)는 **II권**으로 분류.
+> `s09_monitoring`·`s10_broker`(운영 성격)는 **III권 Operations**로 분류.
 
 ### 횡단편 — 설정·코드 차원의 함정 (신규)
 
@@ -87,4 +87,4 @@ graph LR
 
 ---
 
-← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [II권](../2-operations/README.md)
+← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [III권](../3-operations/README.md)

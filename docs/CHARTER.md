@@ -124,9 +124,12 @@
 Kafka를 원리부터 운영·코드·플랫폼까지. → [book/](./book/README.md)
 
 - 📘 **I권 Internals** — Core 원리 (왜·보장·구조·합의 알고리즘)
-- 📗 **II권 Operations** — Core 운영 (숫자·모니터링·장애)
-- 📙 **III권 Spring** — Core 앱 코드 (Spring Kafka)
+- 📙 **II권 Spring** — Core 앱 코드 (Spring Kafka)
+- 📗 **III권 Operations** — Core 운영 (숫자·모니터링·장애)
 - 📕 **IV권 Beyond Core** — 데이터 플랫폼 (Streams·Connect/CDC·Schema Registry·MirrorMaker)
+
+> 순서는 **개발자 여정**: 원리(I) → 코드(II) → 운영(III) → 플랫폼(IV). 코드·운영 모두 I권에 직접 의존.
+> **경계 결정 규칙**: 설정 변경 시 *정확성(correctness)*이 변하면 → I권 / *트레이드오프*만 변하면 → III권 Operations.
 
 > 멀티브로커(3-broker)는 이제 **기본 전제**이고, Streams·Connect/CDC·Schema Registry는 **IV권으로 정식 편입**됐다(과거 Candidate 해소). 로그 엔진 내부는 **I권 8장**, 멀티브로커 원리는 **I권 3·4장**.
 > (아래 "보류(Candidate)" 표는 위 편입으로 대부분 해소됨 — 추후 정리.)
