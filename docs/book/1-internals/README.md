@@ -167,7 +167,7 @@ graph TB
 - 6.6 증명 — 멱등 재시도 중복 없음 / 세션 한계 중복 / 순서 역전
 - 참조: KIP-98, DDIA 9장
 
-## 7장 — 트랜잭션·EOS: 전부 또는 전무   🚧
+## 7장 — 트랜잭션·EOS: 전부 또는 전무   ✅ [07-transactions.md](./07-transactions.md)
 
 > 보장: *다중 파티션 쓰기(+offset 커밋)가 원자적. EOS = 멱등 + 트랜잭션 + read-process-write (Kafka 내부 한정).*
 
