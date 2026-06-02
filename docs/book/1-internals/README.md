@@ -155,7 +155,7 @@ graph TB
 - 5.10 증명 — eager vs cooperative revoke 범위 / static 재접속
 - 참조: KIP-429/848/345 · (트리거 전수=II권, Spring 설정=III권)
 
-## 6장 — 멱등·순서: 중복 없이, 순서대로   🚧
+## 6장 — 멱등·순서: 중복 없이, 순서대로   ✅ [06-ordering-atomicity.md](./06-ordering-atomicity.md)
 
 > 보장: *멱등 — 재시도해도 파티션 내 중복 없음. 순서 — 파티션 내에서 보장.*
 
