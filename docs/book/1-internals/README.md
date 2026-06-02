@@ -181,7 +181,7 @@ graph TB
 - 7.8 증명 — abort+read_committed 안 보임 / `isolation.level` 기본값(read_uncommitted) 함정 / read-process-write 원자성
 - 참조: KIP-98/129, Confluent *EOS* 문서, DDIA 9·7장
 
-## 8장 — 저장 엔진: 디스크인데 왜 빠른가   🚧
+## 8장 — 저장 엔진: 디스크인데 왜 빠른가   ✅ [08-storage-engine.md](./08-storage-engine.md)
 
 > 보장: *디스크 기반인데도 순차 IO·OS 최적화로 고처리량.*
 
