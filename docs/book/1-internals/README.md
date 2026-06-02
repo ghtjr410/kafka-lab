@@ -97,7 +97,7 @@ graph TB
 - 1.5 설계 3원칙 (디스크인데 빠른 이유 / 파티션 순서 / pull)
 - 1.6 증명(executable) / 1.7 다음 장
 
-## 2장 — 로그라는 추상   🚧
+## 2장 — 로그라는 추상   ✅ [02-log-abstraction.md](./02-log-abstraction.md)
 
 > 보장: *상태는 로그의 파생물 — 로그가 source of truth.*
 
@@ -110,7 +110,7 @@ graph TB
 - 2.7 트레이드오프(무한 로그→retention/compaction) · 증명(compaction·tombstone)
 - 참조: Kreps *"The Log"*, DDIA 11·3장
 
-## 3장 — 복제: 데이터는 어떻게 살아남나   🚧
+## 3장 — 복제: 데이터는 어떻게 살아남나   ✅ [03-replication.md](./03-replication.md)
 
 > 보장: *커밋된 메시지는 min.insync.replicas개 복제본에 존재 → 그만큼 동시 장애까지 무손실.*
 
