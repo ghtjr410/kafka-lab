@@ -25,6 +25,7 @@ gradle-app.setting
 
 # Claude Code
 .claude/
+CLAUDE.md
 
 # 작업 메모 (개인용)
 context/
