@@ -196,7 +196,7 @@ graph TB
 - 8.9 증명 — `docker exec`로 `.log` 직접 보기 / `kafka-dump-log` / rolling 관측
 - 참조: Kafka design 문서(Persistence·Efficiency·Compaction), `sendfile(2)`, KIP-405(tiered storage)
 
-## 9장 — 클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나   🚧
+## 9장 — 클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나   ✅ [09-client-runtime.md](./09-client-runtime.md)
 
 > 보장/관점: *send()는 비동기다 — 사용자 스레드와 IO 스레드가 분리돼 있고, 그 경계를 모르면 콜백 한 줄로 처리량을 무너뜨린다.*
 
