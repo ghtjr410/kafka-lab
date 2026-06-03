@@ -222,28 +222,27 @@ graph TB
 - 9.8 broker 측 지연 요청 — purgatory: DelayedProduce(acks=all ISR 대기 ↔3.5)·DelayedFetch(min.bytes 대기 ↔9.7) / timer wheel·watcher
 - 참조: Kafka producer/consumer design 문서, `KafkaProducer` Javadoc
 
-## 10장 — 공유 소비: Share Group (큐 시맨틱)   📝 [10-share-groups.md](./10-share-groups.md)
+## 10장 — 공유 소비: Share Group (큐 시맨틱)   ✅ [10-share-groups.md](./10-share-groups.md)
 
-> 보장: *한 파티션을 여러 consumer가 공유 소비 · 레코드별 개별 ack/재전달 · at-least-once · 순서 보장 없음.*
-> ⚠️ share group은 신기능 — 세부 수치·제약(락 기본 시간·EOS/순서 미지원 등)은 **Kafka 4.2 release notes & KIP-932로 확인 후** 산문화(correctness-sensitive).
+> 보장: *한 파티션을 여러 consumer가 공유 소비 · 레코드별 개별 ack/재전달 · at-least-once · 배치 안에서만 순서 보장.* (Kafka 4.2 GA)
 
-- 10.1 왜 별도 모델인가 — consumer group 배타 배정(5.1)·로그 retention(2장)과 큐(개별 ack·작업 분배)의 긴장 → 기존 group에 못 얹고 새 group type으로 분리한 이유(②번 "왜"의 핵심)
-- 10.2 consumer group과의 대조 — 배타 vs 공유 / commit offset vs 레코드별 상태 / 파티션≥consumer vs consumer>파티션
-- 10.3 in-flight 레코드 상태 머신 — acquired(시간제한 락) → acknowledged / released / rejected, delivery count
-- 10.4 Share Coordinator + share 상태 저장 내부 토픽 (5장 Group·7장 Transaction Coordinator와 구분되는 제3의 coordinator)
-- 10.5 새 프로토콜 RPC — ShareFetch / ShareAcknowledge (9장 일반 fetch와 대비)
-- 10.6 한계 — 순서 보장 없음 / fetch-from-follower 미지원 / EOS 현재 미지원(향후 과제)
-- 10.7 증명 — consumer>partition 동시 소비 / 락 만료 후 재전달 / ack 후 미재전달
-- 참조: KIP-932, KIP-848(공유 그룹 멤버십이 새 rebalance 프로토콜 위에서 동작)
+- 10.1 왜 별도 모델인가 — consumer group 배타 배정(5.1)·로그 retention(2장)과 큐(개별 ack·작업 분배)의 긴장 → 기존 group에 못 얹고 새 group type으로 분리
+- 10.2 consumer group과의 대조 — 배타 vs 공유 / commit offset vs 레코드별 상태 / consumer≤파티션 vs consumer>파티션 가능
+- 10.3 in-flight 레코드 상태 머신 — Available→Acquired(락 `group.share.record.lock.duration.ms` 기본 30s)→Acknowledged / Released(재전달) / Archived(`group.share.delivery.attempt.limit` 기본 5 초과)
+- 10.4 Share Coordinator + `__share_group_state`(50파티션) — Controller·Group·Transaction에 이은 제4의 coordinator
+- 10.5 새 프로토콜 RPC — ShareFetch / ShareAcknowledge (share session = GroupId+MemberId, 9장 일반 fetch와 대비)
+- 10.6 한계 — 배치 간 순서 없음 / **EOS 미지원**(at-least-once, `share.isolation.level`로 read 제어) / fetch-from-follower 미지원
+- 10.7 증명 — consumer>partition 동시 소비 / 락 만료 후 재전달 / ack 후 미재전달 / delivery 한도 후 Archived (★4.2+ 브로커 필요)
+- 참조: KIP-932, Kafka 4.2 GA
 
 > 기존 [`KAFKA-ARCHITECTURE.md`](../../../KAFKA-ARCHITECTURE.md)는 3·4·5장 산문화 시 **분해·흡수 예정**.
 
 ---
 
-## 📝 산문화 대기 (남은 것)
+## ✅ I권 산문화 완료
 
-- **신규 장 10장 share group**: `10-share-groups.md` 미작성 — **Kafka 4.2 release notes & KIP-932 확인 후** 작성 (사실 검증 필요, 보류 중)
-- ✅ 그 외 보강 절(1.2/5.1 경계 · 4.9 스냅샷 · 8.3/8.9/8.10/8.11 · 9.2/9.7/9.8)은 **산문화 완료**.
+- 들어가며·1~10장 전부 산문화 완료. 10장 share group은 KIP-932 + Kafka 4.2 GA 1차 소스로 검증해 작성.
+- 남은 작업: 각 장 `[테스트로 결정]` 증명을 실제 테스트로 구현(executable 단계). 특히 10장은 **4.2+ 브로커** 별도 필요(baseline 3.7).
 
 ---
 
