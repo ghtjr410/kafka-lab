@@ -34,6 +34,8 @@ send() → 직렬화 → 파티션 결정 → RecordAccumulator에 적재 → (�
 
 `linger.ms`/`batch.size`(II권에서 튜닝)는 Sender가 "얼마나 모아서 한 번에 보낼지"를 정한다. 즉 **배치는 Sender 스레드의 일**이지 사용자 스레드의 일이 아니다.
 
+> **key 없는 메시지는 어느 파티션으로?** key가 있으면 해시로 정해지지만, key가 없으면 **sticky partitioner**(KIP-480)가 한 파티션에 "달라붙어" 배치가 찰 때까지(또는 `linger.ms`까지) 거기로 모은 뒤 다음 파티션으로 옮긴다 → 배치가 커져 처리량이 오른다(9.5와 연결). 이후 **uniform sticky**(KIP-794)로 파티션 간 균형이 개선됐다. `[KIP-480, KIP-794]`
+
 ---
 
 ## 9.3 콜백은 누가 실행하나 — 그리고 그게 왜 위험한가
@@ -104,7 +106,32 @@ graph LR
 
 ---
 
-## 9.7 증명 (executable)
+## 9.7 Consumer/Replica는 어떻게 읽나 — fetch 프로토콜
+
+Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기기)** 이다 — `Fetch` 요청으로 브로커에서 데이터를 가져온다.
+
+- **long-poll**: 데이터가 아직 없으면 브로커가 즉시 빈 응답을 주지 않고, `fetch.max.wait.ms`까지 기다렸다 `fetch.min.bytes`만큼 모이면 응답한다 → 빈 폴링을 줄이고 배치 효율을 높인다.
+- **incremental fetch session**(KIP-227): 파티션이 많을 때 매번 전체 목록을 주고받지 않고 **변한 것만** 주고받는다(세션으로 상태 유지).
+- **복제도 같은 fetch 프로토콜**: 3장에서 follower가 leader를 "fetch로 당겨간다"고 했는데, 그게 바로 이 프로토콜이다 — consumer fetch와 replica fetch는 동일 메커니즘이다.
+- **fetch-from-follower**(KIP-392): 기본은 leader에서 읽지만, 가까운(같은 rack) follower에서 읽도록 허용할 수 있다(지연·비용 최적화). 설정·운영은 → III권이나, 동작 자체는 fetch 프로토콜의 일부다.
+
+`[KIP-227, KIP-392]`
+
+---
+
+## 9.8 broker가 요청을 보류하는 법 — purgatory
+
+`acks=all` produce나 long-poll fetch처럼, 브로커가 **"아직 응답할 수 없는" 요청을 잠시 보류**해야 할 때가 있다. 이 보류를 관리하는 장치가 **purgatory**다.
+
+- **DelayedProduce**: `acks=all` 요청은 ISR이 다 따라잡을 때까지(3.5) 보류된다.
+- **DelayedFetch**: fetch 요청은 `fetch.min.bytes`가 모일 때까지(9.7) 보류된다.
+- 보류된 요청은 **timer wheel**(타임아웃 관리)과 **watcher**(조건 충족 감시)로 관리되다, 조건이 차거나 타임아웃되면 완료된다.
+
+→ 즉 3장의 `acks=all` 대기와 9.7의 long-poll이, broker 내부에선 **같은 purgatory 메커니즘**으로 구현된다. `[Tier 0]`
+
+---
+
+## 9.9 증명 (executable)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|

@@ -213,13 +213,13 @@ graph TB
 
 - 9.1 Producer 스레드 모델 — 사용자 스레드(send) vs **Sender(IO) 스레드**(`kafka-producer-network-thread`)
 - 9.2 send()의 여정 — 직렬화/파티셔닝 → RecordAccumulator(버퍼) → 배치 → 전송
-  - key 없는 메시지의 파티션 선택: sticky partitioner(KIP-480) → uniform sticky(KIP-794)가 `batch.size`·`linger.ms`와 맞물려 배치 효율을 좌우(9.5와 연결) 🚧 (신규·산문 대기)
+  - key 없는 메시지의 파티션 선택: sticky partitioner(KIP-480) → uniform sticky(KIP-794)가 `batch.size`·`linger.ms`와 맞물려 배치 효율을 좌우(9.5와 연결)
 - 9.3 콜백/Future 완료는 누가 실행하나 — **Sender(IO) 스레드** → `whenComplete`에서 blocking하면 produce 정지 (★→ II권 코드 함정)
 - 9.4 backpressure — `buffer.memory` 가득 → `send()`가 `max.block.ms`까지 블록 → TimeoutException
 - 9.5 설정 조합 — `buffer.memory × batch.size × linger.ms × max.block.ms` = 처리량·지연·역압
 - 9.6 Consumer 런타임 — 단일 스레드 poll 루프 / 백그라운드 heartbeat 스레드 / `max.poll.records ↔ max.poll.interval`
-- 9.7 Consumer/Replica fetch 메커니즘 — long-poll(`fetch.min.bytes` × `fetch.max.wait.ms`) / incremental fetch session(KIP-227) / **복제도 동일 fetch 프로토콜 사용**(3장 follower↔여기) / fetch-from-follower(KIP-392) 🚧 (신규·산문 대기)
-- 9.8 broker 측 지연 요청 — purgatory: DelayedProduce(acks=all ISR 대기 ↔3.5)·DelayedFetch(min.bytes 대기 ↔9.7) / timer wheel·watcher 🚧 (신규·산문 대기)
+- 9.7 Consumer/Replica fetch 메커니즘 — long-poll(`fetch.min.bytes` × `fetch.max.wait.ms`) / incremental fetch session(KIP-227) / **복제도 동일 fetch 프로토콜 사용**(3장 follower↔여기) / fetch-from-follower(KIP-392)
+- 9.8 broker 측 지연 요청 — purgatory: DelayedProduce(acks=all ISR 대기 ↔3.5)·DelayedFetch(min.bytes 대기 ↔9.7) / timer wheel·watcher
 - 참조: Kafka producer/consumer design 문서, `KafkaProducer` Javadoc
 
 ## 10장 — 공유 소비: Share Group (큐 시맨틱)   📝 [10-share-groups.md](./10-share-groups.md)
