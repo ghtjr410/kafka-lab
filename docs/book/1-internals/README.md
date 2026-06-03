@@ -140,8 +140,8 @@ graph TB
 - 4.5 `__cluster_metadata` · Controller Quorum · active controller · term
 - 4.6 파티션 리더 선출 (controller가 ISR에서 지정 → 전파)
 - 4.7 ZooKeeper 시절 → KRaft 전환 (KIP-500, 4.0 ZK 제거)
-- 4.8 증명 — `describeCluster`, active controller kill, 메타데이터 전파
-- 4.9 메타데이터 로그도 무한히 안 자란다 — KRaft 스냅샷(KIP-630), 2장 키별 log compaction과 달리 **상태 스냅샷 후 로그 절단** 🚧 (신규·산문 대기)
+- 4.8 메타데이터 로그도 무한히 안 자란다 — KRaft 스냅샷(KIP-630), 2장 키별 log compaction과 달리 **상태 스냅샷 후 로그 절단**
+- 4.9 증명 — `describeCluster`, active controller kill, 메타데이터 전파
 - 참조: Raft 논문(Ongaro 2014), Paxos(Lamport), KIP-500/595/631, DDIA 9장
 
 ## 5장 — 조정: Consumer Group은 어떻게 나눠 읽나   ✅ [05-coordination.md](./05-coordination.md)
