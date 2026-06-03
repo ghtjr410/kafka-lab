@@ -50,7 +50,9 @@ graph LR
 - **Mermaid 적극 활용** · 모든 핵심 주장에 ⑥ 증명 테스트 · **KIP·논문 적극 인용**
 - 전제: **3-broker 멀티브로커**(복제·ISR·리더 선출·KRaft 합의는 단일 브로커로 증명 불가) → [ROADMAP](../../ROADMAP.md)
 
-상태 범례: ✅ 산문화 완료(개별 md) · 📝 아웃라인 확정(산문 대기) · 🚧 깎는 중
+상태 범례 — **2축**:
+- **[산문]** ✅ 완료(개별 md) · 📝 아웃라인 확정(산문 대기) · 🚧 깎는 중
+- **[executable 증명]** 현재 **전 장 ⬜ 미구현** (각 장 `[테스트로 결정]` 항목 / 10장은 4.2+ 브로커 필요). 장 헤더의 ✅는 *산문* 기준이다.
 
 ---
 
@@ -216,7 +218,10 @@ graph TB
 - 8.7 **log compaction 메커니즘** — cleaner thread, 키별 최신 + tombstone (2장 의미→여기 메커니즘)
 - 8.8 retention — 시간/크기, **세그먼트 단위 삭제**
 - 8.9 로그 복구 — clean vs unclean shutdown / 체크포인트 파일(recovery-point-offset-checkpoint·replication-offset-checkpoint·log-start-offset-checkpoint) / unclean 종료 시 마지막 세그먼트 재검증 (3.1 유실 방지의 물리 구현)
-- 8.10 시간의 의미 — `message.timestamp.type`(CreateTime=프로듀서 vs LogAppendTime=브로커) / `.timeindex`가 인덱싱하는 시간 / **retention이 쓰는 timestamp**(조기·지연 삭제 함정의 원인) / 시간 기반 seek
+- 8.10 시간의 의미
+  - `message.timestamp.type` — CreateTime(프로듀서) vs LogAppendTime(브로커)
+  - `.timeindex` 인덱싱 + 시간 기반 seek
+  - **retention이 쓰는 timestamp** → 조기·지연 삭제 함정의 원인
 - 8.11 Tiered Storage(KIP-405) — RemoteLogManager / 읽기 remote fallback / local vs remote retention 분리
 - 8.12 증명 — `docker exec`로 `.log` 직접 보기 / `kafka-dump-log` / rolling 관측
 - 참조: Kafka design 문서(Persistence·Efficiency·Compaction), `sendfile(2)`, KIP-405(tiered storage)
