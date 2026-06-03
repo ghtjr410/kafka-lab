@@ -30,6 +30,8 @@ graph LR
 
 프로듀서가 죽었다 살아나거나 중복 실행되면(좀비), 같은 `transactional.id`에 대해 **epoch를 올려** 옛 인스턴스의 쓰기를 거부한다. → 3장 leader epoch, 4장 Raft term과 같은 **"번호로 유령 펜싱"** 패턴이다.
 
+> **서버측 방어 강화 (KIP-890)**: 위 펜싱은 원래 *프로듀서 수명당* epoch였다. KIP-890은 이를 **매 트랜잭션마다**로 강화한다 — commit/abort marker 직후 epoch를 bump해 각 트랜잭션을 `(producer id, epoch)`로 유일 식별한다. 그러면 이전 트랜잭션의 지연 메시지가 옛 epoch이라 펜싱되어 **hanging transaction**(LSO가 안 풀리는 문제)을 막는다. `[KIP-890 · 4.x]`
+
 ---
 
 ## 7.3 Transaction Coordinator와 `__transaction_state`
@@ -119,7 +121,7 @@ graph LR
 
 ## 참조
 
-- `[KIP-98]` 트랜잭션·idempotent producer · `[KIP-129]` Streams EOS `[Tier 1]`
+- `[KIP-98]` 트랜잭션·idempotent producer · `[KIP-129]` Streams EOS · `[KIP-890]` 트랜잭션 서버측 방어(epoch-bump-per-txn) `[Tier 1]`
 - Confluent, *Exactly-Once Semantics in Apache Kafka* (설계 문서) `[Tier 3]`
 - *Designing Data-Intensive Applications* 9장(트랜잭션·합의)·7장(격리) `[Tier 3]`
 

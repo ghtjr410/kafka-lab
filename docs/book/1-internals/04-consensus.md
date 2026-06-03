@@ -61,6 +61,8 @@ graph TB
 - **active controller**가 그 로그의 리더이고, standby와 브로커들은 로그를 따라 읽어(replay) 자기 메타데이터 캐시를 만든다.
 - 이건 정확히 2장의 "상태 = fold(로그)"다 — 클러스터 상태마저 로그를 접어 만든다.
 
+> **정통 Raft와의 차이 — pull 기반(KIP-595)**: 교과서 Raft는 리더가 팔로워에게 로그를 **push**한다. KRaft는 반대로 voter·observer가 리더에게 **`Fetch`로 당겨간다(pull)** — 이 fetch가 동시에 리더 liveness 체크도 겸한다. 즉 KRaft는 "Raft 그대로"가 아니라, **9장의 fetch·3장의 follower 복제와 같은 pull 모델로 통일한 변형**이다.
+
 ---
 
 ## 4.5 Controller Quorum · active controller · term

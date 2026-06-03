@@ -151,7 +151,7 @@ graph TB
 - 4.1 문제: 메타데이터 단일 진실 + split-brain 방지 (데이터 복제 3장과 구분)
 - 4.2 분산 합의란 (과반/quorum, FLP 불가능성)
 - 4.3 **Paxos vs Raft** — 왜 Raft(이해가능성, 강한 리더)
-- 4.4 KRaft = "메타데이터도 로그로"(2장) → 외부 의존 제거
+- 4.4 KRaft = "메타데이터도 로그로"(2장) → 외부 의존 제거 (정통 Raft의 push 아닌 **pull 기반** 변형, KIP-595 — 9장 fetch·3장 복제와 통일)
 - 4.5 `__cluster_metadata` · Controller Quorum · active controller · term
 - 4.6 파티션 리더 선출 (controller가 ISR에서 지정 → 전파)
 - 4.7 ZooKeeper 시절 → KRaft 전환 (KIP-500, 4.0 ZK 제거)
@@ -193,7 +193,7 @@ graph TB
 > 보장: *다중 파티션 쓰기(+offset 커밋)가 원자적. EOS = 멱등 + 트랜잭션 + read-process-write (Kafka 내부 한정).*
 
 - 7.1 왜 트랜잭션인가 — 다중 파티션 원자성 + read-process-write (6장 멱등 위에 쌓는다)
-- 7.2 `transactional.id` 와 좀비 펜싱 (producer epoch로 옛 인스턴스 차단)
+- 7.2 `transactional.id` 와 좀비 펜싱 (producer epoch로 옛 인스턴스 차단) — KIP-890: epoch-bump-per-txn으로 hanging txn 방지
 - 7.3 **Transaction Coordinator** + `__transaction_state` (트랜잭션 상태도 로그 — 2장)
 - 7.4 2단계 흐름 — `AddPartitionsToTxn` → produce → commit/abort
 - 7.5 **control record**(commit/abort marker) + **LSO** + `read_committed`(abort 배치 스킵)
