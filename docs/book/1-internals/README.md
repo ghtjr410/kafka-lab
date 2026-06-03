@@ -73,9 +73,12 @@ graph TB
     C1 --> C9["9장 클라이언트 런타임"]
     C3 -.->|"acks"| C9
     C6 -.->|"멱등 max.in.flight"| C9
+    C5 -->|"다른 조정 모델(공유 vs 배타)"| C10["10장 공유소비"]
+    C8 -->|"share 상태=내부 토픽"| C10
+    C9 -->|"ShareFetch RPC"| C10
 ```
 
-> 교차 요소(SSOT): **LSO** 정의=3장→사용=7장 · **compaction** 의미=2장/메커니즘=8장 · **leader epoch**(3장)↔**Raft term**(4장) · **"메타데이터=로그"**는 2장에서 정의, 4·5·7장은 링크
+> 교차 요소(SSOT): **LSO** 정의=3장→사용=7장 · **compaction** 의미=2장/메커니즘=8장 · **leader epoch**(3장)↔**Raft term**(4장) · **"메타데이터=로그"**는 2장에서 정의, 4·5·7장은 링크 · **fetch 프로토콜** 정의=9.7→복제 사용=3장 · **purgatory**=9.8 · **share group 경계** 정의=1.2/5.1→본체=10장 · **timestamp.type**=8.11
 
 ---
 
@@ -92,6 +95,7 @@ graph TB
 
 - 1.1 한 문장 (분산·복제·순서 보장 append-only 로그)
 - 1.2 큐가 아니라 로그 (읽어도 안 사라짐, offset만 이동)
+  - (경계) "읽어도 안 사라짐"은 **consumer group 한정** — share group(KIP-932, 4.2 GA)은 레코드별 ack·락 기반 큐 시맨틱 → 10장. 이제 Kafka는 로그이자 큐 🚧 (신규·산문 대기)
 - 1.3 가장 작은 단위 (Record / Topic / Partition / Offset)
 - 1.4 등장인물 (Producer / Broker / Consumer / Group)
 - 1.5 설계 3원칙 (디스크인데 빠른 이유 / 파티션 순서 / pull)
@@ -137,6 +141,7 @@ graph TB
 - 4.6 파티션 리더 선출 (controller가 ISR에서 지정 → 전파)
 - 4.7 ZooKeeper 시절 → KRaft 전환 (KIP-500, 4.0 ZK 제거)
 - 4.8 증명 — `describeCluster`, active controller kill, 메타데이터 전파
+- 4.9 메타데이터 로그도 무한히 안 자란다 — KRaft 스냅샷(KIP-630), 2장 키별 log compaction과 달리 **상태 스냅샷 후 로그 절단** 🚧 (신규·산문 대기)
 - 참조: Raft 논문(Ongaro 2014), Paxos(Lamport), KIP-500/595/631, DDIA 9장
 
 ## 5장 — 조정: Consumer Group은 어떻게 나눠 읽나   ✅ [05-coordination.md](./05-coordination.md)
@@ -144,6 +149,7 @@ graph TB
 > 보장: *그룹 내 각 파티션은 정확히 한 consumer에게 배정(배타성). 멤버 변동 시 리밸런싱으로 유지.*
 
 - 5.1 배타 배정 불변식 (파티션 수 = 병렬성 상한)
+  - (경계) 이 배타성·"파티션 수 = 병렬성 상한"은 **consumer group 한정** — share group은 한 파티션을 여러 consumer가 공유, 파티션 수 < consumer 수도 가능 → 10장 🚧 (신규·산문 대기)
 - 5.2 왜 배정을 클라이언트(Group Leader)에 위임했나 (브로커 부하)
 - 5.3 **Group Coordinator** (브로커 중 하나, Controller 4장과 다른 역할)
 - 5.4 JoinGroup → SyncGroup 2단계 (Coordinator가 Leader 지정→Leader가 계산→전파)
@@ -188,27 +194,57 @@ graph TB
 - 8.1 로그(2장)의 물리 실체
 - 8.2 디스크인데 빠른 이유 — **순차 IO** / **page cache**(JVM 힙 아님) / **zero-copy(sendfile)**
 - 8.3 **Log Segment** — `.log`/`.index`/`.timeindex`, 파일명=base offset, active segment, rolling(`segment.bytes/ms`)
+  - `.index`/`.timeindex`는 memory-mapped(mmap) → OS 페이지 관리, 크래시 시 복구 필요(8.10과 연결) 🚧 (신규·산문 대기)
 - 8.4 **Record Batch v2** — baseOffset·producerId·epoch·압축타입 (멱등/트랜잭션 6·7장이 여기 박힘)
 - 8.5 조회 — sparse index 점프 → `.log` 순차 스캔
 - 8.6 압축 — producer batch 단위(lz4/zstd/snappy/gzip), 브로커는 그대로 저장·전송
 - 8.7 **log compaction 메커니즘** — cleaner thread, 키별 최신 + tombstone (2장 의미→여기 메커니즘)
 - 8.8 retention — 시간/크기, **세그먼트 단위 삭제**
 - 8.9 증명 — `docker exec`로 `.log` 직접 보기 / `kafka-dump-log` / rolling 관측
+- 8.10 로그 복구 — clean vs unclean shutdown / 체크포인트 파일(recovery-point-offset-checkpoint·replication-offset-checkpoint·log-start-offset-checkpoint) / unclean 종료 시 마지막 세그먼트 재검증 (3.1 유실 방지의 물리 구현) 🚧 (신규·산문 대기)
+- 8.11 시간의 의미 — `message.timestamp.type`(CreateTime=프로듀서 vs LogAppendTime=브로커) / `.timeindex`가 인덱싱하는 시간 / **retention이 쓰는 timestamp**(조기·지연 삭제 함정의 원인) / 시간 기반 seek 🚧 (신규·산문 대기)
+- 8.12 Tiered Storage(KIP-405) — RemoteLogManager / 읽기 remote fallback / local vs remote retention 분리 🚧 (신규·산문 대기)
 - 참조: Kafka design 문서(Persistence·Efficiency·Compaction), `sendfile(2)`, KIP-405(tiered storage)
 
 ## 9장 — 클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나   ✅ [09-client-runtime.md](./09-client-runtime.md)
 
 > 보장/관점: *send()는 비동기다 — 사용자 스레드와 IO 스레드가 분리돼 있고, 그 경계를 모르면 콜백 한 줄로 처리량을 무너뜨린다.*
+> scope: 클라이언트 런타임 + 그 클라이언트가 말을 거는 **broker 측 요청 처리**(fetch·purgatory)까지.
 
 - 9.1 Producer 스레드 모델 — 사용자 스레드(send) vs **Sender(IO) 스레드**(`kafka-producer-network-thread`)
 - 9.2 send()의 여정 — 직렬화/파티셔닝 → RecordAccumulator(버퍼) → 배치 → 전송
+  - key 없는 메시지의 파티션 선택: sticky partitioner(KIP-480) → uniform sticky(KIP-794)가 `batch.size`·`linger.ms`와 맞물려 배치 효율을 좌우(9.5와 연결) 🚧 (신규·산문 대기)
 - 9.3 콜백/Future 완료는 누가 실행하나 — **Sender(IO) 스레드** → `whenComplete`에서 blocking하면 produce 정지 (★→ II권 코드 함정)
 - 9.4 backpressure — `buffer.memory` 가득 → `send()`가 `max.block.ms`까지 블록 → TimeoutException
 - 9.5 설정 조합 — `buffer.memory × batch.size × linger.ms × max.block.ms` = 처리량·지연·역압
 - 9.6 Consumer 런타임 — 단일 스레드 poll 루프 / 백그라운드 heartbeat 스레드 / `max.poll.records ↔ max.poll.interval`
+- 9.7 Consumer/Replica fetch 메커니즘 — long-poll(`fetch.min.bytes` × `fetch.max.wait.ms`) / incremental fetch session(KIP-227) / **복제도 동일 fetch 프로토콜 사용**(3장 follower↔여기) / fetch-from-follower(KIP-392) 🚧 (신규·산문 대기)
+- 9.8 broker 측 지연 요청 — purgatory: DelayedProduce(acks=all ISR 대기 ↔3.5)·DelayedFetch(min.bytes 대기 ↔9.7) / timer wheel·watcher 🚧 (신규·산문 대기)
 - 참조: Kafka producer/consumer design 문서, `KafkaProducer` Javadoc
 
+## 10장 — 공유 소비: Share Group (큐 시맨틱)   📝 [10-share-groups.md](./10-share-groups.md)
+
+> 보장: *한 파티션을 여러 consumer가 공유 소비 · 레코드별 개별 ack/재전달 · at-least-once · 순서 보장 없음.*
+> ⚠️ share group은 신기능 — 세부 수치·제약(락 기본 시간·EOS/순서 미지원 등)은 **Kafka 4.2 release notes & KIP-932로 확인 후** 산문화(correctness-sensitive).
+
+- 10.1 왜 별도 모델인가 — consumer group 배타 배정(5.1)·로그 retention(2장)과 큐(개별 ack·작업 분배)의 긴장 → 기존 group에 못 얹고 새 group type으로 분리한 이유(②번 "왜"의 핵심)
+- 10.2 consumer group과의 대조 — 배타 vs 공유 / commit offset vs 레코드별 상태 / 파티션≥consumer vs consumer>파티션
+- 10.3 in-flight 레코드 상태 머신 — acquired(시간제한 락) → acknowledged / released / rejected, delivery count
+- 10.4 Share Coordinator + share 상태 저장 내부 토픽 (5장 Group·7장 Transaction Coordinator와 구분되는 제3의 coordinator)
+- 10.5 새 프로토콜 RPC — ShareFetch / ShareAcknowledge (9장 일반 fetch와 대비)
+- 10.6 한계 — 순서 보장 없음 / fetch-from-follower 미지원 / EOS 현재 미지원(향후 과제)
+- 10.7 증명 — consumer>partition 동시 소비 / 락 만료 후 재전달 / ack 후 미재전달
+- 참조: KIP-932, KIP-848(공유 그룹 멤버십이 새 rebalance 프로토콜 위에서 동작)
+
 > 기존 [`KAFKA-ARCHITECTURE.md`](../../../KAFKA-ARCHITECTURE.md)는 3·4·5장 산문화 시 **분해·흡수 예정**.
+
+---
+
+## 📝 이번 추가분 산문화 대기 (README 인덱스만 갱신, 산문 미작성)
+
+- **신규 장**: `10-share-groups.md` (📝 아웃라인 확정)
+- **보강 절**: `01-what-is-kafka.md`(1.2 경계) · `05-coordination.md`(5.1 경계) · `04-consensus.md`(4.9 스냅샷) · `08-storage-engine.md`(8.3 mmap·8.10 복구·8.11 시간·8.12 tiered) · `09-client-runtime.md`(9.2 sticky·9.7 fetch·9.8 purgatory)
+- share group 세부 수치·제약은 **Kafka 4.2 문서/KIP-932 확인 후** 산문화.
 
 ---
 
