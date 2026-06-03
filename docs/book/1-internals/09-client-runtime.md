@@ -150,4 +150,4 @@ Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기�
 - `KafkaProducer` / `KafkaConsumer` JavaDoc — `send()`·`poll()`의 정확한 계약 `[Tier 2]`
 - Kafka 소스 `clients/` — RecordAccumulator·Sender 구현 `[Tier 0]`
 
-← [8장 저장 엔진](./08-storage-engine.md) · [I권 목차](./README.md)
+← [8장 저장 엔진](./08-storage-engine.md) · [I권 목차](./README.md) · 다음: [10장 공유 소비](./10-share-groups.md)

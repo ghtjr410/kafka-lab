@@ -99,7 +99,7 @@ graph LR
 
 ★ **핵심 함정**: `acks`는 프로듀서 설정, `min.insync.replicas`는 토픽/브로커 설정이다. **둘이 만나야** 보장이 선다.
 
-- `acks=all` 인데 `min.insync.replicas=1` → ISR이 리더 1대로 줄어도 쓰기가 허용된다. 즉 **사실상 `acks=1`로 퇴화**한다. `[KIP-?? · docs @3.7]`
+- `acks=all` 인데 `min.insync.replicas=1` → ISR이 리더 1대로 줄어도 쓰기가 허용된다. 즉 **사실상 `acks=1`로 퇴화**한다. `[docs @3.7]`
 - 그래서 의미 있는 조합은 **RF=3 + min.insync.replicas=2 + acks=all**.
 
 ```mermaid
