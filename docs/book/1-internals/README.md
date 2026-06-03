@@ -95,7 +95,7 @@ graph TB
 
 - 1.1 한 문장 (분산·복제·순서 보장 append-only 로그)
 - 1.2 큐가 아니라 로그 (읽어도 안 사라짐, offset만 이동)
-  - (경계) "읽어도 안 사라짐"은 **consumer group 한정** — share group(KIP-932, 4.2 GA)은 레코드별 ack·락 기반 큐 시맨틱 → 10장. 이제 Kafka는 로그이자 큐 🚧 (신규·산문 대기)
+  - (경계) "읽어도 안 사라짐"은 **consumer group 한정** — share group(KIP-932)은 레코드별 ack·락 기반 큐 시맨틱 → 10장. 이제 Kafka는 로그이자 큐
 - 1.3 가장 작은 단위 (Record / Topic / Partition / Offset)
 - 1.4 등장인물 (Producer / Broker / Consumer / Group)
 - 1.5 설계 3원칙 (디스크인데 빠른 이유 / 파티션 순서 / pull)
@@ -149,7 +149,7 @@ graph TB
 > 보장: *그룹 내 각 파티션은 정확히 한 consumer에게 배정(배타성). 멤버 변동 시 리밸런싱으로 유지.*
 
 - 5.1 배타 배정 불변식 (파티션 수 = 병렬성 상한)
-  - (경계) 이 배타성·"파티션 수 = 병렬성 상한"은 **consumer group 한정** — share group은 한 파티션을 여러 consumer가 공유, 파티션 수 < consumer 수도 가능 → 10장 🚧 (신규·산문 대기)
+  - (경계) 이 배타성·"파티션 수 = 병렬성 상한"은 **consumer group 한정** — share group은 한 파티션을 여러 consumer가 공유, 파티션 수 < consumer 수도 가능 → 10장
 - 5.2 왜 배정을 클라이언트(Group Leader)에 위임했나 (브로커 부하)
 - 5.3 **Group Coordinator** (브로커 중 하나, Controller 4장과 다른 역할)
 - 5.4 JoinGroup → SyncGroup 2단계 (Coordinator가 Leader 지정→Leader가 계산→전파)
@@ -240,11 +240,10 @@ graph TB
 
 ---
 
-## 📝 이번 추가분 산문화 대기 (README 인덱스만 갱신, 산문 미작성)
+## 📝 산문화 대기 (남은 것)
 
-- **신규 장**: `10-share-groups.md` (📝 아웃라인 확정)
-- **보강 절**: `01-what-is-kafka.md`(1.2 경계) · `05-coordination.md`(5.1 경계) · `04-consensus.md`(4.9 스냅샷) · `08-storage-engine.md`(8.3 mmap·8.10 복구·8.11 시간·8.12 tiered) · `09-client-runtime.md`(9.2 sticky·9.7 fetch·9.8 purgatory)
-- share group 세부 수치·제약은 **Kafka 4.2 문서/KIP-932 확인 후** 산문화.
+- **신규 장 10장 share group**: `10-share-groups.md` 미작성 — **Kafka 4.2 release notes & KIP-932 확인 후** 작성 (사실 검증 필요, 보류 중)
+- ✅ 그 외 보강 절(1.2/5.1 경계 · 4.9 스냅샷 · 8.3/8.9/8.10/8.11 · 9.2/9.7/9.8)은 **산문화 완료**.
 
 ---
 
