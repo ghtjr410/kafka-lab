@@ -176,7 +176,7 @@ graph TB
 - 5.8 static membership (KIP-345)
 - 5.9 `__consumer_offsets` (compacted 로그, 2장)
 - 5.10 증명 — eager vs cooperative revoke 범위 / static 재접속
-- 참조: KIP-429/848/345 · (트리거 전수=II권, Spring 설정=III권)
+- 참조: KIP-429/848/345 · (트리거 전수=III권, Spring 설정=II권)
 
 ## 6장 — 멱등·순서: 중복 없이, 순서대로   ✅ [06-ordering-atomicity.md](./06-ordering-atomicity.md)
 

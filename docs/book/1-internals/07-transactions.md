@@ -4,7 +4,7 @@
 >
 > **이 장의 보장(한 문장)**: *여러 파티션에 걸친 쓰기(+consumer offset 커밋)가 전부 반영되거나 전부 무효가 된다(원자성). EOS = 멱등 + 트랜잭션 + read-process-write이며, 그 보장은 Kafka 내부에 한정된다.*
 
-6장의 멱등은 "한 세션·한 파티션 내 중복"을 막았다. 하지만 실무는 더 큰 단위를 원한다 — *여러 파티션에 동시에 쓰고, 그게 전부 되거나 전부 안 되거나*. 그리고 *읽고-처리하고-쓰는* 한 사이클을 원자적으로 묶고 싶다. 이 장이 그 답이고, **III권에서 배우는 `read_committed`의 밑바닥**이다.
+6장의 멱등은 "한 세션·한 파티션 내 중복"을 막았다. 하지만 실무는 더 큰 단위를 원한다 — *여러 파티션에 동시에 쓰고, 그게 전부 되거나 전부 안 되거나*. 그리고 *읽고-처리하고-쓰는* 한 사이클을 원자적으로 묶고 싶다. 이 장이 그 답이고, **II권에서 배우는 `read_committed`의 밑바닥**이다.
 
 ---
 
@@ -63,7 +63,7 @@ sequenceDiagram
 
 ## 7.5 핵심: control record + LSO + `read_committed`
 
-여기가 **low↔high 연결의 정점**이다. III권에서 *"`read_committed` consumer는 abort된 메시지를 못 본다"* 를 배운다. 그게 **어떻게** 구현되나?
+여기가 **low↔high 연결의 정점**이다. II권에서 *"`read_committed` consumer는 abort된 메시지를 못 본다"* 를 배운다. 그게 **어떻게** 구현되나?
 
 - **control record**: commit/abort 마커가 데이터 로그 안에 일반 레코드처럼 박힌다(단, consumer에겐 데이터로 안 보인다).
 - **LSO (Last Stable Offset)**: 아직 끝나지 않은(진행 중) 트랜잭션의 시작 직전 offset — 정확히는 **min(HW, 가장 오래된 열린 트랜잭션의 시작)**. 3장의 HW 위에 트랜잭션 경계를 더한 것이다(LSO는 여기 7장에서 처음 정의된다). ※ 8장의 *log start offset*과 약어가 겹치지 않게, LSO는 항상 Last Stable Offset을 뜻한다.
@@ -80,7 +80,7 @@ graph LR
 - `read_uncommitted`(**기본값!**): LSO 무시, 진행 중·abort 메시지까지 다 본다.
 - `read_committed`: **LSO까지만** 읽고, **abort 마커가 붙은 트랜잭션의 배치는 스킵**한다.
 
-→ 그래서 "abort된 메시지를 거른다"는 **control record로 경계를 긋고 LSO로 가시성을 막는** 로그 레벨 메커니즘이다. III권의 현상이 여기서 원리로 설명된다.
+→ 그래서 "abort된 메시지를 거른다"는 **control record로 경계를 긋고 LSO로 가시성을 막는** 로그 레벨 메커니즘이다. II권의 현상이 여기서 원리로 설명된다.
 
 > ★ 함정: `isolation.level` 기본값이 `read_uncommitted`라, 트랜잭션을 써도 consumer를 안 바꾸면 abort 메시지가 보인다. (이 함정의 *코드 처리*는 → II권.)
 

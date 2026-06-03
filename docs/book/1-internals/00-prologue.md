@@ -81,7 +81,7 @@ Kafka의 핵심(Core)은 의외로 단순하다: **로그에 쓰는 Producer, �
 ## 이 책의 지도
 
 - **Core(Producer/Consumer/Broker)의 원리와 함정**이 본진이다. 가장 많이 쓰고, 가장 많이 데이는 곳.
-- 같은 주제를 **I권(원리) → II권(운영) → III권(Spring)** 세 깊이로 내려가며 다룬다.
+- 같은 주제를 **I권(원리) → II권(코드·Spring) → III권(운영)** 세 깊이로 내려가며 다룬다. (권 정의는 [전체 표지](../README.md)가 단일 진실)
 - 전체 구성과 진행 상태 → [전체 표지](../README.md) · [ROADMAP.md](../../ROADMAP.md)
 
 ---

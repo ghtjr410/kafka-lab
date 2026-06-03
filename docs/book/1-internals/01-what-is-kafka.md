@@ -44,7 +44,7 @@ graph LR
 
 > 이 성질이 뿌리가 되는 곳:
 > - 여러 소비자 독립 소비 → Consumer Group
-> - 과거 재처리(replay), 장애 복구 → **III권 Consumer(offset)**, **EOS(재처리/멱등)**
+> - 과거 재처리(replay), 장애 복구 → **II권 Consumer(offset)**, **EOS(재처리/멱등)**
 
 ---
 
@@ -68,7 +68,7 @@ graph TB
   - **병렬 처리의 단위다.** 파티션 수가 곧 최대 동시 소비자 수.
 - **Offset** — 파티션 안에서 레코드의 위치 번호. 단조 증가하며 절대 재사용되지 않는다.
 
-> "순서는 파티션 안에서만"이 뿌리가 되는 곳: **III권 Partition & 순서**
+> "순서는 파티션 안에서만"이 뿌리가 되는 곳: **II권 Partition & 순서**
 
 ---
 
@@ -134,10 +134,10 @@ graph LR
 
 | 이 장의 개념 | 증명하는 곳 |
 |--------------|------------|
-| 읽어도 안 사라진다 (offset만 이동) | III권 Consumer — `seek으로_특정_offset부터_재소비할_수_있다` |
-| 순서는 파티션 안에서만 | III권 Partition — `같은_key로_발행하면_같은_파티션에_들어가_순서가_보장된다` |
-| 파티션 수 = 병렬성의 한계 | III권 Partition — `Consumer_수가_파티션_수보다_많으면_놀리는_Consumer가_발생한다` |
-| pull 모델 / Consumer가 offset 관리 | III권 Consumer — AckMode, auto-commit 함정 |
+| 읽어도 안 사라진다 (offset만 이동) | II권 Consumer — `seek으로_특정_offset부터_재소비할_수_있다` |
+| 순서는 파티션 안에서만 | II권 Partition — `같은_key로_발행하면_같은_파티션에_들어가_순서가_보장된다` |
+| 파티션 수 = 병렬성의 한계 | II권 Partition — `Consumer_수가_파티션_수보다_많으면_놀리는_Consumer가_발생한다` |
+| pull 모델 / Consumer가 offset 관리 | II권 Consumer — AckMode, auto-commit 함정 |
 
 ---
 
