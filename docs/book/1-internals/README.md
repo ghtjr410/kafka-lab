@@ -194,16 +194,16 @@ graph TB
 - 8.1 로그(2장)의 물리 실체
 - 8.2 디스크인데 빠른 이유 — **순차 IO** / **page cache**(JVM 힙 아님) / **zero-copy(sendfile)**
 - 8.3 **Log Segment** — `.log`/`.index`/`.timeindex`, 파일명=base offset, active segment, rolling(`segment.bytes/ms`)
-  - `.index`/`.timeindex`는 memory-mapped(mmap) → OS 페이지 관리, 크래시 시 복구 필요(8.10과 연결) 🚧 (신규·산문 대기)
+  - `.index`/`.timeindex`는 memory-mapped(mmap) → OS 페이지 관리, 크래시 시 복구 필요(8.9와 연결)
 - 8.4 **Record Batch v2** — baseOffset·producerId·epoch·압축타입 (멱등/트랜잭션 6·7장이 여기 박힘)
 - 8.5 조회 — sparse index 점프 → `.log` 순차 스캔
 - 8.6 압축 — producer batch 단위(lz4/zstd/snappy/gzip), 브로커는 그대로 저장·전송
 - 8.7 **log compaction 메커니즘** — cleaner thread, 키별 최신 + tombstone (2장 의미→여기 메커니즘)
 - 8.8 retention — 시간/크기, **세그먼트 단위 삭제**
-- 8.9 증명 — `docker exec`로 `.log` 직접 보기 / `kafka-dump-log` / rolling 관측
-- 8.10 로그 복구 — clean vs unclean shutdown / 체크포인트 파일(recovery-point-offset-checkpoint·replication-offset-checkpoint·log-start-offset-checkpoint) / unclean 종료 시 마지막 세그먼트 재검증 (3.1 유실 방지의 물리 구현) 🚧 (신규·산문 대기)
-- 8.11 시간의 의미 — `message.timestamp.type`(CreateTime=프로듀서 vs LogAppendTime=브로커) / `.timeindex`가 인덱싱하는 시간 / **retention이 쓰는 timestamp**(조기·지연 삭제 함정의 원인) / 시간 기반 seek 🚧 (신규·산문 대기)
-- 8.12 Tiered Storage(KIP-405) — RemoteLogManager / 읽기 remote fallback / local vs remote retention 분리 🚧 (신규·산문 대기)
+- 8.9 로그 복구 — clean vs unclean shutdown / 체크포인트 파일(recovery-point-offset-checkpoint·replication-offset-checkpoint·log-start-offset-checkpoint) / unclean 종료 시 마지막 세그먼트 재검증 (3.1 유실 방지의 물리 구현)
+- 8.10 시간의 의미 — `message.timestamp.type`(CreateTime=프로듀서 vs LogAppendTime=브로커) / `.timeindex`가 인덱싱하는 시간 / **retention이 쓰는 timestamp**(조기·지연 삭제 함정의 원인) / 시간 기반 seek
+- 8.11 Tiered Storage(KIP-405) — RemoteLogManager / 읽기 remote fallback / local vs remote retention 분리
+- 8.12 증명 — `docker exec`로 `.log` 직접 보기 / `kafka-dump-log` / rolling 관측
 - 참조: Kafka design 문서(Persistence·Efficiency·Compaction), `sendfile(2)`, KIP-405(tiered storage)
 
 ## 9장 — 클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나   ✅ [09-client-runtime.md](./09-client-runtime.md)

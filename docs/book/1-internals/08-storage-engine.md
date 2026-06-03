@@ -58,6 +58,8 @@ order-events-0/                         (토픽-파티션 디렉터리)
 - 가장 최근 세그먼트가 **active segment**이고, 쓰기는 여기에만 append된다.
 - `segment.bytes`(크기)나 `segment.ms`(시간)에 도달하면 **롤링** — 새 세그먼트를 연다.
 
+> `.index`/`.timeindex`는 **memory-mapped 파일(mmap)** 로 다뤄진다 — OS가 파일을 메모리에 매핑해 빠르게 접근한다. 대신 크래시 시 아직 디스크에 안 내려간 부분이 손상될 수 있어, 재시작 때 복구·재구성이 필요하다(→ 8.9). `[code @3.7]`
+
 ---
 
 ## 8.4 Record Batch (v2) — 멱등·트랜잭션이 박히는 곳
@@ -98,7 +100,54 @@ order-events-0/                         (토픽-파티션 디렉터리)
 
 ---
 
-## 8.9 증명 (executable — docker exec)
+## 8.9 로그 복구 — 재시작 시 어디부터 믿나
+
+브로커가 재시작하면 **마지막으로 안전하게 디스크에 내려간 지점**을 알아야 한다. 그래서 파티션마다 체크포인트 파일을 둔다:
+
+- `recovery-point-offset-checkpoint` — 어디까지 디스크로 flush됐나
+- `replication-offset-checkpoint` — HW(3장)
+- `log-start-offset-checkpoint` — 로그 시작 offset
+
+**clean shutdown**이면 이 체크포인트를 믿고 즉시 시작한다. **unclean shutdown**(크래시·`kill -9`)이면 마지막 세그먼트가 온전하다는 보장이 없으므로, **마지막 세그먼트를 스캔·재검증해 반쯤 쓰인 손상 배치를 잘라낸다.** mmap 인덱스(8.3)도 이때 재구성된다.
+
+→ 3.1의 "커밋했는데 사라짐"을 막는 것이 복제(3장)라면, 그 약속을 **한 브로커의 디스크 레벨에서** 지키는 것이 이 복구 절차다. `[code @3.7]`
+
+---
+
+## 8.10 시간의 의미 — timestamp.type과 retention
+
+레코드의 timestamp는 둘 중 하나다(`message.timestamp.type`):
+
+- **CreateTime**(기본) — 프로듀서가 레코드를 만든 시각
+- **LogAppendTime** — 브로커가 받아 로그에 쓴 시각
+
+`.timeindex`(8.3)는 이 timestamp로 "시각 T의 메시지는 어느 offset인가"를 인덱싱해 **시간 기반 seek**을 지원한다.
+
+★ 함정: **retention(시간 기반 삭제)도 이 timestamp를 본다.** 그래서 프로듀서가 잘못된 CreateTime(예: 과거 시각)을 넣으면 데이터가 의도보다 **너무 일찍 삭제**되거나, 미래 시각이면 안 지워질 수 있다. (어느 타입을 쓸지는 운영 판단 → III권.) `[docs @3.7]`
+
+---
+
+## 8.11 Tiered Storage — 무한 보존 (KIP-405)
+
+로그가 무한히 쌓이면 로컬 디스크가 한계다. **Tiered Storage**는 오래된 세그먼트를 **원격 스토리지(S3 등)로 내리고**, 로컬엔 최근 것만 둔다.
+
+```mermaid
+graph LR
+    P[Producer] --> L["로컬 디스크<br/>(최근 세그먼트)"]
+    L -->|"오래되면 업로드"| R["원격 스토리지<br/>(S3 등)"]
+    C[Consumer] -->|"최근 읽기"| L
+    C -.->|"오래된 offset 읽기"| R
+```
+
+- **RemoteLogManager**가 원격 업로드·조회를 담당한다.
+- consumer가 오래된 offset을 읽으면 **원격에서 fallback**해 가져온다(느리지만 가능).
+- **local retention**과 **remote retention**을 따로 설정 — 로컬은 짧게, 원격은 길게(사실상 무한).
+
+→ 보존을 로컬 디스크 용량에서 분리한다. 운영·용량 측면은 → III권. (KIP-405, 3.9부터 production-ready) `[KIP-405]`
+
+---
+
+## 8.12 증명 (executable — docker exec)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
