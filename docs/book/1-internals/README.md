@@ -78,9 +78,22 @@ graph TB
     C9 -->|"ShareFetch RPC"| C10
 ```
 
-> 교차 요소(SSOT): **HW** 정의=3장 → **LSO** 정의=7장(=min(HW, 가장 오래된 열린 txn))→사용=7장 · **compaction** 의미=2장/메커니즘=8장 · **leader epoch**(3장)↔**Raft term**(4장) · **"메타데이터=로그"**는 2장에서 정의, 4·5·7장은 링크 · **fetch 프로토콜** 정의=9장→복제 사용=3장 · **purgatory**=9장 · **share group 경계** 정의=1.2/5.1→본체=10장 · **timestamp.type**=8.10
->
-> ※ 번호는 인덱스 편의용일 뿐 **진실의 원천이 아니다** — 본문·SSOT·그래프가 어긋나면 *실제 내용이 있는 장(산문)*을 기준으로 셋을 맞춘다(SSOT도 틀릴 수 있다).
+### 교차 요소 SSOT — "정의 위치"의 단일 진실
+
+> 같은 개념이 여러 장에 걸칠 때, **정의 위치는 이 표가 유일한 진실**이다.
+> 본문·그래프는 정의 위치를 **재서술하지 말고 이 표를 따른다**(인라인 `(N장 정의)` 금지 — 드리프트의 근원). 표와 산문이 어긋나면 *산문 기준으로 표를 고친다*(번호는 진실의 원천이 아니다).
+
+| 요소 | 정의 위치 | 주 사용처 |
+|------|----------|-----------|
+| HW (High Watermark) | **3장** | 3·7장 |
+| LSO (= min(HW, 가장 오래된 열린 txn)) | **7장** | 7장 |
+| compaction — 의미 / 메커니즘 | **2장 / 8장** | 2·8장 |
+| leader epoch ↔ Raft term | **3장 ↔ 4장** | 3·4장 |
+| "메타데이터 = 로그" | **2장** | 4·5·7·10장 |
+| fetch 프로토콜 | **9장** | 3장(복제 공용) |
+| purgatory | **9장** | 3·9장 |
+| share group 경계 | **10장** | 1.2·5.1 |
+| timestamp.type | **8장** | 8장 |
 
 ---
 
@@ -183,7 +196,7 @@ graph TB
 - 7.2 `transactional.id` 와 좀비 펜싱 (producer epoch로 옛 인스턴스 차단)
 - 7.3 **Transaction Coordinator** + `__transaction_state` (트랜잭션 상태도 로그 — 2장)
 - 7.4 2단계 흐름 — `AddPartitionsToTxn` → produce → commit/abort
-- 7.5 **control record**(commit/abort marker) + **LSO**(3장 정의) + `read_committed`(abort 배치 스킵)
+- 7.5 **control record**(commit/abort marker) + **LSO** + `read_committed`(abort 배치 스킵)
 - 7.6 read-process-write — `sendOffsetsToTransaction` (consumer offset도 트랜잭션에)
 - 7.7 **EOS의 경계** — Kafka 내부 한정, 외부 시스템은 멱등키(→ II권)
 - 7.8 증명 — abort+read_committed 안 보임 / `isolation.level` 기본값(read_uncommitted) 함정 / read-process-write 원자성
