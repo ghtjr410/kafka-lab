@@ -248,4 +248,4 @@ graph TB
 
 ---
 
-← [전체 표지](../README.md) · [CHARTER](../../CHARTER.md) · [용어집](../../../GLOSSARY.md)
+← [전체 표지](../README.md) · [CHARTER](../../CHARTER.md) · [용어집](../../GLOSSARY.md)

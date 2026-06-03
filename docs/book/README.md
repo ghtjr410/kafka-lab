@@ -72,4 +72,4 @@ graph TB
 - **운영 중 판단이 필요하다** → III권. 각 항목이 I권의 어느 원리에 기대는지 링크로 잇는다.
 - **플랫폼으로 키운다** → IV권. Core(I~III)를 먼저 다진 뒤 본다.
 
-> 부록: [용어 사전(GLOSSARY)](../../GLOSSARY.md)
+> 부록: [용어 사전(GLOSSARY)](../GLOSSARY.md)
