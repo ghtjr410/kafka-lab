@@ -67,7 +67,7 @@ graph TB
     C2 --> C5
     C1 --> C6["6장 멱등·순서"]
     C6 -->|"멱등 위에 트랜잭션"| C7["7장 트랜잭션·EOS"]
-    C3 -->|"LSO"| C7
+    C3 -->|"HW"| C7
     C5 -->|"offset 커밋"| C7
     C7 -->|"batch 메타"| C8
     C1 --> C9["9장 클라이언트 런타임"]
@@ -78,7 +78,9 @@ graph TB
     C9 -->|"ShareFetch RPC"| C10
 ```
 
-> 교차 요소(SSOT): **LSO** 정의=3장→사용=7장 · **compaction** 의미=2장/메커니즘=8장 · **leader epoch**(3장)↔**Raft term**(4장) · **"메타데이터=로그"**는 2장에서 정의, 4·5·7장은 링크 · **fetch 프로토콜** 정의=9.7→복제 사용=3장 · **purgatory**=9.8 · **share group 경계** 정의=1.2/5.1→본체=10장 · **timestamp.type**=8.11
+> 교차 요소(SSOT): **HW** 정의=3장 → **LSO** 정의=7장(=min(HW, 가장 오래된 열린 txn))→사용=7장 · **compaction** 의미=2장/메커니즘=8장 · **leader epoch**(3장)↔**Raft term**(4장) · **"메타데이터=로그"**는 2장에서 정의, 4·5·7장은 링크 · **fetch 프로토콜** 정의=9장→복제 사용=3장 · **purgatory**=9장 · **share group 경계** 정의=1.2/5.1→본체=10장 · **timestamp.type**=8.10
+>
+> ※ 번호는 인덱스 편의용일 뿐 **진실의 원천이 아니다** — 본문·SSOT·그래프가 어긋나면 *실제 내용이 있는 장(산문)*을 기준으로 셋을 맞춘다(SSOT도 틀릴 수 있다).
 
 ---
 
@@ -108,7 +110,7 @@ graph TB
 - 2.1 append-only · 불변 · offset 단조성(위치이자 논리 시계)
 - 2.2 왜 로그인가 — 큐/테이블 대비, **MySQL은 테이블이 본체·로그가 보조 / Kafka는 반대**
 - 2.3 상태 = `fold(로그)` (event sourcing, materialized view)
-- 2.4 compaction의 **의미** = 키별 최신 = 상태 스냅샷 (메커니즘은 7장)
+- 2.4 compaction의 **의미** = 키별 최신 = 상태 스냅샷 ([메커니즘](08-storage-engine.md))
 - 2.5 stream-table duality (로그↔테이블, → Streams)
 - 2.6 메타데이터도 로그 (`__cluster_metadata` 4장·`__consumer_offsets` 5장·control record 6장 예고)
 - 2.7 트레이드오프(무한 로그→retention/compaction) · 증명(compaction·tombstone)
@@ -228,7 +230,7 @@ graph TB
 
 - 10.1 왜 별도 모델인가 — consumer group 배타 배정(5.1)·로그 retention(2장)과 큐(개별 ack·작업 분배)의 긴장 → 기존 group에 못 얹고 새 group type으로 분리
 - 10.2 consumer group과의 대조 — 배타 vs 공유 / commit offset vs 레코드별 상태 / consumer≤파티션 vs consumer>파티션 가능
-- 10.3 in-flight 레코드 상태 머신 — Available→Acquired(락 `group.share.record.lock.duration.ms` 기본 30s)→Acknowledged / Released(재전달) / Archived(`group.share.delivery.attempt.limit` 기본 5 초과)
+- 10.3 in-flight 레코드 상태 머신 — Available→Acquired(락 `group.share.record.lock.duration.ms` 기본 30s)→Acknowledged / Released(재전달) / Archived(`group.share.delivery.count.limit` 기본 5 초과)
 - 10.4 Share Coordinator + `__share_group_state`(50파티션) — Controller·Group·Transaction에 이은 제4의 coordinator
 - 10.5 새 프로토콜 RPC — ShareFetch / ShareAcknowledge (share session = GroupId+MemberId, 9장 일반 fetch와 대비)
 - 10.6 한계 — 배치 간 순서 없음 / **EOS 미지원**(at-least-once, `share.isolation.level`로 read 제어) / fetch-from-follower 미지원

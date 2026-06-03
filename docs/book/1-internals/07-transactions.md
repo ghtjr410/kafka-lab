@@ -62,7 +62,7 @@ sequenceDiagram
 여기가 **low↔high 연결의 정점**이다. III권에서 *"`read_committed` consumer는 abort된 메시지를 못 본다"* 를 배운다. 그게 **어떻게** 구현되나?
 
 - **control record**: commit/abort 마커가 데이터 로그 안에 일반 레코드처럼 박힌다(단, consumer에겐 데이터로 안 보인다).
-- **LSO (Last Stable Offset)**: 아직 끝나지 않은(진행 중) 트랜잭션의 시작 직전 offset. 3장 HW의 트랜잭션 버전이다.
+- **LSO (Last Stable Offset)**: 아직 끝나지 않은(진행 중) 트랜잭션의 시작 직전 offset — 정확히는 **min(HW, 가장 오래된 열린 트랜잭션의 시작)**. 3장의 HW 위에 트랜잭션 경계를 더한 것이다(LSO는 여기 7장에서 처음 정의된다). ※ 8장의 *log start offset*과 약어가 겹치지 않게, LSO는 항상 Last Stable Offset을 뜻한다.
 
 ```mermaid
 graph LR

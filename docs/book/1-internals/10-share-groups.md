@@ -55,7 +55,7 @@ stateDiagram-v2
 - **Acquired**: consumer에 배정 + **시간제한 락**. 락은 `group.share.record.lock.duration.ms`(기본 **30초**) 동안 유효하고, 그 안에 ack가 없으면 자동으로 Available로 되돌아가 **다른 consumer에게 재전달**된다.
 - **Acknowledged**: 처리 완료(더는 전달 안 됨).
 - **release**(명시적 반환) 또는 **락 타임아웃** → Available로 (재시도).
-- **reject** 또는 **delivery 횟수 한도 초과**(`group.share.delivery.attempt.limit`, 기본 **5**) → **Archived**(영구 제외, DLQ적 종착).
+- **reject** 또는 **delivery 횟수 한도 초과**(`group.share.delivery.count.limit`, 기본 **5**) → **Archived**(영구 제외, DLQ적 종착).
 
 → 즉 "offset 하나"가 아니라 **레코드별 락 + delivery count**로 진행을 추적한다. 이게 큐의 개별 ack를 가능하게 한다. `[KIP-932 · docs @4.2]`
 
@@ -109,7 +109,7 @@ share group은 큐를 얻는 대신 몇 가지를 포기한다:
 | 파티션 1개 토픽에 consumer 3대(같은 share group) | 셋이 동시에 소비(consumer > partition) | `[테스트로 결정]` |
 | ack 없이 락 타임아웃 유발 | `group.share.record.lock.duration.ms` 후 다른 consumer에 재전달 | `[테스트로 결정]` |
 | ack 후 같은 레코드 | 재전달 안 됨(Acknowledged) | `[테스트로 결정]` |
-| 반복 실패로 delivery 한도 초과 | `group.share.delivery.attempt.limit`(기본 5) 후 Archived | `[테스트로 결정]` |
+| 반복 실패로 delivery 한도 초과 | `group.share.delivery.count.limit`(기본 5) 후 Archived | `[테스트로 결정]` |
 
 > ⚠️ share group은 Kafka **4.2 GA**다. 이 lab의 baseline은 3.7이므로, 이 장의 증명은 **4.2+ 브로커**를 별도로 띄워야 한다(3.7에선 불가). 버전 매트릭스 갱신 시 [CHARTER](../../CHARTER.md) 참조.
 
