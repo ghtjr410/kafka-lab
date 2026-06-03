@@ -167,7 +167,7 @@ graph TB
 
 > 보장: *멱등 — 재시도해도 파티션 내 중복 없음. 순서 — 파티션 내에서 보장.*
 
-- 6.1 파티션 내 순서 한계 (전체 순서 불가)
+- 6.1 파티션 내 순서 한계 (전체 순서는 단일 파티션이면 가능하나 병렬성 포기 — trade)
 - 6.2 "그냥 재시도"의 함정 (ACK 유실 → 중복 append)
 - 6.3 **멱등 프로듀서** — PID + epoch + sequence (요구 조합: `idempotence=true`→`acks=all`·`max.in.flight≤5`)
 - 6.4 멱등의 세션 한계 (재시작=새 PID → 보장 끊김)
@@ -231,7 +231,7 @@ graph TB
 - 10.1 왜 별도 모델인가 — consumer group 배타 배정(5.1)·로그 retention(2장)과 큐(개별 ack·작업 분배)의 긴장 → 기존 group에 못 얹고 새 group type으로 분리
 - 10.2 consumer group과의 대조 — 배타 vs 공유 / commit offset vs 레코드별 상태 / consumer≤파티션 vs consumer>파티션 가능
 - 10.3 in-flight 레코드 상태 머신 — Available→Acquired(락 `group.share.record.lock.duration.ms` 기본 30s)→Acknowledged / Released(재전달) / Archived(`group.share.delivery.count.limit` 기본 5 초과)
-- 10.4 Share Coordinator + `__share_group_state`(50파티션) — Controller·Group·Transaction에 이은 제4의 coordinator
+- 10.4 Share Coordinator + `__share_group_state`(50파티션) — Group·Transaction에 이은 셋째 coordinator (Controller는 합의/메타라 결이 다름)
 - 10.5 새 프로토콜 RPC — ShareFetch / ShareAcknowledge (share session = GroupId+MemberId, 9장 일반 fetch와 대비)
 - 10.6 한계 — 배치 간 순서 없음 / **EOS 미지원**(at-least-once, `share.isolation.level`로 read 제어) / fetch-from-follower 미지원
 - 10.7 증명 — consumer>partition 동시 소비 / 락 만료 후 재전달 / ack 후 미재전달 / delivery 한도 후 Archived (★4.2+ 브로커 필요)

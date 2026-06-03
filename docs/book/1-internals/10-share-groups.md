@@ -63,7 +63,7 @@ stateDiagram-v2
 
 ## 10.4 Share Coordinator와 `__share_group_state`
 
-레코드별 상태는 어딘가 영속돼야 한다. 그 주체가 **Share Coordinator**다 — 4·5·7장의 코디네이터에 이은 **제4의 coordinator**다.
+레코드별 상태는 어딘가 영속돼야 한다. 그 주체가 **Share Coordinator**다 — 5장 Group·7장 Transaction Coordinator에 이은 **셋째 coordinator**다. (4장 **Controller**는 합의·메타데이터를 맡는 별개 역할이라 coordinator와 결이 다르다 — 아래 표는 비교용이다.)
 
 | coordinator | 관리 대상 | 저장 토픽 | 장 |
 |-------------|----------|----------|-----|
