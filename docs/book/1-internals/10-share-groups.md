@@ -4,7 +4,7 @@
 >
 > **이 장의 보장(한 문장)**: *한 파티션을 여러 consumer가 공유 소비하고, 레코드별로 개별 ack/재전달하며(at-least-once), 한 배치 안에서만 순서가 보장된다.*
 
-이 책의 1장은 "Kafka는 큐가 아니라 로그"라고 했고, 5장은 "한 파티션은 한 consumer에게만"이라고 했다. **Share Group(KIP-932)** 은 이 두 전제에 단서를 단다 — Kafka 4.2에서 GA된 이 기능으로, 이제 Kafka는 로그이자 **큐**이기도 하다. `[KIP-932 · docs @4.2]`
+이 책의 1장은 "Kafka는 큐가 아니라 로그"라고 했고, 5장은 "한 파티션은 한 consumer에게만"이라고 했다. **Share Group(KIP-932)** 은 이 두 전제에 단서를 단다 — Kafka 4.2에서 GA된 이 기능으로, Kafka는 **로그 위에 큐 시맨틱을 얹는다**. (저장은 여전히 append-only 로그이고, ack·락 상태만 `__share_group_state`에 별도 추적된다 — KIP-932는 "Kafka에 큐를 추가"한 게 아니라 토픽으로 큐 유스케이스를 수용하는 share group을 도입한 것이다.) `[KIP-932 · docs @4.2]`
 
 ---
 
@@ -120,6 +120,6 @@ share group은 큐를 얻는 대신 몇 가지를 포기한다:
 - `[KIP-932]` Queues for Kafka (share group의 원전) `[Tier 1]`
 - Apache Kafka 4.2 — Queues for Kafka GA (4.0 Early Access → 4.1 Preview → **4.2 GA**) `[docs @4.2]`
 - `KafkaShareConsumer` JavaDoc `[Tier 2]`
-- 연결: 1.2(로그이자 큐) · 5.1(배타 배정의 경계) · 2장(메타데이터도 로그) · 9.7(fetch 대비)
+- 연결: 1.2(로그 위에 큐 시맨틱) · 5.1(배타 배정의 경계) · 2장(메타데이터도 로그) · 9.7(fetch 대비)
 
 ← [9장 클라이언트 런타임](./09-client-runtime.md) · [I권 목차](./README.md)

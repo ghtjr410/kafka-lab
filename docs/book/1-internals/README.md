@@ -110,7 +110,7 @@ graph TB
 
 - 1.1 한 문장 (분산·복제·순서 보장 append-only 로그)
 - 1.2 큐가 아니라 로그 (읽어도 안 사라짐, offset만 이동)
-  - (경계) "읽어도 안 사라짐"은 **consumer group 한정** — share group(KIP-932)은 레코드별 ack·락 기반 큐 시맨틱 → 10장. 이제 Kafka는 로그이자 큐
+  - (경계) "읽어도 안 사라짐"은 **consumer group 한정** — share group(KIP-932)은 레코드별 ack·락 기반 큐 시맨틱 → 10장. 저장은 로그, 그 위에 큐 시맨틱을 얹음
 - 1.3 가장 작은 단위 (Record / Topic / Partition / Offset)
 - 1.4 등장인물 (Producer / Broker / Consumer / Group)
 - 1.5 설계 3원칙 (디스크인데 빠른 이유 / 파티션 순서 / pull)
