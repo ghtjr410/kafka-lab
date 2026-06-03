@@ -72,7 +72,7 @@ stateDiagram-v2
 | Transaction Coordinator | 트랜잭션 상태 | `__transaction_state` | 7장 |
 | **Share Coordinator** | **share-group 레코드 상태** | **`__share_group_state`** | 이 장 |
 
-- `__share_group_state`는 내부 토픽(기본 50파티션, unlimited retention)으로, share-partition의 어느 레코드가 ack/archived됐는지를 durable하게 보관한다.
+- `__share_group_state`는 내부 토픽(기본 50파티션)으로, share-partition의 어느 레코드가 ack/archived됐는지를 durable하게 보관한다. cleanup은 **`__consumer_offsets`·`__transaction_state`의 compaction과 다르다** — delete 정책 + `retention.ms=-1`(무한 보존) + 주기적 prune 방식이다.
 - Share Coordinator는 share-partition leader·group coordinator로부터 inter-broker RPC(`InitializeShareGroupState`·`ReadShareGroupState`·`WriteShareGroupState`·`DeleteShareGroupState`)를 받아 상태를 읽고 쓴다.
 
 → 다시 2장의 "메타데이터도 로그" — share 소비 상태조차 로그에 쌓인다.

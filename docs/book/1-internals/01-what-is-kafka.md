@@ -34,7 +34,6 @@ graph LR
         L["[r0][r1][r2][r3][r4]"]
         CA["Consumer A<br/>offset=2"] -.읽음.-> L
         CB["Consumer B<br/>offset=4"] -.읽음.-> L
-        Note["읽어도 안 사라짐<br/>각자 offset만 다름"]
     end
 ```
 
@@ -58,8 +57,9 @@ graph TB
         P1["Partition 1 : [r0][r1][r2] →"]
         P2["Partition 2 : [r0][r1] →"]
     end
-    Note["append만 됨 · 앞으로만 자란다<br/>각 칸 아래 번호 = offset"]
 ```
+
+> *append만 되고 앞으로만 자란다. 각 칸 아래 번호가 offset.*
 
 - **Record** — 한 건의 메시지. `key`·`value`·`timestamp`·`headers`로 구성되고, `offset`은 프로듀서가 채우는 게 아니라 **브로커가 append할 때 부여**하는 위치다.
 - **Topic** — 레코드가 쌓이는, 이름 붙은 로그. (논리적 단위)
