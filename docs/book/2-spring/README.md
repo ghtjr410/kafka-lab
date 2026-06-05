@@ -30,7 +30,7 @@
 | 이벤트 설계 · Outbox · Saga | messaging-lab / saga-lab |
 
 > 🤖 **이 권을 작업하는 AI/작업자에게**: "왜 그런가"는 [I권](../1-internals/README.md), "어떤 값이 유리한가"는 [III권](../3-operations/README.md)에 **링크만** 남기고, 여기서는 **코드 관점만** 깎는다.
-> **결정 규칙**: correctness가 변하면 I권, 트레이드오프만 변하면 III권.
+> **결정 규칙**: 개별 설정이 *무엇을 보장하나* = I권 / 어느 *조합·순서*가 깨지나 = II권(→ [설정 조합의 함정](08-config-combination-traps.md) · [코드 구조·순서의 함정](09-code-order-traps.md)) / 어느 *값이 유리한가*(trade-off) = III권.
 
 ---
 
@@ -50,7 +50,7 @@ graph LR
 
 상태 범례 — **2축**:
 - **[산문]** ✅ 작성 완료 · 🚧 옛 Step 복제본(II권 톤으로 재산문화 대기) · 📝 아웃라인
-- **[executable 증명]** 본편=🧪 기존 Step 테스트 있음 · 횡단편=⬜ 미구현(본편 테스트를 링크로 참조)
+- **[executable 증명]** 본편=🧪 기존 Step 테스트 있음 · 횡단편=⬜ **위임**(본편 Step이 증명 — 미구현 아님)
 - 읽는 법: `NN장` 헤더의 마커(🚧/✅)는 **[산문]** 축, 불릿 끝 🧪/⬜는 **[증명]** 축이다.
 
 > **증명 모델** — II권의 증명은 **Spring Kafka 통합 테스트**다. I권의 `docker`/CLI 자체증명과 달리 **프레임워크에 의존**한다 — 그래서 이 권에 속한다.
@@ -67,7 +67,7 @@ graph LR
 graph TB
     C1["1장 Producer 보장"] --> C2["2장 Consumer & Offset"]
     C2 --> C3["3장 파티션 & 동시성"]
-    C3 --> C4["4장 리밸런싱 & 배포"]
+    C2 --> C4["4장 리밸런싱 & 배포"]
     C2 --> C5["5장 에러 처리 & DLQ"]
     C1 --> C6["6장 EOS & 트랜잭션"]
     C2 --> C6
@@ -94,16 +94,16 @@ graph TB
 | 요소 | 정의 위치 | 주 사용처 |
 |------|----------|-----------|
 | `acks` (의미) | **1장** | 1·8·10장 |
-| 멱등 삼각형 (`idempotence` × `acks` × `max.in.flight`) | **8장** (8.1) | 1·8·10장 |
-| 내구성 짝 (`acks=all` × `min.insync.replicas`, client×broker) | **8장** (8.5) | 1·8장 (+ → III권 결정 트리·I권 복제) |
+| 멱등 삼각형 (`idempotence` × `acks` × `max.in.flight`) | **8장** | 1·8·10장 |
+| 내구성 짝 (`acks=all` × `min.insync.replicas`, client×broker) | **8장** | 1·8장 (+ → [III권 결정 트리](../3-operations/10-config-decision-tree.md) · [I권 복제](../1-internals/03-replication.md)) |
 | `AckMode` / offset 커밋 시점 | **2장** | 2·9·10장 |
-| 타이밍 3박자 (`heartbeat`<`session`≪`max.poll.interval`, + `max.poll.records`) | **8장** (8.3) | 4·8·9·10장 |
+| 타이밍 3박자 (`heartbeat`<`session`≪`max.poll.interval`, + `max.poll.records`) | **8장** (순서 관계 — 개별 설정값은 4장) | 4·8·9·10장 |
 | `concurrency` / 파티션 ↔ 동시성 상한 | **3장** | 3·10장 |
-| `DefaultErrorHandler` (retry↔DLQ, non-retryable 분류) | **5장** | 5·9장 |
-| `@RetryableTopic` (non-blocking retry) | **9장** (9.4 🚧정의 보강 중) | 9·10장 |
-| `transactional.id` / `transaction-id-prefix` (좀비 펜싱 · 멱등 자동 활성) | **6장** | 6·8장 |
+| `DefaultErrorHandler` (retry↔DLQ, non-retryable 분류) | **5장** | 5·9·10장 |
+| `@RetryableTopic` (non-blocking retry) | **9장** (🚧정의 보강 중) | 9·10장 |
+| `transactional.id` / `transaction-id-prefix` (좀비 펜싱 · 멱등 자동 활성) | **6장** | 6·8·10장 |
 | `isolation.level` (read_committed 짝) | **6장** | 6·8·10장 |
-| 스키마 진화 (`FAIL_ON_UNKNOWN_PROPERTIES`) | **7장** | 7장 (중앙 스키마는 IV권) |
+| 스키마 진화 (`FAIL_ON_UNKNOWN_PROPERTIES`) | **7장** | 7장 (중앙 스키마 → [IV권](../4-beyond-core/README.md)) |
 
 > 🚧 = 정의 *위치*는 정해졌으나 본문이 아직 얇음(아래 *다음 작업* 참조). 표는 위치를 가리키되 미완을 숨기지 않는다.
 
@@ -121,8 +121,8 @@ graph TB
 
 > 보장/착각: *"acks=all이면 안전한가?"* — acks·idempotence가 **무엇까지** 보장하는지.
 
-- `acks` 0/1/all 의미 · `enable.idempotence`(3.0+ 기본 true — 정정·조합은 → [설정 조합의 함정](08-config-combination-traps.md)) · `ProducerFactory`/`KafkaTemplate` 골격
-- 내구성 짝: `acks=all`은 단독으론 부족 — 정의는 → [설정 조합의 함정](08-config-combination-traps.md)(8.5), 운영 판단 → [III권 의사결정 트리](../3-operations/10-config-decision-tree.md)
+- `acks` 0/1/all 의미 · `enable.idempotence`(기본값·강제 조합 → [설정 조합의 함정](08-config-combination-traps.md)) · `ProducerFactory`/`KafkaTemplate` 골격
+- 내구성 짝: `acks=all`은 단독으론 부족 — 정의는 → [설정 조합의 함정](08-config-combination-traps.md), 운영 판단 → [III권 의사결정 트리](../3-operations/10-config-decision-tree.md)
 - 증명 → [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md) `ProducerAcksTest` 등 🧪
 
 ### 2장 — Consumer & Offset   🚧 [02-consumer-offset.md](./02-consumer-offset.md)
@@ -187,7 +187,7 @@ graph TB
 - 8.3 타이밍 3박자 — `heartbeat`<`session`≪`max.poll.interval`
 - 8.4 트랜잭션 ↔ `isolation.level`
 - 8.5 체크리스트 — 내구성 짝(`acks=all`×`min.insync.replicas`) 포함
-- 증명 참조 → s01·s04·s06 (본편 Step) · ⬜ 자체 미구현
+- 증명 참조 → s01·s04·s06 (본편 Step) · ⬜ 위임(본편 Step 증명)
 
 ### 9장 — 코드 구조·순서의 함정   ✅ [09-code-order-traps.md](./09-code-order-traps.md)
 
@@ -198,7 +198,7 @@ graph TB
 - 9.3 리스너 blocking → poll 초과 → 퇴출
 - 9.4 `@RetryableTopic` — blocking vs non-blocking retry
 - 9.5 `@Transactional`+Kafka 트랜잭션 경계 (→ Outbox는 messaging-lab)
-- 증명 참조 → s05·s02·s04 · ⬜ 자체 미구현
+- 증명 참조 → s05·s02·s04 · ⬜ 위임(본편 Step 증명)
 
 ### 10장 — 설정 레퍼런스(인덱스)   ✅ [10-config-reference.md](./10-config-reference.md)
 
@@ -212,10 +212,16 @@ graph TB
 
 ## 🚦 II권 상태 (이 표가 II권 상태 SSOT)
 
-- **[산문]** 본편 1~7장 = 🚧 옛 Step 복제본(재산문화 대기) · 횡단편 8~10장 = ✅ 작성
-- **[증명]** 본편 = 🧪 기존 Step 테스트(`src/test/.../sNN_*`) · 횡단편 = ⬜ 미구현(본편 테스트 링크 참조)
-- **다음 작업 (본편 재산문화)**: 7개를 II권 톤(컴포넌트 → 핵심 설정·보장 → 함정 → 올바른 형태 → I권 링크 → Step 증명)으로 다시 깎는다 — `# Step N` 헤더·"다음 Step으로" 제거, 깨진 `../sNN_*/` 교차참조 → **같은 권 정본(`NN-*.md`) 또는 원리는 I권 named link로** 교체(테스트 디렉터리는 「증명 →」 링크에서만), **본문 장번호 하드코딩 → named link**, 인용 라벨 주입, `@RetryableTopic` 동작 정의(retry 토픽 명명·DLT·attempts/backoff·blocking 곱셈)를 9.4에 보강하고 SSOT 표 🚧 해제, `partition.assignment.strategy` 등 `?` 기본값 1차 소스 확정.
-- **본편→횡단편 forward link 주입**: 각 본편 장 말미에 그 장이 씨앗 뿌린 함정으로의 링크(1장→8.1 멱등 삼각형, 2장→9.2 commit 위치, 3장→9.3 blocking, 4장→8.3·9.3, 5장→9.1, 6장→8.4). 근거는 위 SSOT 표 *주 사용처* 열 — README 안에만 있는 forward link를 본편 정본까지 닫는다.
+- **[산문]** 본편 = 🚧 · 횡단편 = ✅  (마커 뜻은 위 범례)
+- **[증명]** 본편 = 🧪 · 횡단편 = ⬜ 위임
+- **다음 작업 (본편 재산문화)** — 7개를 II권 톤(컴포넌트 → 핵심 설정·보장 → 함정 → 올바른 형태 → I권 링크 → Step 증명)으로 다시 깎으며:
+  - `# Step N` 헤더·"다음 Step으로" 제거
+  - 깨진 `../sNN_*/` 교차참조 → 같은 권 정본(`NN-*.md`) / 원리는 I권 named link (테스트 디렉터리는 「증명 →」 링크에서만)
+  - 본문 장번호 하드코딩 → named link
+  - 인용 라벨 주입
+  - `@RetryableTopic` 동작 정의(retry 토픽 명명·DLT·attempts/backoff·blocking 곱셈)를 9.4에 보강 → SSOT 표 🚧 해제
+  - `partition.assignment.strategy` 등 `?` 기본값 1차 소스 확정
+  - **본편→횡단편 forward link 주입** (1장→8.1 / 2장→9.2 / 3장→9.3 / 4장→8.3·9.3 / 5장→9.1 / 6장→8.4; 근거는 위 SSOT 표 *주 사용처* 열)
 
 ---
 
