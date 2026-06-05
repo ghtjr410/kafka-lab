@@ -1,5 +1,7 @@
 # Step 3 — Partition & Ordering + Advanced
 
+> **II권 3장** (Spring 코드 관점). 파티션·순서 보장의 **원리**는 → [I권 멱등·순서](../../../../../../../docs/book/1-internals/06-ordering-atomicity.md). 이 장은 concurrency·rekey 위험을 **Spring 코드로** 다룬다.
+
 ---
 
 ## 파티션 수를 늘리면 처리량이 올라가니까 좋은 거 아닌가?

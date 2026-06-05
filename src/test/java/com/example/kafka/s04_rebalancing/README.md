@@ -1,6 +1,6 @@
 # Step 4 — Rebalancing
 
-> Group Coordinator가 리밸런싱을 어떻게 조율하는지 내부 동작이 궁금하면 [KAFKA-ARCHITECTURE.md](../../../../KAFKA-ARCHITECTURE.md)를 먼저 읽자.
+> **II권 4장** (Spring 코드 관점). Group Coordinator·리밸런싱의 **원리**는 → [I권 조정](../../../../../../../docs/book/1-internals/05-coordination.md). 이 장은 cooperative·static membership 설정을 **Spring 코드로** 다룬다.
 
 ---
 

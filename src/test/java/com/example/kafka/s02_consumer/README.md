@@ -1,5 +1,7 @@
 # Step 2 — Consumer Offset + Advanced
 
+> **II권 2장** (Spring 코드 관점). offset 커밋·`__consumer_offsets`의 **원리**는 → [I권 조정](../../../../../../../docs/book/1-internals/05-coordination.md). 이 장은 AckMode·auto-commit 함정을 **Spring 코드로 어떻게 쓰고 어디서 데이나**로 다룬다.
+
 ---
 
 ## 예외를 try-catch로 삼키면 안전한 거 아닌가?

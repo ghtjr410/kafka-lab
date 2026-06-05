@@ -1,5 +1,7 @@
 # Step 5 — DLQ & Error Handling
 
+> **II권 5장** (Spring 코드 관점). 에러 처리·DLQ는 **II권 고유 영역**(Spring `DefaultErrorHandler`·`DeadLetterPublishingRecoverer`)이라 I권 원리에 직접 대응하지 않는다. 재처리의 중복 방어 원리만 → [I권 멱등·순서](../../../../../../../docs/book/1-internals/06-ordering-atomicity.md).
+
 ---
 
 ## Spring Kafka의 기본 에러 핸들러가 DLQ로 보내주는 거 아닌가?

@@ -1,5 +1,7 @@
 # Step 6 — Exactly-Once Semantics
 
+> **II권 6장** (Spring 코드 관점). EOS·트랜잭션·`read_committed`의 **원리**는 → [I권 트랜잭션·EOS](../../../../../../../docs/book/1-internals/07-transactions.md). 이 장은 `transaction-id-prefix`·`isolation.level`·멱등키를 **Spring 코드로** 다룬다.
+
 ---
 
 ## Kafka가 Exactly-Once를 지원하니까 중복 걱정 없는 거 아닌가?

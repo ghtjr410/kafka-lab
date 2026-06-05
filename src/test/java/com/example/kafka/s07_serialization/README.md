@@ -1,5 +1,7 @@
 # Step 7 — Serialization & Schema Evolution
 
+> **II권 7장** (Spring 코드 관점). JSON 직렬화·스키마 진화는 **II권 고유 영역**(Spring `JsonSerializer`·`@JsonIgnoreProperties`)이다. 중앙 스키마 관리(Avro/Schema Registry)는 → [IV권 Beyond Core](../../../../../../../docs/book/4-beyond-core/README.md).
+
 ---
 
 ## Producer가 필드를 하나 추가했는데 왜 Consumer가 죽는가?
