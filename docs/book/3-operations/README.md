@@ -69,8 +69,11 @@ graph TB
 | 7장 | 내구성 운영 기준 | RF / `min.insync.replicas` / `acks` 조합 · unclean leader election | [I권 복제](../1-internals/03-replication.md) 기반 | 📋 예정 |
 | 8장 | 장애 대응 | 리더 선출 · ISR 복구 · partition reassignment · preferred leader | 신규(멀티브로커) | 📋 예정 |
 | 9장 | 용량/보존 운영 | 디스크 · throttling/quotas · tiered storage | 신규 | 📋 예정 |
+| 10장 | **[설정 trade-off 의사결정 트리](./10-config-decision-tree.md)** | **CAP·PACELC 기반** / `acks`·`linger.ms`·`max.block.ms`가 언제 유리·불리한가 / 워크로드 프로파일별 출발점 | 신규(종합) | ✅ 산문 |
 
 > 대부분 **멀티브로커 환경**을 전제로 한다. → [ROADMAP](../../ROADMAP.md)
+>
+> **7장 ↔ 10장 경계**: 7장(*내구성 운영 기준*)은 `RF`·`min.insync.replicas`·`acks`·unclean leader election을 **내구성 축 하나로 깊게** 판다. 10장은 그 위에 **지연·처리량 축까지 얹어** CAP/PACELC로 *무엇을 버릴지*를 한 장에 종합한다 — 7장이 "얼마나 안전하게", 10장이 "안전 vs 속도 중 어디로".
 
 ---
 
