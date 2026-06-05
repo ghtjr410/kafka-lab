@@ -141,7 +141,7 @@ graph TB
 - `listener.type=batch` 모드 (배치 에러 함정은 → [코드 구조·순서의 함정](09-code-order-traps.md))
 - 원리 → [I권 조정](../1-internals/05-coordination.md)(`__consumer_offsets`) · 증명 → [s02 Consumer](../../../src/test/java/com/example/kafka/s02_consumer/README.md) 🧪
 
-### 3장 — 파티션 & 동시성   🚧 [03-partition-concurrency.md](./03-partition-concurrency.md)
+### 3장 — 파티션 & 동시성   ✅ [03-partition-concurrency.md](./03-partition-concurrency.md)
 
 > 보장/착각: *"파티션 늘리면 좋은가?"* — `concurrency × 인스턴스 ≤ 파티션`.
 
