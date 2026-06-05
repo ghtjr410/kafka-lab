@@ -23,11 +23,9 @@ I권이 "왜"라면, III권은 "그래서 운영에서 **어떤 숫자로, 어�
 - 클러스터 사이징 · 토픽 설계 BP · 파티셔닝 전략 · 리밸런싱 트리거 전수+대응 · 모니터링(lag/under-replicated) · 동적 설정 · 장애 대응 · 용량
 
 ### 다루지 않는다 (Out of Scope)
-- 원리의 "왜"(보장·알고리즘) → **I권 Internals** · Spring 코드·설정 → **II권 Spring**
+- 원리의 "왜"(보장·알고리즘) → [I권](../1-internals/README.md) · Spring 코드·설정 → [II권](../2-spring/README.md)
 
-> 🤖 원리가 필요하면 "→ I권", 코드가 필요하면 "→ II권" **링크만**. 여기선 운영 관점만 깎는다.
-
-> 📏 이 README는 **주제를 한 문장으로** 적는 인덱스다. 상세는 개별 `NN-*.md`로. (규칙 → [전체 표지](../README.md))
+> 🤖 원리가 필요하면 [I권](../1-internals/README.md), 코드가 필요하면 [II권](../2-spring/README.md)에 **링크만**. 여기선 운영 관점만 깎는다.
 
 ---
 
@@ -47,7 +45,14 @@ graph TB
     D1["롤링 배포 → 연쇄 리밸런싱"] --> RB
 ```
 
-→ 이건 **권 횡단의 대표 주제**다: I권(Coordinator 원리) / **III권(트리거 전수 + 운영 대응)** / II권(Spring cooperative·static membership 설정).
+→ 이건 **권 횡단의 대표 주제**다: [I권](../1-internals/README.md)(Coordinator 원리) / **III권(트리거 전수 + 운영 대응, 여기)** / [II권](../2-spring/README.md)(Spring cooperative·static membership 설정).
+
+---
+
+## 증명 모델 · 상태
+
+- **🧪 증명 모델**: III권의 증명은 **멀티브로커 docker로 장애를 주입·관측**(브로커 kill → ISR 축소·리더 선출)하고 **`AdminClient`·메트릭으로 운영 신호를 확인**한다. I권과 도구(docker/CLI)는 겹치지만 관점이 다르다 — I권은 *원리가 성립함*을, III권은 *운영에서 어떤 숫자·어떤 대응*을 본다.
+- **🚦 상태 2축**: 아래 표의 상태는 **[산문]** 기준이다(📋 예정 / 🚧 일부). **[executable 운영 시나리오]는 전 장 ⬜ 미구현**(멀티브로커 장애 재현 환경 필요).
 
 ---
 
@@ -61,7 +66,7 @@ graph TB
 | 4장 | **리밸런싱 운영** | 위 트리거 전수 · 운영 영향 · 회피(cooperative·static·`group.initial.rebalance.delay.ms`) | Step 4 운영 각도 | 📋 예정 |
 | 5장 | 모니터링 & 관측 | **Consumer Lag** · under-replicated · JMX → Prometheus/Grafana | Step 9 재료 | 🚧 일부 |
 | 6장 | 토픽/브로커 설정 운영 | retention · `incrementalAlterConfigs` 동적 변경 · compaction 운영 | Step 10 재료 | 🚧 일부 |
-| 7장 | 내구성 운영 기준 | RF / `min.insync.replicas` / `acks` 조합 · unclean leader election | I권 3장 기반 | 📋 예정 |
+| 7장 | 내구성 운영 기준 | RF / `min.insync.replicas` / `acks` 조합 · unclean leader election | [I권 복제](../1-internals/03-replication.md) 기반 | 📋 예정 |
 | 8장 | 장애 대응 | 리더 선출 · ISR 복구 · partition reassignment · preferred leader | 신규(멀티브로커) | 📋 예정 |
 | 9장 | 용량/보존 운영 | 디스크 · throttling/quotas · tiered storage | 신규 | 📋 예정 |
 
