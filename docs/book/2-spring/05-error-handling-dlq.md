@@ -1,143 +1,79 @@
-# Step 5 — DLQ & Error Handling
+# II권 5장 — 에러 처리 & DLQ
 
-> **II권 5장** (Spring 코드 관점). 에러 처리·DLQ는 **II권 고유 영역**(Spring `DefaultErrorHandler`·`DeadLetterPublishingRecoverer`)이라 I권 원리에 직접 대응하지 않는다. 재처리의 중복 방어 원리만 → [I권 멱등·순서](../../../../../../../docs/book/1-internals/06-ordering-atomicity.md).
+> 앞: [리밸런싱 & 배포](./04-rebalancing.md) · 다음: [EOS & 트랜잭션](./06-eos-transactions.md)
+>
+> **보장/착각**: *"Spring Kafka 기본 에러 핸들러가 DLQ로 보내주는 것 아닌가?"* — **아니다. 기본은 N회 후 skip(버림)이다.** 에러 처리는 II권 고유 영역(`DefaultErrorHandler`)이라 I권 원리에 직접 대응이 없다 — 재처리 중복 방어 원리만 → [I권 멱등·순서](../1-internals/06-ordering-atomicity.md).
 
 ---
 
-## Spring Kafka의 기본 에러 핸들러가 DLQ로 보내주는 거 아닌가?
+## 5.1 기본 핸들러는 DLQ가 아니라 skip이다
 
-`@KafkaListener`에서 예외가 터졌다. 재시도를 몇 번 하더니 결국 실패했다. "실패한 메시지는 DLQ(Dead Letter Queue)로 가겠지?"
-
-**아니다. 기본 동작은 최대 10회 시도 후 skip(버림)이다.**
-
-Spring Kafka의 `DefaultErrorHandler`는 기본적으로 `FixedBackOff(0L, 9)` — 즉, 0ms 간격으로 9번 재시도, 총 10번 시도 후 실패하면 **메시지를 버리고 다음으로 넘어간다.** 로그만 남긴다. DLQ로 보내지 않는다.
+예외가 터지고 재시도가 소진됐다. *"DLQ로 가겠지?"* — `DefaultErrorHandler`의 기본 BackOff는 **`FixedBackOff(0L, 9)`** 다 `[code @spring-kafka 3.3]`. 0ms 간격 9회 재시도 = **총 10회** 시도 후, 실패하면 **메시지를 버리고 offset을 커밋**한다(로그만). DLQ로 안 보낸다.
 
 ```mermaid
 sequenceDiagram
-    participant K as Kafka Broker
+    participant K as Broker
     participant C as Consumer
     participant EH as DefaultErrorHandler
-
-    K->>C: msg-42 (offset=42)
-    C->>C: 시도 1 → 실패
-    C->>C: 시도 2 → 실패
-    C->>C: ...
-    C->>C: 시도 10 → 실패
-
-    C->>EH: 10회 소진
-    EH->>EH: log.error("Backoff exhausted")
+    K->>C: msg-42
+    C->>C: 시도 1~10 모두 실패
+    C->>EH: BackOff 소진
     EH->>K: offset 43 커밋 (skip!)
-
-    Note over K: msg-42는 영원히 사라짐
-    Note over EH: DLQ? 그런 거 설정 안 했으면 없다
+    Note over K: msg-42는 조용히 사라진다 (DLQ 미설정 시)
 ```
 
-> **DefaultErrorHandlerTrapTest** — `DefaultErrorHandler_기본_동작은_재시도_후_skip이다_DLQ가_아니다()`에서 확인.
+설정 없이 운영하면 실패 메시지가 **조용히 사라진다** — 로그를 안 보면 유실된 줄도 모른다.
 
-설정 없이 운영하면 실패 메시지가 **조용히 사라진다.** 로그를 꼼꼼히 보지 않으면 유실된 줄도 모른다.
-
-### 모든 예외를 재시도하는 건 아니다
-
-`DefaultErrorHandler`는 **Non-retryable로 분류된 예외는 재시도 없이 즉시 skip**(또는 DLQ)한다. `DeserializationException`, `ClassCastException` 등이 여기에 해당한다. 아무리 재시도해도 같은 결과이기 때문이다.
-
-"10회 재시도하겠지"라고 생각했는데 역직렬화 에러는 1회 만에 skip되는 상황이 실무에서 발생한다. `addNotRetryableExceptions()` / `addRetryableExceptions()`로 분류를 커스터마이징할 수 있다.
-
-> Non-retryable 예외와 역직렬화 문제는 [Step 7 — Serialization & Schema](../s07_serialization/)에서 자세히 다룬다.
+- **증명** → [s05 DLQ](../../../src/test/java/com/example/kafka/s05_dlq/README.md) `DefaultErrorHandlerTrapTest` 🧪
 
 ---
 
-## DLQ를 설정하면 실패한 메시지가 보존된다
+## 5.2 모든 예외를 재시도하지는 않는다 — non-retryable 분류
 
-DLQ로 보내려면 `DeadLetterPublishingRecoverer`를 명시적으로 설정해야 한다.
+`DefaultErrorHandler`는 **non-retryable로 분류된 예외는 재시도 없이 즉시** skip/DLQ한다 — `DeserializationException`·`ClassCastException`처럼 **재시도해도 같은 결과**인 것들. *"10회 재시도하겠지"* 했는데 역직렬화 에러는 1회에 끝나는 게 이 때문이다. `addNotRetryableExceptions()`/`addRetryableExceptions()`로 분류를 커스터마이징한다.
+
+> ⚠️ 역직렬화 실패는 **리스너에 들어오기도 전**(컨버터 단계)에 터져, `ErrorHandlingDeserializer`로 감싸지 않으면 `DefaultErrorHandler`가 *받지도 못하고* 무한 재폴링(poison-pill)한다 — 정의는 → [직렬화 & 스키마 진화](./07-serialization.md). **retry↔DLQ의 순서·분류 함정**의 깊은 분석은 → [코드 구조·순서의 함정](09-code-order-traps.md)(9.1).
+
+- **증명** → `DefaultErrorHandlerTrapTest` 🧪
+
+---
+
+## 5.3 DLQ 설정 — `DeadLetterPublishingRecoverer`
+
+DLQ로 보내려면 **명시적으로** recoverer를 등록한다:
 
 ```java
 @Bean
 DefaultErrorHandler errorHandler(KafkaTemplate<String, String> template) {
-    DeadLetterPublishingRecoverer recoverer =
-        new DeadLetterPublishingRecoverer(template);
-    return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2));
+    var recoverer = new DeadLetterPublishingRecoverer(template);
+    return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2));  // 1+2=3회 후 DLT
 }
 ```
 
-이제 3회 시도(최초 1 + 재시도 2) 후 실패하면, 메시지가 `{원본토픽}.DLT` 토픽으로 이동한다.
+실패 메시지가 `{원본토픽}.DLT`로 이동하고, **원본 토픽·파티션·offset·예외 정보가 헤더에** 담긴다(원인 분석·재처리용). 일시 장애엔 `FixedBackOff` 대신 `ExponentialBackOffWithMaxRetries`로 간격을 늘려 회복 시간을 준다.
 
-> 실무에서는 `FixedBackOff` 대신 `ExponentialBackOffWithMaxRetries`를 쓰는 경우가 많다. 일시적 장애(DB 순간 불능, 네트워크 타임아웃) 시 간격을 점점 늘려 시스템에 회복 시간을 준다.
+> ⚠️ 운영 브로커는 보통 `auto.create.topics.enable=false`라 **DLT 토픽을 미리 만들어야** 한다 — 없으면 DLQ 발행 자체가 실패한다. 토픽 프로비저닝 메커니즘은 [파티션 & 동시성](./03-partition-concurrency.md)(`NewTopic`).
 
-```mermaid
-sequenceDiagram
-    participant K as Kafka Broker
-    participant C as Consumer
-    participant EH as DefaultErrorHandler
-    participant DLT as order-events.DLT
-
-    K->>C: msg-42 (topic: order-events)
-    C->>C: 시도 1 → 실패
-    C->>C: 시도 2 → 실패
-    C->>C: 시도 3 → 실패
-
-    C->>EH: 재시도 소진
-    EH->>DLT: msg-42를 order-events.DLT로 발행
-
-    Note over DLT: 실패 메시지 보존됨
-    Note over DLT: 원본 토픽, 파티션, offset,<br/>예외 정보가 헤더에 포함됨
-
-    K->>C: offset 43 커밋 → 다음 메시지 처리 계속
-```
-
-> **DefaultErrorHandlerTrapTest** — `DLQ를_설정하면_실패한_메시지가_DLT_토픽으로_이동한다()`에서 확인.
-
-DLT 토픽에는 원본 메시지뿐 아니라, 어느 토픽의 어느 파티션 어느 offset에서 왔는지, 어떤 예외가 발생했는지가 헤더에 기록된다. 이 정보로 원인을 분석하고 재처리할 수 있다.
-
-> ⚠️ DLT 토픽은 자동으로 생성되지 않을 수 있다. 브로커의 `auto.create.topics.enable=false`인 환경(운영에서 일반적)에서는 DLT 토픽을 미리 만들어둬야 한다. 없으면 DLQ 발행 자체가 실패한다.
+- **증명** → `DefaultErrorHandlerTrapTest` 🧪
 
 ---
 
-## DLT를 방치하면 안 된다
+## 5.4 DLT를 방치하면 DLQ가 없는 것과 같다
 
-DLT에 메시지를 보내는 것은 첫 번째 단계다. DLT 토픽을 **별도 Consumer가 모니터링하고 재처리하는 로직**이 있어야 한다. DLT에 메시지가 쌓이기만 하고 아무도 안 보면, DLQ가 없는 것이나 마찬가지다.
-
-운영에서 고려할 것:
-
-```
-1. DLT 토픽에 Consumer를 달아서 알림 발송 (Slack, PagerDuty 등)
-2. 주기적으로 DLT 메시지를 원본 토픽으로 재발행 (수동 또는 자동)
-3. DLT 메시지의 retention 기간 설정 (영구 보관은 디스크 문제)
-4. DLT 메시지 건수를 메트릭으로 수집하여 모니터링
-```
+DLT로 보내는 건 시작일 뿐 — **별도 Consumer가 모니터링·재처리**해야 한다. DLT 메시지 *알림(Slack/PagerDuty)·재발행·retention·건수 메트릭* 같은 **운영**은 → [III권 모니터링·운영](../3-operations/README.md). II권은 "DLT로 보낸다"는 코드까지.
 
 ---
 
-## yml 대응
+## 5.5 yml 정리
 
 ```yaml
-# Spring Kafka 기본: DLQ 없음 (최대 10회 시도 후 skip)
-# DLQ 설정은 코드로 Bean 등록 필요:
-#   @Bean DefaultErrorHandler(DeadLetterPublishingRecoverer, BackOff)
-#
-# DLT 토픽은 브로커의 auto.create.topics.enable=false면 미리 생성 필요
+# DefaultErrorHandler 기본 = DLQ 없음, FixedBackOff(0,9)=총 10회 후 skip (5.1)
+# DLQ는 코드로 Bean 등록: DefaultErrorHandler(DeadLetterPublishingRecoverer, BackOff) (5.3)
+# DLT 토픽은 auto.create.topics.enable=false면 미리 생성 (NewTopic) — 3장
 ```
 
----
-
-## 스스로 답해보자
-
-- Spring Kafka의 `DefaultErrorHandler` 기본 동작은 무엇인가? 총 몇 번 시도하는가?
-- DLQ 설정 없이 운영하면 실패한 메시지는 어디로 가는가?
-- `DeserializationException`이 발생하면 재시도되는가?
-- `DeadLetterPublishingRecoverer`는 실패 메시지를 어느 토픽으로 보내는가?
-- DLT 토픽의 메시지 헤더에는 어떤 정보가 담겨있는가?
-- DLT 토픽에 메시지가 쌓이기만 하면 어떤 문제가 생기는가?
-- `FixedBackOff(1000L, 2)`에서 두 번째 인자가 의미하는 것은?
-
-> 답이 바로 나오면 Step 6으로 넘어가자.
-> 막히면 `DefaultErrorHandlerTrapTest`를 실행해서 기본 동작과 DLQ 동작의 차이를 직접 확인하자.
+전체 설정 인덱스는 → [설정 레퍼런스](./10-config-reference.md).
 
 ---
 
-## 다음 Step으로
-
-실패한 메시지를 DLQ로 보내서 보존하는 것까지 다뤘다.
-근데 **같은 메시지가 두 번 처리되는 건** 어떻게 막는가?
-
-Step 6에서는 Exactly-Once Semantics를 다룬다.
-"Kafka가 Exactly-Once를 지원하니까 중복 걱정 없는 거 아닌가?" — 아니다.
+← [II권 목차](./README.md) · 원리(재처리 중복 방어): [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) · 순서·분류 함정: [9.1](./09-code-order-traps.md) · 운영: [III권](../3-operations/README.md) · 증명: [s05](../../../src/test/java/com/example/kafka/s05_dlq/README.md)

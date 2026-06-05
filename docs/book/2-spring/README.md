@@ -157,7 +157,7 @@ graph TB
 - 퇴출 두 메커니즘(`session.timeout`=heartbeat 단절 / `max.poll.interval`=느린 처리) → 타이밍 SSOT는 [설정 조합의 함정](08-config-combination-traps.md)
 - 트리거 전수·운영 대응은 → [III권](../3-operations/README.md) · 원리 → [I권 조정](../1-internals/05-coordination.md) · 증명 → [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) 🧪
 
-### 5장 — 에러 처리 & DLQ   🚧 [05-error-handling-dlq.md](./05-error-handling-dlq.md)
+### 5장 — 에러 처리 & DLQ   ✅ [05-error-handling-dlq.md](./05-error-handling-dlq.md)
 
 > 보장/착각: *"기본 핸들러가 DLQ로 보내나?"* — 기본은 N회 후 **skip**이다.
 
