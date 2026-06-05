@@ -32,8 +32,9 @@ graph TB
     subgraph C1["① 설정 조합 함정 (개별 유효, 조합이 위험)"]
         A["enable.idempotence=true"] -.요구.-> B["acks=all"]
         A -.요구.-> M["max.in.flight ≤ 5"]
-        EX["explicit true + acks=1<br/>→ ConfigException (생성 실패=시끄러워서 안전)"]
-        SD["default 의존 + acks=1<br/>→ 침묵 disable (경고 없음=진짜 함정 ⚠️)"]
+        K["acks=1 (요구 위반)"]
+        K -->|"명시 true"| EX["ConfigException<br/>(fail-fast=시끄러워 안전)"]
+        K -->|"기본 의존"| SD["INFO 로그만 남고 disable<br/>(WARN도 아님=진짜 함정 ⚠️)"]
     end
     subgraph C2["② 코드 구조·순서 함정 (레이어 순서)"]
         R["retry"] --> D["DLQ/외부호출"]

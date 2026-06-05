@@ -19,16 +19,18 @@ graph TB
     IDEM["enable.idempotence=true"] -.전제.-> A["acks=all"]
     IDEM -.전제.-> M["max.in.flight ≤ 5"]
     IDEM -.전제.-> R["retries > 0"]
-    EX["explicit true + acks=1<br/>→ ConfigException (생성 실패=fail-fast)"]
-    SD["default 의존 + acks=1<br/>→ 침묵 disable ⚠️ (진짜 함정)"]
+    K["acks=1 (전제 위반)"]
+    K -->|"idempotence 명시 true"| EX["ConfigException<br/>생성 실패=fail-fast (시끄러워 안전)"]
+    K -->|"기본값 의존"| SD["INFO 로그만 남고 silent disable<br/>(WARN도 아님 → 진짜 함정 ⚠️)"]
 ```
 
 - Kafka **3.0+부터 `enable.idempotence`가 기본 `true`** → 명시하지 않아도 이미 `acks=all`이 강제된다.
 - 그래서 "나는 `acks` 설정 안 했는데 왜 all처럼 동작하지?"라는 혼란이 생긴다.
-- 충돌 시 동작은 **두 갈래**로 갈린다 — *여기가 9장의 킬러 포인트*다:
-  - **명시적으로 `enable.idempotence=true`를 켠 상태** + `acks=1` → **`ConfigException`으로 프로듀서 생성 자체가 실패(fail-fast)**. *시끄럽게 실패하므로 오히려 안전하다.*
-  - **기본값에 의존**(idempotence를 명시 안 함)하다 `acks=1`만 줌 → 경고·에러 없이 **멱등성이 조용히 비활성화**된다. *"안전하다는 착각"이 생기는 진짜 함정.*
-- 그래서 `acks`를 명시할 때는 **멱등성도 함께 명시**하라(둘을 같이 박으면 충돌이 fail-fast로 드러난다).
+- 충돌 시 동작은 **두 갈래**로 갈린다:
+  - **명시적으로 `enable.idempotence=true`를 켠 상태** + `acks=1` → **`ConfigException`으로 프로듀서 생성 자체가 실패(fail-fast)**. 시끄럽게 죽으므로 오히려 안전하다.
+  - **기본값에 의존**(idempotence 미명시)하다 `acks=1`만 줌 → 예외는 안 나고 **멱등성이 비활성화**된다. 이때 `"Idempotence will be disabled because acks is set to 1, not set to 'all'."` 로그가 남지만 **`INFO` 레벨**이라 — WARN조차 아니라 — 기동 로그 수천 줄에 묻혀 아무도 못 본다. *그게 진짜 함정.* `[code @3.7]`
+- ⚠️ 충돌 종류마다 로그 레벨이 다르다: `acks≠all`·`retries=0`은 **INFO**, `max.in.flight>5`는 **WARN**. 셋 중 **어느 하나만 어긋나도** silent disable된다.
+- 그래서 `acks`를 명시할 때는 **멱등성도 함께 명시**하라(둘을 같이 박으면 충돌이 fail-fast로 드러난다). 운영에선 `"Idempotence will be disabled"` 로그를 알람에 걸어 침묵을 깬다.
 
 **Spring 설정:**
 ```yaml
@@ -41,6 +43,8 @@ spring.kafka.producer:
 
 - **왜 이 조합인가** → [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) (PID+epoch+sequence가 max.in.flight≤5에서만 순서·중복을 보장)
 - **증명** → [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md) `ProducerAcksTest`
+
+> **짝 주의 — `acks=all`은 혼자선 내구성을 보장하지 못한다.** `acks=all`은 "**현재 ISR 전부**"의 ack인데, 토픽/브로커 `min.insync.replicas=1`(기본)이면 ISR이 리더 하나로 쪼그라든 순간에도 ack가 떨어진다 → 그 리더가 죽으면 **유실**. "acks=all이면 안전"이라는 client쪽 믿음이 깨지는 지점이다. 정석은 `acks=all` + `min.insync.replicas=2`(RF=3). 이건 **client × broker 경계를 넘는 조합**이라 이 장은 짚기만 하고 본문은 → [III권 의사결정 트리(CAP·PACELC)](../3-operations/10-config-decision-tree.md) · 원리 → [I권 복제](../1-internals/03-replication.md).
 
 ---
 
@@ -99,7 +103,7 @@ spring.kafka.consumer.properties:
 **Spring 설정:**
 ```yaml
 spring.kafka:
-  producer.transaction-id-prefix: tx-   # 인스턴스별 고유해야 함
+  producer.transaction-id-prefix: tx-${HOSTNAME}-   # 인스턴스마다 달라야 함(정적값 복붙 금지 — 같으면 좀비 펜싱으로 서로 죽임). 예: tx-pod-a-
   consumer.isolation-level: read_committed
 ```
 
@@ -113,7 +117,8 @@ spring.kafka:
 | 조합 | 깨지는 조건 | 막는 법 | 원리 |
 |------|------------|---------|------|
 | 멱등 삼각형 | `idempotence=true`인데 `acks≠all`·`max.in.flight>5` | acks=all·≤5 유지 | [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) |
-| 순서 역전 | 멱등 off + `max.in.flight>1` + retry | 멱등 on | 〃 |
+| **내구성 짝** (client×broker) | `acks=all`인데 `min.insync.replicas=1` | min.isr=2 (RF=3) | [III권 10장](../3-operations/10-config-decision-tree.md) · [I권 복제](../1-internals/03-replication.md) |
+| 순서 역전 | 멱등 off + `max.in.flight>1` + retry | 멱등 on | [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) |
 | 타이밍 3박자 | `heartbeat≥session` / `max.poll` 너무 짧음 | h < s ≪ m, `max.poll.records`↓ | [I권 조정](../1-internals/05-coordination.md) |
 | 트랜잭션 짝 | 프로듀서만 txn, 컨슈머 `read_uncommitted` | 컨슈머 `read_committed` | [I권 트랜잭션](../1-internals/07-transactions.md) |
 
