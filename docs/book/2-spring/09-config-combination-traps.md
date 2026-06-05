@@ -19,12 +19,16 @@ graph TB
     IDEM["enable.idempotence=true"] -.전제.-> A["acks=all"]
     IDEM -.전제.-> M["max.in.flight ≤ 5"]
     IDEM -.전제.-> R["retries > 0"]
-    BREAK["acks=1로 *명시* 하면 ⚠️<br/>→ ConfigException 또는 멱등성 무효화"]
+    EX["explicit true + acks=1<br/>→ ConfigException (생성 실패=fail-fast)"]
+    SD["default 의존 + acks=1<br/>→ 침묵 disable ⚠️ (진짜 함정)"]
 ```
 
 - Kafka **3.0+부터 `enable.idempotence`가 기본 `true`** → 명시하지 않아도 이미 `acks=all`이 강제된다.
 - 그래서 "나는 `acks` 설정 안 했는데 왜 all처럼 동작하지?"라는 혼란이 생긴다.
-- `acks=1`이나 `acks=0`을 *명시*하면 멱등성 전제와 충돌 → 멱등성이 꺼지거나 설정 예외.
+- 충돌 시 동작은 **두 갈래**로 갈린다 — *여기가 9장의 킬러 포인트*다:
+  - **명시적으로 `enable.idempotence=true`를 켠 상태** + `acks=1` → **`ConfigException`으로 프로듀서 생성 자체가 실패(fail-fast)**. *시끄럽게 실패하므로 오히려 안전하다.*
+  - **기본값에 의존**(idempotence를 명시 안 함)하다 `acks=1`만 줌 → 경고·에러 없이 **멱등성이 조용히 비활성화**된다. *"안전하다는 착각"이 생기는 진짜 함정.*
+- 그래서 `acks`를 명시할 때는 **멱등성도 함께 명시**하라(둘을 같이 박으면 충돌이 fail-fast로 드러난다).
 
 **Spring 설정:**
 ```yaml

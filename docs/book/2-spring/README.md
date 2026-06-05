@@ -32,7 +32,8 @@ graph TB
     subgraph C1["① 설정 조합 함정 (개별 유효, 조합이 위험)"]
         A["enable.idempotence=true"] -.요구.-> B["acks=all"]
         A -.요구.-> M["max.in.flight ≤ 5"]
-        W1["acks=1로 바꾸면<br/>멱등성이 깨진다 ⚠️"]
+        EX["explicit true + acks=1<br/>→ ConfigException (생성 실패=시끄러워서 안전)"]
+        SD["default 의존 + acks=1<br/>→ 침묵 disable (경고 없음=진짜 함정 ⚠️)"]
     end
     subgraph C2["② 코드 구조·순서 함정 (레이어 순서)"]
         R["retry"] --> D["DLQ/외부호출"]
