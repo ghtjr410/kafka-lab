@@ -16,7 +16,7 @@
 - Producer/Consumer/Listener 코드·설정 · 설정 조합 함정 · 코드 구조·순서 함정 · 직렬화 (기존 Step s01~s07)
 
 ### 다루지 않는다 (Out of Scope)
-- 내부 원리(보장·알고리즘) → [I권](../1-internals/README.md) · 운영 절차·모니터링·사이징 → [III권](../3-operations/README.md)
+- 내부 원리(보장·알고리즘) → [I권](../1-internals/README.md) · 운영 절차·모니터링·사이징·**보안(SASL/SSL/ACL)** → [III권](../3-operations/README.md)
 - **Kafka Connect / CDC / Schema Registry / Streams** → [IV권](../4-beyond-core/README.md) (인프라·플랫폼 영역)
 
 > 🤖 "왜 그런가"는 [I권](../1-internals/README.md), "운영 기준"은 [III권](../3-operations/README.md)에 **링크만**. 여기선 코드 관점만 깎는다.
@@ -42,22 +42,16 @@ graph TB
 ```
 
 > **resilience4j 비유**: `retry`가 앞단, `circuitbreaker`가 뒷단이면 1번 실패할 것을 N번 시도해 N번이 다 서킷에 집계된다.
-> Kafka에도 똑같은 형태가 있다 — non-retryable 예외(역직렬화 실패)를 분류하지 않으면 **절대 성공 못 할 메시지를 10번 재시도**한다. (형제 [resilience4j-lab](../../../../resilience4j-lab/)과 연결)
+> Kafka에도 똑같은 형태가 있다 — non-retryable 예외(역직렬화 실패=poison-pill)를 분류하지 않으면 **절대 성공 못 할 메시지를 끝까지 헛재시도**한다(정확한 횟수·원리는 [10장](./10-code-order-traps.md)). (형제 [resilience4j-lab](../../../../resilience4j-lab/)과 연결)
 
-**그래서 II권의 각 장은 3관점으로 깎는다:**
-`개별 설정의 의미` → `설정 조합의 상호작용(함정)` → `코드 구조·순서의 함정`
+**위 두 차원(① 조합 · ② 순서)에 그 베이스인 `개별 설정의 의미`를 더하면, II권의 각 장은 3관점으로 깎인다:**
+`개별 설정의 의미`(베이스) → `설정 조합`(차원① = 위 C1) → `코드 구조·순서`(차원② = 위 C2)
 
 ---
 
 ## 이 권의 성격
 
-```mermaid
-graph LR
-    I["📘 I권<br/>커밋의 정의 = HW"] --> II["📙 II권<br/>spring.kafka.producer.acks=all<br/>+ ProducerFactory 설정"]
-    II -->|"함정"| T["⚠️ 기본 AckMode(BATCH)에서<br/>예외 삼키면 offset 커밋 → 유실"]
-```
-
-함정은 버리지 않는다 — **원리를 알고 나서 보는 "현실에서 깨지는 증거"** 로 재배치된다.
+함정은 버리지 않는다 — **원리를 알고 나서 보는 "현실에서 깨지는 증거"** 로 재배치된다. 같은 사실의 세 얼굴이다: I권 `커밋의 정의 = HW`(원리) → II권 `acks=all` + `ProducerFactory`(코드) → 기본 `AckMode(BATCH)`에서 예외를 삼키면 offset이 커밋되어 **유실**(함정).
 
 ---
 
@@ -82,7 +76,7 @@ graph LR
 | 4장 | Rebalancing & 배포 | "롤링 배포 시 왜 멈추나?" | 📄 `s04_rebalancing/README.md` | 🧪 6 |
 | 5장 | 에러 처리 & DLQ | "기본 핸들러가 DLQ로 보내나?" | 📄 `s05_dlq/README.md` | 🧪 2 |
 | 6장 | EOS & 트랜잭션 | "EOS면 중복 없나?" | 📄 `s06_eos/README.md` | 🧪 8 |
-| 7장 | 직렬화 & 스키마 진화 | "필드 추가했는데 왜 죽나?" | 📄 `s07_serialization/README.md` | 🧪 7 |
+| 7장 | 직렬화 & 스키마 진화<br/>*(중앙 스키마 Registry는 [IV권](../4-beyond-core/README.md))* | "필드 추가했는데 왜 죽나?" | 📄 `s07_serialization/README.md` | 🧪 7 |
 
 > **8장은 결번.** `s08_connect`(Kafka Connect)는 인프라/통합 주제라 → [IV권](../4-beyond-core/README.md)으로 이동했다. `s09_monitoring`·`s10_broker`(운영 성격)는 → [III권](../3-operations/README.md)으로 분류.
 > *(챕터 번호와 Step 번호 `sNN`은 별개 축이다 — Step 이동으로 8장이 비고, 횡단편은 9장부터 잇는다.)*

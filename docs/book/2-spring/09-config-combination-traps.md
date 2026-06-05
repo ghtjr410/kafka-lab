@@ -6,7 +6,7 @@
 
 본편(1~7장)이 "설정 하나하나의 의미"였다면, 이 장은 **여러 설정이 서로를 전제·강제·배신하는** 지점이다. 각 값은 문서상 valid인데, 조합이 깨지면 멱등성이 사라지거나 순서가 뒤집히거나 컨슈머가 퇴출된다. **왜 그렇게 되는가의 원리는 I권**에 있고, 여기서는 *Spring 설정에서 어떻게 깨지고 어떻게 막나*를 본다.
 
-> **resilience4j 비유**: 개별 `retry`·`circuitbreaker`는 멀쩡한데 *조합·순서*가 틀리면 1번 실패를 N번 집계한다. Kafka 설정도 똑같다 — 개별 valid ≠ 조합 valid. (형제 [resilience4j-lab](../../../resilience4j-lab/))
+> **resilience4j 비유**: 개별 `retry`·`circuitbreaker`는 멀쩡한데 *조합·순서*가 틀리면 1번 실패를 N번 집계한다. Kafka 설정도 똑같다 — 개별 valid ≠ 조합 valid. (형제 [resilience4j-lab](../../../../resilience4j-lab/))
 
 ---
 

@@ -6,7 +6,7 @@
 
 9장이 "설정들의 조합"이었다면, 이 장은 **코드의 순서·위치·경계**다. 같은 컴포넌트를 어느 순서로 두느냐, ack를 어디서 하느냐, blocking을 어디서 하느냐에 따라 멀쩡한 설정이 무너진다.
 
-> **resilience4j 비유 (이 권의 핵심)**: `retry`가 앞단, `circuitbreaker`가 뒷단이면 — 1번 실패할 것을 retry가 N번 재시도하고, 그 N번이 *전부* 서킷에 집계되어 서킷이 잘못 열린다. **레이어 순서 하나가 전체 동작을 뒤집는다.** Kafka 에러 처리에도 똑같은 형태가 있다(10.1). (형제 [resilience4j-lab](../../../resilience4j-lab/))
+> **resilience4j 비유 (이 권의 핵심)**: `retry`가 앞단, `circuitbreaker`가 뒷단이면 — 1번 실패할 것을 retry가 N번 재시도하고, 그 N번이 *전부* 서킷에 집계되어 서킷이 잘못 열린다. **레이어 순서 하나가 전체 동작을 뒤집는다.** Kafka 에러 처리에도 똑같은 형태가 있다(10.1). (형제 [resilience4j-lab](../../../../resilience4j-lab/))
 
 ---
 
@@ -17,11 +17,11 @@
 ```mermaid
 graph LR
     E["예외 발생"] --> Q{non-retryable?}
-    Q -->|"분류 안 함 ❌"| RETRY["역직렬화 실패도<br/>10번 재시도<br/>(절대 성공 못 함)"]
+    Q -->|"분류 안 함 ❌"| RETRY["역직렬화 실패(poison-pill)도<br/>총 10회(기본 1+9 retry) 헛재시도<br/>(절대 성공 못 함)"]
     Q -->|"분류 함 ✅"| DLQ["즉시 DLQ로"]
 ```
 
-- **역직렬화 실패(`DeserializationException`)** 같은 건 재시도해도 **절대 성공 못 한다.** 그런데 분류 안 하면 BackOff만큼 N번 헛재시도하고 그제야 DLQ로 간다.
+- **역직렬화 실패(`DeserializationException`)** 같은 건 재시도해도 **절대 성공 못 한다(poison-pill).** 게다가 역직렬화는 **리스너에 들어오기도 전(컨버터 단계)** 에 터지므로, `ErrorHandlingDeserializer`로 감싸지 않으면 같은 레코드에서 무한 반복하며 컨슈머가 막힌다. 감싼 뒤에도 분류 안 하면 `DefaultErrorHandler` 기본 BackOff만큼(기본 **총 10회 = 1 + 9 retry**) 헛재시도하고 그제야 DLQ로 간다.
 - 이게 정확히 resilience4j의 "retry-앞·서킷-뒤"와 같은 형태 — *재시도하면 안 되는 걸 재시도*해서 비용·지연·집계를 낭비한다.
 - 해법: `addNotRetryableExceptions(...)`로 non-retryable을 분류 → 즉시 DLQ.
 
