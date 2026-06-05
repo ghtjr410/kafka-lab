@@ -63,7 +63,9 @@ graph LR
 ## 증명 모델 · 상태
 
 - **🧪 증명 모델**: II권의 증명은 **Spring Kafka 통합 테스트**(기존 Step 테스트)다. I권의 `docker`/CLI 자체증명과 달리 **프레임워크에 의존**한다 — 그래서 이 권에 속한다. (표지 "증명 모델 명시" 규칙)
-- **🚦 상태 2축**: 본편(1~7장)은 산문(Step README)·증명(테스트)이 **둘 다 기존 자산 ✅**. 횡단편(9~11장)은 **📋 신규**(아웃라인만, 산문·테스트 미작성).
+- **🚦 상태 (이 섹션이 II권 상태 SSOT — 2축)**:
+  - **[산문]** 본편(1~7장)=기존 Step README(✅ 확정) · 횡단편 9·10장=✅ 작성 · 11장=인덱스 ✅
+  - **[증명]** 본편=기존 Step 테스트(🧪 있음) · 횡단편=⬜ 미구현(본편 Step 테스트를 링크로 참조)
 
 ---
 
@@ -71,23 +73,23 @@ graph LR
 
 ### 본편 — 기존 Step 재사용(📄)
 
-| 장 | 제목 | 착각 질문 | 본문 위치 | 증명 |
-|----|------|----------|----------|------|
-| 1장 | Producer 보장 | "acks=all이면 안전한가?" | 📄 `s01_producer/README.md` | ✅ 12 |
-| 2장 | Consumer & Offset | "예외를 삼키면 안전한가?" | 📄 `s02_consumer/README.md` | ✅ 14 |
-| 3장 | Partition & concurrency | "파티션 늘리면 좋은가?" | 📄 `s03_partition/README.md` | ✅ 6 |
-| 4장 | Rebalancing & 배포 | "롤링 배포 시 왜 멈추나?" | 📄 `s04_rebalancing/README.md` | ✅ 6 |
-| 5장 | 에러 처리 & DLQ | "기본 핸들러가 DLQ로 보내나?" | 📄 `s05_dlq/README.md` | ✅ 2 |
-| 6장 | EOS & 트랜잭션 | "EOS면 중복 없나?" | 📄 `s06_eos/README.md` | ✅ 8 |
-| 7장 | 직렬화 & 스키마 진화 | "필드 추가했는데 왜 죽나?" | 📄 `s07_serialization/README.md` | ✅ 7 |
+| 장 | 제목 | 착각 질문 | 본문 위치 | 테스트 |
+|----|------|----------|----------|--------|
+| 1장 | Producer 보장 | "acks=all이면 안전한가?" | 📄 `s01_producer/README.md` | 🧪 12 |
+| 2장 | Consumer & Offset | "예외를 삼키면 안전한가?" | 📄 `s02_consumer/README.md` | 🧪 14 |
+| 3장 | Partition & concurrency | "파티션 늘리면 좋은가?" | 📄 `s03_partition/README.md` | 🧪 6 |
+| 4장 | Rebalancing & 배포 | "롤링 배포 시 왜 멈추나?" | 📄 `s04_rebalancing/README.md` | 🧪 6 |
+| 5장 | 에러 처리 & DLQ | "기본 핸들러가 DLQ로 보내나?" | 📄 `s05_dlq/README.md` | 🧪 2 |
+| 6장 | EOS & 트랜잭션 | "EOS면 중복 없나?" | 📄 `s06_eos/README.md` | 🧪 8 |
+| 7장 | 직렬화 & 스키마 진화 | "필드 추가했는데 왜 죽나?" | 📄 `s07_serialization/README.md` | 🧪 7 |
 
-> `s08_connect`(Kafka Connect)는 인프라/통합 주제 → [IV권](../4-beyond-core/README.md)으로 이동.
-> `s09_monitoring`·`s10_broker`(운영 성격)는 [III권](../3-operations/README.md)으로 분류.
+> **8장은 결번.** `s08_connect`(Kafka Connect)는 인프라/통합 주제라 → [IV권](../4-beyond-core/README.md)으로 이동했다. `s09_monitoring`·`s10_broker`(운영 성격)는 → [III권](../3-operations/README.md)으로 분류.
+> *(챕터 번호와 Step 번호 `sNN`은 별개 축이다 — Step 이동으로 8장이 비고, 횡단편은 9장부터 잇는다.)*
 
-### 횡단편 — 설정·코드 차원의 함정 (신규)
+### 횡단편 — 설정·코드 차원의 함정 (신규, 9~11장)
 
-| 장 | 제목 | 다루는 핵심 | 상태 |
-|----|------|------------|------|
+| 장 | 제목 | 다루는 핵심 | 산문 상태 |
+|----|------|------------|----------|
 | 9장 | **[설정 조합의 함정](./09-config-combination-traps.md)** | idempotence ↔ acks ↔ max.in.flight / order ↔ retry / `session·heartbeat·max.poll` 3박자 타이밍 / transactional ↔ isolation.level | ✅ 산문 |
 | 10장 | **[코드 구조·순서의 함정](./10-code-order-traps.md)** | ErrorHandler retry↔DLQ 순서·non-retryable 분류 / commit 위치(처리 전 vs 후) / `@RetryableTopic` non-blocking retry / `@Transactional`+Kafka 트랜잭션 경계 / 리스너 내 blocking 호출 → poll 초과 | ✅ 산문 |
 | 11장 | **[설정 레퍼런스(인덱스)](./11-config-reference.md)** | Producer/Consumer/Listener 설정을 한 곳에서 인덱싱 (의미는 본편·9·10장 SSOT, 기본값은 검증된 것만 ✓) | ✅ 인덱스 |
