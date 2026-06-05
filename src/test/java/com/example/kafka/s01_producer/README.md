@@ -1,6 +1,6 @@
 # Step 1 — Producer Guarantee + Advanced
 
-> ISR, Replication Factor, Leader/Follower의 내부 동작이 궁금하면 [KAFKA-ARCHITECTURE.md](../../../../KAFKA-ARCHITECTURE.md)를 먼저 읽자.
+> **II권 1장** (Spring Kafka 코드 관점). ISR·복제·Leader/Follower의 **원리**는 I권에서 깊게 다룬다 → [I권 복제](../../../../../../../docs/book/1-internals/03-replication.md). 이 장은 그 원리를 **Spring 코드로 어떻게 쓰고 어디서 데이나**를 다룬다.
 
 ---
 
