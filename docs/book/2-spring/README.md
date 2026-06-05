@@ -108,7 +108,7 @@ graph TB
 | `ErrorHandlingDeserializer` (역직렬화 실패→DLT, poison-pill 차단) | **7장** | 5·7·9장 |
 | `auto.offset.reset` (`latest` 기본 — 새 그룹 함정) | **2장** | 2·10장 |
 | 배치 리스너 / `BatchListenerFailedException` (단건 복구) | **9장** | 9·10장 |
-| 컨테이너 `pause()`/`resume()` (백프레셔 처방) | **9장** | 3·9장 |
+| 컨테이너 `pause()`/`resume()` (백프레셔 처방) | **9장** | 9장 |
 
 > 🚧 = 정의 *위치*는 정해졌으나 본문이 아직 얇음(아래 *다음 작업* 참조). 표는 위치를 가리키되 미완을 숨기지 않는다.
 

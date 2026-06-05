@@ -14,10 +14,10 @@
 
 아래 표의 키들은 *"무엇이 기본값인가"* 이전에 **"어디에 어떻게 넣어야 먹는가"** 가 먼저다 — 값만 알아선 안 먹을 수 있다.
 
-- `spring.kafka.*`는 Kafka 설정을 **전부 매핑하지 않는다.** Spring Boot가 아는 일부 키만 전용 프로퍼티(`spring.kafka.consumer.group-id`·`auto-offset-reset` 등)로 노출되고, **나머지 임의 client 설정은 `spring.kafka.consumer.properties.*`(또는 `producer.properties.*`) 맵**으로 넘겨야 한다(예: `isolation.level`).
-- 전용 키가 없는 설정을 `spring.kafka.consumer.무엇`처럼 적으면 **조용히 무시**된다 — 에러도 없다. *"설정했는데 왜 안 먹지?"* 의 정체.
+- `spring.kafka.*`는 Kafka 설정을 **전부 매핑하지 않는다.** Spring Boot가 아는 일부 키만 전용 프로퍼티(`spring.kafka.consumer.group-id`·`isolation-level` 등)로 노출되고, **전용 키가 없는 설정은 `spring.kafka.consumer.properties.*`(또는 `producer.properties.*`) 맵**으로 넘겨야 한다(예: `partition.assignment.strategy`).
+- 전용 키가 없는 설정을 `spring.kafka.consumer.무엇`처럼 적으면 (relaxed binding이 모르는 키라) **조용히 무시**된다 — 에러도 없다. *"설정했는데 왜 안 먹지?"* 의 정체.
 - **7장의 `spring.jackson.*`가 `JsonDeserializer`에 미적용**인 것도 같은 결의 함정.
-- precedence: **programmatic `ConsumerFactory`/`@Bean` 설정이 yml보다 우선**한다(코드가 yml을 덮는다). 둘을 섞으면 어느 쪽이 이겼는지 헷갈리니 **한 곳에서** 설정하라.
+- precedence: 커스텀 `ConsumerFactory`/`@Bean`을 정의하면 yml 기반 자동구성을 **대체**한다(병합 아님 — yml 일부만 반영되는 게 아니라 아예 안 탄다). 둘을 섞지 말고 **한 곳에서** 설정하라.
 
 ---
 
@@ -31,8 +31,8 @@
 | `linger.ms` | 0 | ? | [본편 1장](../../../src/test/java/com/example/kafka/s01_producer/README.md) |
 | `batch.size` | 16384 | ? | 본편 1장 |
 | `buffer.memory` | 33554432 (32MB) | ? | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
-| `max.block.ms` | 60000 | ? | 본편 1장 · I권 9장 |
-| `delivery.timeout.ms` | 120000 | ✓ `[KIP-91]` | 본편 1장 · I권 9장 |
+| `max.block.ms` | 60000 | ? | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
+| `delivery.timeout.ms` | 120000 | ✓ `[KIP-91]` | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
 | `transaction.timeout.ms` | 60000 | ✓ | [I권 트랜잭션](../1-internals/07-transactions.md) |
 | `transactional.id` / Spring `transaction-id-prefix` | (없음, 인스턴스별 고유 필수) | — | [본편 6장](../../../src/test/java/com/example/kafka/s06_eos/README.md) |
 
@@ -48,13 +48,13 @@
 | `auto.offset.reset` | `latest` | ? | 본편 2장 |
 | `isolation.level` | `read_uncommitted` | ✓ | [본편 6장](../../../src/test/java/com/example/kafka/s06_eos/README.md) · [8장](./08-config-combination-traps.md) · [I권 트랜잭션](../1-internals/07-transactions.md) |
 | `heartbeat.interval.ms` | 3000 | ? | [8장](./08-config-combination-traps.md) · [I권 조정](../1-internals/05-coordination.md) |
-| `session.timeout.ms` | 45000 | ? | 8장 · I권 5장 |
+| `session.timeout.ms` | 45000 | ? | 8장 · [I권 조정](../1-internals/05-coordination.md) |
 | `max.poll.interval.ms` | 300000 | ? | 8장 · [9장](./09-code-order-traps.md) |
 | `max.poll.records` | 500 | ? | 8장 · 9장 |
 | `fetch.min.bytes` | 1 | ? | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) (9.7 fetch) |
-| `fetch.max.wait.ms` | 500 | ? | I권 9장 |
-| `group.instance.id` (static membership) | (없음) | — | [본편 4장](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) · I권 5장 |
-| `partition.assignment.strategy` | `[RangeAssignor, CooperativeStickyAssignor]` (3.x) | ? | 본편 4장 · I권 5장 |
+| `fetch.max.wait.ms` | 500 | ? | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
+| `group.instance.id` (static membership) | (없음) | — | [본편 4장](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) · [I권 조정](../1-internals/05-coordination.md) |
+| `partition.assignment.strategy` | `[RangeAssignor, CooperativeStickyAssignor]` (3.x) | ? | 본편 4장 · [I권 조정](../1-internals/05-coordination.md) |
 
 ---
 

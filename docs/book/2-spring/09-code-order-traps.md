@@ -39,7 +39,7 @@ offset을 **언제 커밋하느냐**가 유실/중복을 가른다:
 | 처리 *후* commit + 비멱등 처리 + 재시도 | **중복** (처리는 됐는데 commit 전 죽으면 재처리) |
 
 - 안전한 기본은 **처리 후 커밋**(at-least-once). 그러면 중복 가능성이 남으므로 **처리를 멱등하게** 짜야 한다(멱등키).
-- Spring `AckMode`(BATCH·RECORD·MANUAL)가 이 "커밋 시점"을 정한다 — 기본 BATCH에서 예외를 삼키면 offset이 커밋되어 **메시지가 영원히 유실**된다(본편 2장의 핵심 함정).
+- Spring `AckMode`(BATCH·RECORD·MANUAL)가 이 "커밋 시점"을 정한다 — 기본 BATCH에서 예외를 삼키면 offset이 커밋되어 **메시지가 영원히 유실**된다(→ [Consumer & Offset](./02-consumer-offset.md)의 핵심 함정).
 
 - **왜** → [I권 조정](../1-internals/05-coordination.md) (offset 커밋과 `__consumer_offsets`)
 - **증명** → [s02 Consumer](../../../src/test/java/com/example/kafka/s02_consumer/README.md) `ConsumerAckModeTest`·`ConsumerAutoCommitTrapTest`
@@ -59,7 +59,7 @@ graph LR
 
 - poll 루프는 **단일 스레드**다(→ [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)). 리스너가 오래 막히면 다음 `poll()`이 늦어져 `max.poll.interval.ms`(8.3)를 넘기고 퇴출된다.
 - 해법: 무거운 일은 **별도 executor로 넘기거나**, `max.poll.records`를 줄여 배치 처리 시간을 짧게.
-- **백프레셔의 정답은 `Thread.sleep`이 아니다** — 일부러 처리를 늦춰야 하면 리스너를 막지 말고 **컨테이너를 `pause()`/`resume()`** 하라(`MessageListenerContainer`). poll은 계속 돌되 레코드 *전달*만 멈춰 `max.poll.interval`을 안 넘긴다. 컨테이너 시작·중지는 `KafkaListenerEndpointRegistry`로, 기동 시 자동 시작을 막으려면 `autoStartup=false`. (리스너 안 `sleep`은 곧 9.3 함정 그 자체.)
+- **백프레셔의 정답은 `Thread.sleep`이 아니다** — 일부러 처리를 늦춰야 하면 리스너를 막지 말고 **컨테이너를 `pause()`/`resume()`** 하라(`MessageListenerContainer`). pause는 다음 `poll()`부터 적용되고, 그 동안에도 poll 루프는 계속 돌아(heartbeat 유지) 레코드 *전달*만 멈추므로 `max.poll.interval`을 안 넘긴다. 컨테이너 시작·중지는 `KafkaListenerEndpointRegistry`로, 기동 시 자동 시작을 막으려면 `autoStartup=false`. (리스너 안 `sleep`은 곧 9.3 함정 그 자체.)
 
 - **왜** → [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)(단일 poll 루프) + 8.3 타이밍
 - **증명** → [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) `MaxPollIntervalTest`
