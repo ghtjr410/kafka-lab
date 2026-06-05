@@ -10,6 +10,17 @@
 
 ---
 
+## 설정은 어떻게 주입되나 (표를 읽기 전에)
+
+아래 표의 키들은 *"무엇이 기본값인가"* 이전에 **"어디에 어떻게 넣어야 먹는가"** 가 먼저다 — 값만 알아선 안 먹을 수 있다.
+
+- `spring.kafka.*`는 Kafka 설정을 **전부 매핑하지 않는다.** Spring Boot가 아는 일부 키만 전용 프로퍼티(`spring.kafka.consumer.group-id`·`auto-offset-reset` 등)로 노출되고, **나머지 임의 client 설정은 `spring.kafka.consumer.properties.*`(또는 `producer.properties.*`) 맵**으로 넘겨야 한다(예: `isolation.level`).
+- 전용 키가 없는 설정을 `spring.kafka.consumer.무엇`처럼 적으면 **조용히 무시**된다 — 에러도 없다. *"설정했는데 왜 안 먹지?"* 의 정체.
+- **7장의 `spring.jackson.*`가 `JsonDeserializer`에 미적용**인 것도 같은 결의 함정.
+- precedence: **programmatic `ConsumerFactory`/`@Bean` 설정이 yml보다 우선**한다(코드가 yml을 덮는다). 둘을 섞으면 어느 쪽이 이겼는지 헷갈리니 **한 곳에서** 설정하라.
+
+---
+
 ## Producer
 
 | 설정 | 기본값 | 검증 | 다루는 곳 |
@@ -65,6 +76,28 @@
 - `auto.offset.reset`·`fetch.*`·타이밍 3박자 기본값
 
 확정 후 `?` → `✓`로 갱신하고, 버전 라벨(`[docs @3.7]`)을 단다.
+
+---
+
+## 증상 → 함정 역인덱스 (장애 중 진단용)
+
+위 표·본편 아웃라인이 *설정 → 장* 방향이라면, 이건 **증상 → 원인** 역방향이다. 장애 한가운데서 "무슨 증상 → 어디를 펴라"로 쓴다.
+
+> 🔒 각 행은 본편 *보장/착각* 줄과 8·9장에서 **도출**된 것이다 — 새 사실을 정의하지 않는 순수 네비게이션. 본문이 바뀌면 이 표가 아니라 본문을 따른다.
+
+| 증상 | 가장 흔한 원인 → 어디 |
+|------|----------------------|
+| 메시지가 **유실**됐다 | 처리 전 커밋 / 예외 삼킴 → [2장](#)·[9.2](./09-code-order-traps.md) · skip(DLQ 아님) → [5장](#) · `send()` async 실패 무시 → [1장](#) |
+| **중복** 처리된다 | at-least-once 미멱등 → [9.2](./09-code-order-traps.md) · 배치 전체 재시도 → [9.6](./09-code-order-traps.md) · 멱등 꺼짐 → [8.1](./08-config-combination-traps.md) |
+| **순서**가 꼬였다 | `max.in.flight`>1 + retry + 멱등 off → [8.2](./08-config-combination-traps.md) |
+| 롤링 배포 때 **멈춘다** | 리밸런싱 / 타이밍 → [4장](#)·[8.3](./08-config-combination-traps.md) |
+| 역직렬화에서 **죽는다**(무한 재폴링) | `ErrorHandlingDeserializer` 부재(poison-pill) → [7장](#)·[9.1](./09-code-order-traps.md) |
+| 멱등이 **조용히** 꺼졌다 | acks / max.in.flight 충돌 → [8.1](./08-config-combination-traps.md) |
+| 설정이 **안 먹는다** | `properties.*` 맵 우회 / `spring.jackson` 미적용 → 위 *설정 주입* · [7장](#) |
+| 컨슈머가 **퇴출**된다 | 리스너 blocking / poll 초과 → [9.3](./09-code-order-traps.md)·[8.3](./08-config-combination-traps.md) |
+| 새 그룹인데 **메시지가 안 온다** | `auto.offset.reset=latest`(기본) → [2장](#) |
+
+> `#` 링크(본편 1·2·4·5·7장)는 정본 본문이 🚧 재산문화 후 정확한 named anchor로 채운다 — 그 전까진 장 단위로 읽는다.
 
 ---
 

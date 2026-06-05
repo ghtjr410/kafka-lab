@@ -59,6 +59,7 @@ graph LR
 
 - poll 루프는 **단일 스레드**다(→ [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)). 리스너가 오래 막히면 다음 `poll()`이 늦어져 `max.poll.interval.ms`(8.3)를 넘기고 퇴출된다.
 - 해법: 무거운 일은 **별도 executor로 넘기거나**, `max.poll.records`를 줄여 배치 처리 시간을 짧게.
+- **백프레셔의 정답은 `Thread.sleep`이 아니다** — 일부러 처리를 늦춰야 하면 리스너를 막지 말고 **컨테이너를 `pause()`/`resume()`** 하라(`MessageListenerContainer`). poll은 계속 돌되 레코드 *전달*만 멈춰 `max.poll.interval`을 안 넘긴다. 컨테이너 시작·중지는 `KafkaListenerEndpointRegistry`로, 기동 시 자동 시작을 막으려면 `autoStartup=false`. (리스너 안 `sleep`은 곧 9.3 함정 그 자체.)
 
 - **왜** → [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)(단일 poll 루프) + 8.3 타이밍
 - **증명** → [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) `MaxPollIntervalTest`
@@ -90,13 +91,29 @@ DB 트랜잭션과 Kafka 발행을 **한 메서드에 섞으면** 경계가 꼬�
 
 ---
 
-## 9.6 정리 — 코드 순서 체크리스트
+## 9.6 배치 리스너 — 1건 실패가 N건을 재처리시킨다
+
+`spring.kafka.listener.type=batch`로 `List<ConsumerRecord>`를 한 번에 받으면 처리량은 오르지만, **에러 처리의 결이 완전히 달라진다.** 1~9.5장이 암묵적으로 *단일 레코드*를 가정했다면, 배치는 그 가정이 깨지는 지점이다:
+
+- 배치 안 **한 건**이 실패했는데 그냥 예외를 던지면 → `DefaultErrorHandler`는 **배치 전체를 재시도**한다. 이미 처리된 멀쩡한 N-1건이 **중복 처리**된다(비멱등 처리면 그대로 사고).
+- 해법: **`BatchListenerFailedException(message, index)`** 로 *실패한 인덱스를 지목*하면, 그 레코드 직전까지 커밋하고 **그 한 건만** recoverer(DLQ)로 보낸다 — 나머지는 안 건드린다.
+- 함정: 인덱스를 안 넘기거나 일반 예외를 던지면 이 단건 복구가 **작동하지 않는다.** *배치인데 단일 레코드처럼 짠* 코드의 전형.
+
+→ 트레이드오프: **처리량↑ vs 에러 처리 복잡도↑**. 단건 모드는 프레임워크가 실패를 격리해 주지만, 배치는 "빠른 대신 실패 격리를 직접 코딩"해야 한다.
+
+- **왜** → 커밋·offset 원리는 [I권 조정](../1-internals/05-coordination.md) · "어디까지 커밋되나"는 9.2 commit 위치의 배치판
+- **증명** → ⬜ 위임(s05 DLQ 단건 경로) · 🧩 배치 단건 복구는 통합테스트 필요
+
+---
+
+## 9.7 정리 — 코드 순서 체크리스트
 
 | 함정 | 잘못된 순서/위치 | 올바른 형태 |
 |------|----------------|------------|
 | ErrorHandler | non-retryable을 retry에 태움 | 분류 → 즉시 DLQ |
 | commit 위치 | 처리 *전* 커밋 | 처리 *후* 커밋 + 멱등 처리 |
-| 리스너 blocking | poll 루프에서 장시간 blocking | executor 위임 / `max.poll.records`↓ |
+| 리스너 blocking | poll 루프에서 장시간 blocking / `Thread.sleep` | executor 위임 / `max.poll.records`↓ / 컨테이너 `pause()` |
+| 배치 단건 복구 | 배치에서 일반 예외 → 전체 재시도·중복 | `BatchListenerFailedException(msg, index)` |
 | retry 혼용 | blocking + non-blocking 동시 | 하나만 |
 | 트랜잭션 경계 | DB+Kafka를 한 메서드에 | Outbox(→ messaging-lab) |
 

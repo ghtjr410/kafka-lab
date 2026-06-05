@@ -106,6 +106,9 @@ graph TB
 | `isolation.level` (read_committed 짝) | **6장** | 6·8·10장 |
 | 스키마 진화 (`FAIL_ON_UNKNOWN_PROPERTIES`) | **7장** | 7장 (중앙 스키마 → [IV권](../4-beyond-core/README.md)) |
 | `ErrorHandlingDeserializer` (역직렬화 실패→DLT, poison-pill 차단) | **7장** | 5·7·9장 |
+| `auto.offset.reset` (`latest` 기본 — 새 그룹 함정) | **2장** | 2·10장 |
+| 배치 리스너 / `BatchListenerFailedException` (단건 복구) | **9장** | 9·10장 |
+| 컨테이너 `pause()`/`resume()` (백프레셔 처방) | **9장** | 3·9장 |
 
 > 🚧 = 정의 *위치*는 정해졌으나 본문이 아직 얇음(아래 *다음 작업* 참조). 표는 위치를 가리키되 미완을 숨기지 않는다.
 
@@ -134,6 +137,8 @@ graph TB
 
 - `AckMode`(BATCH·RECORD·MANUAL·MANUAL_IMMEDIATE) · `enable.auto.commit`(Spring 기본 false)
 - 기본 BATCH에서 예외를 삼키면 offset이 커밋되어 **영원히 유실** (II권의 핵심 함정)
+- `auto.offset.reset`(`latest` 기본 — **새 그룹은 과거를 안 읽는다**: "왜 메시지가 안 와요?") · `ConsumerSeekAware`/`seek()`로 재처리(replay)
+- `listener.type=batch` 모드 (배치 에러 함정은 → [코드 구조·순서의 함정](09-code-order-traps.md))
 - 원리 → [I권 조정](../1-internals/05-coordination.md)(`__consumer_offsets`) · 증명 → [s02 Consumer](../../../src/test/java/com/example/kafka/s02_consumer/README.md) 🧪
 
 ### 3장 — 파티션 & 동시성   🚧 [03-partition-concurrency.md](./03-partition-concurrency.md)
@@ -203,16 +208,19 @@ graph TB
 
 - 9.1 ErrorHandler retry↔DLQ 순서 · non-retryable 분류(poison-pill)
 - 9.2 commit 위치 — 처리 *전* vs *후*
-- 9.3 리스너 blocking → poll 초과 → 퇴출
+- 9.3 리스너 blocking → poll 초과 → 퇴출 (처방: 컨테이너 `pause()`/`resume()` · `autoStartup=false`)
 - 9.4 `@RetryableTopic` — blocking vs non-blocking retry
 - 9.5 `@Transactional`+Kafka 트랜잭션 경계 (→ Outbox는 messaging-lab)
-- 증명 참조 → ⬜ 위임: s05·s02·s04 (본편 Step) · 🧩 창발(통합테스트 필요): 9.3 blocking→퇴출
+- 9.6 배치 리스너 — `BatchListenerFailedException(msg, index)` 안 쓰면 멀쩡한 N-1건 중복
+- 증명 참조 → ⬜ 위임: s05·s02·s04 (본편 Step) · 🧩 창발(통합테스트 필요): 9.3 blocking→퇴출 · 9.6 배치 단건 복구
 
 ### 10장 — 설정 레퍼런스(인덱스)   ✅ [10-config-reference.md](./10-config-reference.md)
 
 > 성격: *새 설명이 아니라 인덱스* — 의미는 본편·8·9장이 SSOT, 여기선 위치 + 검증 라벨(`✓`)만. (설명 산문은 정본에)
 
+- **설정 주입 메커니즘**(도입): `spring.kafka.*`는 일부만 매핑 / 나머지는 `properties.*` 맵(모르면 조용히 무시) · yml↔programmatic precedence
 - Producer / Consumer / Listener 설정 인덱스 · 기본값은 1차 소스 확인된 것만 `✓`, 나머지는 `?`(검증 대기)
+- **증상 → 함정 역인덱스**(장애 중 진단) — 유실·중복·순서·퇴출·"설정 안 먹음" → 어디
 - 증명 없음(본편·8·9장 테스트를 참조)
 - **언제 어느 값이 유리한가(trade-off)** → [III권 의사결정 트리](../3-operations/10-config-decision-tree.md)
 
@@ -231,7 +239,9 @@ graph TB
   - `partition.assignment.strategy` 등 `?` 기본값 1차 소스 확정
   - **본편→횡단편 forward link 주입** (1장→8.1 / 2장→9.2 / 4장→8.3·9.3 / 5장→9.1 / 6장→8.4·9.5; 근거는 SSOT 표 *주 사용처*·의존 그래프) — 3장은 횡단 함정 씨앗이 약해 제외
   - **07 본문 보강**: `enhancedObjectMapper` 경로 산문 · `spring.jackson.*` 무효 명시 · `ErrorHandlingDeserializer` 본문화 + raw↔Spring 비대칭
-  - **🧩 창발 통합테스트 구현**: 8.1 silent disable · 8.2 순서 역전 · 9.3 blocking→퇴출
+  - **🧩 창발 통합테스트 구현**: 8.1 silent disable · 8.2 순서 역전 · 9.3 blocking→퇴출 · 9.6 배치 단건 복구
+  - **2장 본문 보강**: `auto.offset.reset`(새 그룹 latest 함정)·`seek`/replay·`listener.type=batch` 모드 산문
+  - **4장 본문**: graceful shutdown(in-flight·종료 커밋 타이밍) 코드 동작 한 문단 · 토픽 프로비저닝(`NewTopic`·`KafkaAdmin`) 언급(정책은 III권)
 
 ---
 
