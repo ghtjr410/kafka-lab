@@ -116,7 +116,7 @@ graph TB
 
 # 목차 + 각 장 아웃라인
 
-> 본편(1~7장)은 컴포넌트별 — 정본 `0N-*.md`는 현재 옛 Step README 복제본이며 **II권 톤·인용규율로 재산문화 대기(🚧)**. 횡단편(8~10장)은 신규 산문(✅).
+> 본편(1~7장)·횡단편(8~10장) **모두 II권 톤 산문 완료(✅)**. 본편은 컴포넌트별(개별 설정 → 보장), 횡단편은 설정·코드 차원의 함정. Step README(`src/test/.../sNN_*`)는 테스트 실행 가이드로 보존.
 
 ## 본편 — 컴포넌트별 (개별 설정 → 그 보장)
 
@@ -173,7 +173,7 @@ graph TB
 - 트랜잭션을 쓰면 멱등성은 자동으로 켜진다 (→ [설정 조합의 함정](08-config-combination-traps.md))
 - 원리 → [I권 트랜잭션·EOS](../1-internals/07-transactions.md) · 증명 → [s06 EOS](../../../src/test/java/com/example/kafka/s06_eos/README.md) 🧪
 
-### 7장 — 직렬화 & 스키마 진화   🚧 [07-serialization.md](./07-serialization.md)
+### 7장 — 직렬화 & 스키마 진화   ✅ [07-serialization.md](./07-serialization.md)
 
 > 보장/착각: *"필드 추가했는데 왜 죽나?"* — **StringDeserializer + 수동 `ObjectMapper`**(Jackson raw 기본 `FAIL_ON_UNKNOWN=true`)면 죽고, 기본 `JsonDeserializer`(`enhancedObjectMapper`)면 무시된다.
 
@@ -228,20 +228,14 @@ graph TB
 
 ## 🚦 II권 상태 (이 표가 II권 상태 SSOT)
 
-- **[산문]** 본편 = 🚧 · 횡단편 = ✅  (마커 뜻은 위 범례)
+- **[산문]** 본편 = ✅ · 횡단편 = ✅  (마커 뜻은 위 범례)
 - **[증명]** 본편 = 🧪 · 횡단편 = ⬜ 위임 + 🧩 창발(통합테스트 미구현)
-- **다음 작업 (본편 재산문화)** — 7개를 II권 톤(컴포넌트 → 핵심 설정·보장 → 함정 → 올바른 형태 → I권 링크 → Step 증명)으로 다시 깎으며:
-  - `# Step N` 헤더·"다음 Step으로" 제거
-  - 깨진 `../sNN_*/` 교차참조 → 같은 권 정본(`NN-*.md`) / 원리는 I권 named link (테스트 디렉터리는 「증명 →」 링크에서만)
-  - 본문 장번호 하드코딩 → named link
-  - 인용 라벨 주입
+- **✅ 본편 재산문화 완료** (1~7장: II권 톤 · 절번호 · 보장/착각 · 인용 라벨 · named link · 본편→횡단 forward link · 07 `enhancedObjectMapper`/`ErrorHandlingDeserializer` 본문화).
+- **남은 작업**:
   - `@RetryableTopic` 동작 정의(retry 토픽 명명·DLT·attempts/backoff·blocking 곱셈)를 9.4에 보강 → SSOT 표 🚧 해제
-  - `partition.assignment.strategy` 등 `?` 기본값 1차 소스 확정
+  - `partition.assignment.strategy`·`auto.offset.reset`·`fetch.*` 등 `?` 기본값 1차 소스 확정(10장)
   - **본편→횡단편 forward link 주입** (1장→8.1 / 2장→9.2 / 4장→8.3·9.3 / 5장→9.1 / 6장→8.4·9.5; 근거는 SSOT 표 *주 사용처*·의존 그래프) — 3장은 횡단 함정 씨앗이 약해 제외
-  - **07 본문 보강**: `enhancedObjectMapper` 경로 산문 · `spring.jackson.*` 무효 명시 · `ErrorHandlingDeserializer` 본문화 + raw↔Spring 비대칭
   - **🧩 창발 통합테스트 구현**: 8.1 silent disable · 8.2 순서 역전 · 9.3 blocking→퇴출 · 9.6 배치 단건 복구
-  - **2장 본문 보강**: `auto.offset.reset`(새 그룹 latest 함정)·`seek`/replay·`listener.type=batch` 모드 산문
-  - **4장 본문**: graceful shutdown(in-flight·종료 커밋 타이밍) 코드 동작 한 문단 · 토픽 프로비저닝(`NewTopic`·`KafkaAdmin`) 언급(정책은 III권)
 
 ---
 
