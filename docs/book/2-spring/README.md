@@ -122,7 +122,7 @@ graph TB
 
 > 본편은 **1→7 순서로 읽되**, 위 의존 그래프는 특정 장을 다시 펼칠 때의 **재방문 지도**다(읽기 순서가 아니라 참조 지도).
 
-### 1장 — Producer 보장   🚧 [01-producer.md](./01-producer.md)
+### 1장 — Producer 보장   ✅ [01-producer.md](./01-producer.md)
 
 > 보장/착각: *"acks=all이면 안전한가?"* — acks·idempotence가 **무엇까지** 보장하는지.
 
