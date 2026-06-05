@@ -44,7 +44,7 @@ Producer와 Consumer 버전이 어긋날 때, 변경 종류마다 결과가 다�
 |------|------|------|
 | 필드 **추가**(V2 Producer → V1 Consumer) | `FAIL_ON_UNKNOWN`에 의존 | raw=`true`면 죽음 / `false`면 무시(하위 호환) |
 | 필드 **제거**(V1 Producer → V2 Consumer) | 없는 필드는 **기본값**(`null`/0) — 보통 안전(상위 호환) | primitive·`required` 제약이면 예외 |
-| **타입 변경**(예: `int`→`String`) | `MismatchedInputException` — **하드 브레이크** | 항상 |
+| **타입 변경**(예: `String`→`int`) | `MismatchedInputException`(예: `InvalidFormatException`) — **하드 브레이크** | 항상 |
 
 ```mermaid
 graph LR
@@ -55,7 +55,7 @@ graph LR
     TYP["타입 변경"] --> DIE2["MismatchedInputException"]
 ```
 
-> *추가/제거를 뭉뚱그리지 말 것* — 진짜 하드 브레이크는 **타입 변경**이고, 추가는 `FAIL_ON_UNKNOWN`이, 제거는 primitive·required 여부가 좌우한다.
+> *추가/제거를 뭉뚱그리지 말 것* — 진짜 하드 브레이크는 **타입 변경**이고, 추가는 `FAIL_ON_UNKNOWN`이, 제거는 primitive·required 여부가 좌우한다. (예외 *계열*은 셋 다 `MismatchedInputException` 하위 — 추가의 `UnrecognizedPropertyException`도 그 서브클래스다. 가르는 건 예외 *타입*이 아니라 *발생 조건*이다.)
 
 - **증명** → `SchemaEvolutionTest` 🧪
 

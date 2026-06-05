@@ -50,7 +50,11 @@ DefaultErrorHandler errorHandler(KafkaTemplate<String, String> template) {
 }
 ```
 
-실패 메시지가 `{원본토픽}.DLT`로 이동하고, **원본 토픽·파티션·offset·예외 정보가 헤더에** 담긴다(원인 분석·재처리용). 일시 장애엔 `FixedBackOff` 대신 `ExponentialBackOffWithMaxRetries`로 간격을 늘려 회복 시간을 준다.
+실패 메시지가 **`{원본토픽}-dlt`** (기본 destination resolver)로 이동하고, **원본 토픽·파티션·offset·예외 정보가 헤더에** 담긴다(원인 분석·재처리용). `[code @spring-kafka 3.3]`
+
+> ⚠️ 흔히 `.DLT`(점+대문자)로 알려졌지만 그건 `DeadLetterPublishingRecoverer`의 **stale한 JavaDoc** 문구다 — 실제 기본 코드(`DEFAULT_DESTINATION_RESOLVER`)는 `topic + "-dlt"`다(`.DLT`를 쓰려면 커스텀 resolver로 명시). 한편 `@RetryableTopic`의 DLT suffix도 `-dlt`다.
+
+일시 장애엔 `FixedBackOff` 대신 `ExponentialBackOffWithMaxRetries`로 간격을 늘려 회복 시간을 준다.
 
 > ⚠️ 운영 브로커는 보통 `auto.create.topics.enable=false`라 **DLT 토픽을 미리 만들어야** 한다 — 없으면 DLQ 발행 자체가 실패한다. 토픽 프로비저닝 메커니즘은 [파티션 & 동시성](./03-partition-concurrency.md)(`NewTopic`).
 

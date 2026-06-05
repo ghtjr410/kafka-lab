@@ -114,14 +114,14 @@ class DefaultErrorHandlerTrapTest extends KafkaTestBase {
      * DLQ를 설정하면 실패한 메시지가 DLT 토픽으로 이동한다.
      *
      * DeadLetterPublishingRecoverer를 설정하면:
-     *   최대 재시도 초과 → topic.DLT 토픽으로 발행 → 원본 토픽의 offset 커밋
+     *   최대 재시도 초과 → topic-dlt 토픽으로 발행 → 원본 토픽의 offset 커밋
      *
      * DLQ 메시지에는 원본 토픽, 파티션, offset 정보가 Header로 포함된다.
      */
     @Test
     void DLQ를_설정하면_실패한_메시지가_DLT_토픽으로_이동한다() {
         String testTopic = topic();
-        String dltTopic = testTopic + ".DLT"; // Spring Kafka 기본 DLT 네이밍
+        String dltTopic = testTopic + "-dlt"; // Spring Kafka 기본 DLT 네이밍
         String testGroupId = groupId();
         createTopic(testTopic, 1);
         createTopic(dltTopic, 1);

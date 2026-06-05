@@ -42,7 +42,7 @@ C3이 합류했을 뿐인데 C1·C2가 갖던 파티션을 전부 반납한다 �
 |------|---------|----------|
 | 1 | **Eager** (Range·RoundRobin) | 전체 멈춤 |
 | 2 | **Cooperative** (CooperativeSticky) | 이동 파티션만 잠깐 |
-| 3 | **KIP-848** (서버 주도, Kafka 4.0) | Stop-the-World 제거 → [I권 조정](../1-internals/05-coordination.md) |
+| 3 | **KIP-848** (서버 주도, Kafka 4.0 GA · opt-in `group.protocol=consumer`) | Stop-the-World 제거 → [I권 조정](../1-internals/05-coordination.md) |
 
 > Kafka 3.0+ 기본 `partition.assignment.strategy`는 `[RangeAssignor, CooperativeStickyAssignor]` — 그룹 전원이 cooperative를 지원하면 자동 전환된다. **신규 프로젝트는 `CooperativeStickyAssignor`만 명시**가 깔끔.
 

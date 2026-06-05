@@ -59,7 +59,7 @@ DefaultErrorHandler errorHandler(KafkaTemplate<String, String> template) {
 }
 ```
 
-이제 3회 시도(최초 1 + 재시도 2) 후 실패하면, 메시지가 `{원본토픽}.DLT` 토픽으로 이동한다.
+이제 3회 시도(최초 1 + 재시도 2) 후 실패하면, 메시지가 `{원본토픽}-dlt` 토픽으로 이동한다.
 
 > 실무에서는 `FixedBackOff` 대신 `ExponentialBackOffWithMaxRetries`를 쓰는 경우가 많다. 일시적 장애(DB 순간 불능, 네트워크 타임아웃) 시 간격을 점점 늘려 시스템에 회복 시간을 준다.
 
@@ -68,7 +68,7 @@ sequenceDiagram
     participant K as Kafka Broker
     participant C as Consumer
     participant EH as DefaultErrorHandler
-    participant DLT as order-events.DLT
+    participant DLT as order-events-dlt
 
     K->>C: msg-42 (topic: order-events)
     C->>C: 시도 1 → 실패
@@ -76,7 +76,7 @@ sequenceDiagram
     C->>C: 시도 3 → 실패
 
     C->>EH: 재시도 소진
-    EH->>DLT: msg-42를 order-events.DLT로 발행
+    EH->>DLT: msg-42를 order-events-dlt로 발행
 
     Note over DLT: 실패 메시지 보존됨
     Note over DLT: 원본 토픽, 파티션, offset,<br/>예외 정보가 헤더에 포함됨

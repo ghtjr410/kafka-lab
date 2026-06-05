@@ -44,7 +44,7 @@ sequenceDiagram
 
 native Kafka Consumer 기본값은 `enable.auto.commit=true`다 — `auto.commit.interval.ms`(기본 5초)마다, 다음 poll 때 이전 poll의 offset을 **처리 성공 여부와 무관하게** 자동 커밋한다. 처리 실패한 메시지의 offset까지 넘어간다.
 
-그래서 **Spring Kafka는 `enable.auto.commit`을 `false`로 강제**한다 — auto-commit의 유실을 프레임워크 레벨에서 차단한 것이다.
+그래서 **Spring Kafka는 `enable.auto.commit`을 (명시하지 않으면) `false`로 둔다**(2.3+) — auto-commit의 유실을 프레임워크 기본으로 차단한다(직접 `true`로 주면 유지된다).
 
 - **증명** → `ConsumerAutoCommitTrapTest` 🧪
 
@@ -58,7 +58,7 @@ auto-commit을 끄면 "언제 커밋할 것인가"를 `AckMode`로 정한다:
 |---------|----------|------|
 | `BATCH`(기본) | poll 레코드 전부 처리 후 | 기본 — 단 2.1 함정 |
 | `RECORD` | 레코드 하나마다 | 유실 범위 최소, 커밋 잦아 성능↓ |
-| `MANUAL` | `acknowledge()` 후 **다음 poll** 시점 | 수동, 지연 커밋 |
+| `MANUAL` | `acknowledge()` 후, 배치 전부 ack되면 **다음 poll 경계**(= BATCH 의미) | 수동 |
 | `MANUAL_IMMEDIATE` | `acknowledge()` **즉시** | DB 커밋 성공 후 offset 커밋 패턴 |
 
 > *"acknowledge() 했는데 왜 바로 커밋 안 되지?"* 의 정체는 대개 `MANUAL`(다음 poll)과 `MANUAL_IMMEDIATE`(즉시) 혼동이다.

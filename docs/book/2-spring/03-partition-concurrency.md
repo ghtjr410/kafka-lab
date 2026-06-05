@@ -16,7 +16,7 @@
 
 ## 3.2 같은 key → 같은 파티션 (순서 보장의 핵심)
 
-- **key 없이** 발행하면 분산된다 — Kafka 2.4+는 **sticky partitioner**가 기본(`[KIP-480]`/`[KIP-794]`)이라 한 배치를 채울 때까지 같은 파티션에 보내고 차면 옮긴다(1장 `linger.ms`/`batch.size`와 직접 연결 → [클라이언트 런타임](../1-internals/09-client-runtime.md)).
+- **key 없이** 발행하면 분산된다 — baseline 3.7 기본은 **strictly-uniform sticky**(`[KIP-794]`, 3.3+; `partitioner.class` 기본 `null`)라 **한 파티션에 `batch.size` 바이트가 쌓이면 다음 파티션으로 옮긴다**(2.4 원조 `[KIP-480]`은 *배치가 찰 때* 전환했고, 3.3+에서 바이트 기준으로 교체되며 `DefaultPartitioner`는 deprecated). 1장 `linger.ms`/`batch.size`와 직접 연결 → [클라이언트 런타임](../1-internals/09-client-runtime.md).
 - **같은 key**면 기본 파티셔너가 `murmur2(key) % 파티션수`로 정한다 — **같은 key는 항상 같은 파티션**, 파티션 내 순서가 보장되므로 같은 key 이벤트는 순서대로 처리된다.
 
 ```mermaid

@@ -109,7 +109,7 @@ graph TB
     W -->|"끝까지 안 남"| EX["TimeoutException"]
 ```
 
-`delivery.timeout.ms`는 `send()` 이후 **전달 성공까지의 전체 상한**(`linger.ms` + 전송 + 재시도 포함)이다. `delivery.timeout.ms ≥ linger.ms + request.timeout.ms`를 어기면 생성 시 `ConfigException` `[code @3.7]`. `retries`와 재시도 시 순서 역전은 → [설정 조합의 함정](08-config-combination-traps.md)(8.2)·[I권 멱등·순서](../1-internals/06-ordering-atomicity.md).
+`delivery.timeout.ms`는 `send()` 이후 **전달 성공까지의 전체 상한**(`linger.ms` + 전송 + 재시도 포함)이다. `delivery.timeout.ms`를 **명시한** 값이 `linger.ms + request.timeout.ms`보다 작으면 생성 시 `ConfigException`; 명시 없이 기본값에 의존하면 예외 없이 `linger+request.timeout`으로 끌어올리고 WARN만 남긴다(멱등의 *명시=fail-fast / 기본=조용히* 비대칭과 같은 결, 1.3) `[code @3.7]`. `retries`와 재시도 시 순서 역전은 → [설정 조합의 함정](08-config-combination-traps.md)(8.2)·[I권 멱등·순서](../1-internals/06-ordering-atomicity.md).
 
 - **런타임**(버퍼·Sender·purgatory) → [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) · **백프레셔 정책 trade-off** → [III권](../3-operations/10-config-decision-tree.md)
 - **증명** → `ProducerBackpressureTest` 🧪
