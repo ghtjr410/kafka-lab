@@ -165,7 +165,7 @@ graph TB
 - 에러 처리·DLQ는 II권 고유 영역 — I권 원리에 직접 대응 없음. 재처리 중복 방어 원리만 → [I권 멱등·순서](../1-internals/06-ordering-atomicity.md)
 - retry↔DLQ **순서·분류 함정**의 깊은 분석은 → [코드 구조·순서의 함정](09-code-order-traps.md) · 증명 → [s05 DLQ](../../../src/test/java/com/example/kafka/s05_dlq/README.md) 🧪
 
-### 6장 — EOS & 트랜잭션   🚧 [06-eos-transactions.md](./06-eos-transactions.md)
+### 6장 — EOS & 트랜잭션   ✅ [06-eos-transactions.md](./06-eos-transactions.md)
 
 > 보장/착각: *"EOS면 중복 없나?"* — Kafka **내부 한정**, 외부는 멱등키.
 
