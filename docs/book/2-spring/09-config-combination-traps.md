@@ -24,7 +24,7 @@ graph TB
     K -->|"기본값 의존"| SD["INFO 로그만 남고 silent disable<br/>(WARN도 아님 → 진짜 함정 ⚠️)"]
 ```
 
-- Kafka **3.0+부터 `enable.idempotence`가 기본 `true`** → 명시하지 않아도 이미 `acks=all`이 강제된다.
+- Kafka **3.0+부터 `enable.idempotence`가 기본 `true`** → 명시하지 않아도 이미 `acks=all`이 강제된다. (엄밀히는 `3.0.0`·`3.1.0`엔 config 검증 버그로 이 기본값이 실제 적용되지 않았고 — `acks=all` 기본 전환은 정상 — **`3.2.0`부터 정상**이다. 본서 baseline `3.7`은 무관. `[KAFKA-13598]`)
 - 그래서 "나는 `acks` 설정 안 했는데 왜 all처럼 동작하지?"라는 혼란이 생긴다.
 - 충돌 시 동작은 **두 갈래**로 갈린다:
   - **명시적으로 `enable.idempotence=true`를 켠 상태** + `acks=1` → **`ConfigException`으로 프로듀서 생성 자체가 실패(fail-fast)**. 시끄럽게 죽으므로 오히려 안전하다.
@@ -109,6 +109,8 @@ spring.kafka:
 
 - **왜** → [I권 트랜잭션·EOS](../1-internals/07-transactions.md) (control record + LSO가 read_committed의 밑바닥)
 - **증명** → [s06 EOS](../../../src/test/java/com/example/kafka/s06_eos/README.md) `TransactionalProducerTest`
+
+> **트랜잭션을 쓰면 멱등성은 끌 수 없다 — 그래서 9.1의 침묵 함정이 여기선 사라진다.** `enable.idempotence` 기본값이 `true`라 `transaction-id-prefix`(= `transactional.id`)를 준 프로듀서는 멱등으로 동작한다. `enable.idempotence=false`로 끄려 하면 `ConfigException("Cannot set a transactional.id without also enabling idempotence.")`으로 **생성이 실패**한다. 더 중요한 건 — `acks=1`처럼 9.1에서 멱등을 *조용히(INFO)* 끄던 설정을 줘도, `transactional.id`가 있으면 그 silent disable 경로가 다시 `ConfigException`으로 **전환**된다(멱등을 끈 뒤 트랜잭션 검증에서 걸림). **즉 트랜잭션 프로듀서에선 9.1의 침묵이 fail-fast가 된다.** 따라서 9.4 설정을 쓰면 9.1 멱등성 삼각형은 자동 충족 — 멱등을 따로 신경 쓸 필요가 없다. `[code @3.7: ProducerConfig.postProcessAndValidateIdempotenceConfigs]`
 
 ---
 
