@@ -1,16 +1,16 @@
-# II권 10장. 코드 구조·순서의 함정
+# II권 9장. 코드 구조·순서의 함정
 
-> 앞: [9장 설정 조합의 함정](./09-config-combination-traps.md) · 다음: 11장 설정 레퍼런스
+> 앞: [8장 설정 조합의 함정](./08-config-combination-traps.md) · 다음: 10장 설정 레퍼런스
 >
 > **이 장의 관점**: *설정이 다 맞아도, 코드의 레이어 순서·위치가 틀리면 장애가 난다. 이건 I권(원리)도 III권(운영)도 못 잡는, 오직 코드에서만 보이는 함정이다.*
 
-9장이 "설정들의 조합"이었다면, 이 장은 **코드의 순서·위치·경계**다. 같은 컴포넌트를 어느 순서로 두느냐, ack를 어디서 하느냐, blocking을 어디서 하느냐에 따라 멀쩡한 설정이 무너진다.
+8장이 "설정들의 조합"이었다면, 이 장은 **코드의 순서·위치·경계**다. 같은 컴포넌트를 어느 순서로 두느냐, ack를 어디서 하느냐, blocking을 어디서 하느냐에 따라 멀쩡한 설정이 무너진다.
 
-> **resilience4j 비유 (이 권의 핵심)**: `retry`가 앞단, `circuitbreaker`가 뒷단이면 — 1번 실패할 것을 retry가 N번 재시도하고, 그 N번이 *전부* 서킷에 집계되어 서킷이 잘못 열린다. **레이어 순서 하나가 전체 동작을 뒤집는다.** Kafka 에러 처리에도 똑같은 형태가 있다(10.1). (형제 [resilience4j-lab](../../../../resilience4j-lab/))
+> **resilience4j 비유 (이 권의 핵심)**: `retry`가 앞단, `circuitbreaker`가 뒷단이면 — 1번 실패할 것을 retry가 N번 재시도하고, 그 N번이 *전부* 서킷에 집계되어 서킷이 잘못 열린다. **레이어 순서 하나가 전체 동작을 뒤집는다.** Kafka 에러 처리에도 똑같은 형태가 있다(9.1). (형제 [resilience4j-lab](../../../../resilience4j-lab/))
 
 ---
 
-## 10.1 ErrorHandler — retry ↔ DLQ 순서, non-retryable 분류
+## 9.1 ErrorHandler — retry ↔ DLQ 순서, non-retryable 분류
 
 가장 직접적인 "순서 함정". Spring의 `DefaultErrorHandler`는 **retry(BackOff) → 소진 후 DLQ(recoverer)** 순으로 동작한다. 문제는 **무엇을 재시도하면 안 되는지 분류**다:
 
@@ -29,7 +29,7 @@ graph LR
 
 ---
 
-## 10.2 commit 위치 — 처리 *전* vs *후*
+## 9.2 commit 위치 — 처리 *전* vs *후*
 
 offset을 **언제 커밋하느냐**가 유실/중복을 가른다:
 
@@ -46,7 +46,7 @@ offset을 **언제 커밋하느냐**가 유실/중복을 가른다:
 
 ---
 
-## 10.3 리스너 안 blocking → poll 초과 → 퇴출
+## 9.3 리스너 안 blocking → poll 초과 → 퇴출
 
 리스너 메서드 안에서 **오래 걸리는 blocking 호출**(외부 API·DB·락 대기)을 하면:
 
@@ -57,27 +57,27 @@ graph LR
     OVER --> EVICT["⚠️ 컨슈머 퇴출 → 리밸런싱"]
 ```
 
-- poll 루프는 **단일 스레드**다(→ [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)). 리스너가 오래 막히면 다음 `poll()`이 늦어져 `max.poll.interval.ms`(9.3)를 넘기고 퇴출된다.
+- poll 루프는 **단일 스레드**다(→ [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)). 리스너가 오래 막히면 다음 `poll()`이 늦어져 `max.poll.interval.ms`(8.3)를 넘기고 퇴출된다.
 - 해법: 무거운 일은 **별도 executor로 넘기거나**, `max.poll.records`를 줄여 배치 처리 시간을 짧게.
 
-- **왜** → [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)(단일 poll 루프) + 9.3 타이밍
+- **왜** → [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)(단일 poll 루프) + 8.3 타이밍
 - **증명** → [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) `MaxPollIntervalTest`
 
 ---
 
-## 10.4 `@RetryableTopic` — blocking vs non-blocking retry
+## 9.4 `@RetryableTopic` — blocking vs non-blocking retry
 
 재시도에는 두 종류가 있고, **혼용하면 중복 재시도**가 된다:
 
-- **blocking retry**: 리스너 안에서 그 자리에서 재시도(ErrorHandler BackOff). 재시도 동안 그 파티션이 막힌다(10.3 위험).
+- **blocking retry**: 리스너 안에서 그 자리에서 재시도(ErrorHandler BackOff). 재시도 동안 그 파티션이 막힌다(9.3 위험).
 - **non-blocking retry** (`@RetryableTopic`): 실패한 메시지를 **retry 토픽**으로 보내 나중에 재처리. 원래 파티션은 안 막힌다.
 - 함정: 둘을 같이 켜면 같은 메시지가 양쪽에서 재시도되어 **재시도 횟수가 곱**해진다.
 
-→ 하나를 선택하라. 처리량 민감하면 non-blocking, 순서 민감하면 blocking(단 10.3 주의).
+→ 하나를 선택하라. 처리량 민감하면 non-blocking, 순서 민감하면 blocking(단 9.3 주의).
 
 ---
 
-## 10.5 `@Transactional`(DB) + Kafka 트랜잭션 경계
+## 9.5 `@Transactional`(DB) + Kafka 트랜잭션 경계
 
 DB 트랜잭션과 Kafka 발행을 **한 메서드에 섞으면** 경계가 꼬인다:
 
@@ -90,7 +90,7 @@ DB 트랜잭션과 Kafka 발행을 **한 메서드에 섞으면** 경계가 꼬�
 
 ---
 
-## 10.6 정리 — 코드 순서 체크리스트
+## 9.6 정리 — 코드 순서 체크리스트
 
 | 함정 | 잘못된 순서/위치 | 올바른 형태 |
 |------|----------------|------------|
@@ -104,4 +104,4 @@ DB 트랜잭션과 Kafka 발행을 **한 메서드에 섞으면** 경계가 꼬�
 
 ---
 
-← [9장 설정 조합의 함정](./09-config-combination-traps.md) · [II권 목차](./README.md) · 원리 출처: [I권](../1-internals/README.md)
+← [8장 설정 조합의 함정](./08-config-combination-traps.md) · [II권 목차](./README.md) · 원리 출처: [I권](../1-internals/README.md)

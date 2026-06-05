@@ -1,12 +1,12 @@
 # III권 10장. 설정 trade-off 의사결정 트리 (CAP·PACELC 기반)
 
-> 앞: [III권 목차](./README.md) · 원리 출처: [I권](../1-internals/README.md) · 기본값 인덱스: [II권 11장](../2-spring/11-config-reference.md)
+> 앞: [III권 목차](./README.md) · 원리 출처: [I권](../1-internals/README.md) · 기본값 인덱스: [II권 10장](../2-spring/10-config-reference.md)
 >
 > **이 장의 관점**: *지금까지(II권)는 "설정을 틀리면 깨진다"였다. 이 장은 다르다 — 개별 설정이 다 valid하고 조합도 맞을 때, **같은 설정을 상황에 따라 어느 쪽으로 돌리느냐**. 정답이 없고, **무엇을 포기할지** 고르는 일이다. 그 포기의 정확한 학명은 **CAP / PACELC**다.*
 
-II권 9·10장이 "조합·순서가 **틀리면** 장애"였다면, 이 장은 **틀린 게 아무것도 없을 때** 시작한다. `acks=all`도 맞고 `acks=1`도 맞다 — 무엇을 **버릴 것인가**의 문제다. 그래서 암기가 아니라 **트리**다: "지금 장애(분할)인가?"·"이 데이터를 잃으면?"라는 질문에 답하면 값이 정해진다.
+II권 8·9장이 "조합·순서가 **틀리면** 장애"였다면, 이 장은 **틀린 게 아무것도 없을 때** 시작한다. `acks=all`도 맞고 `acks=1`도 맞다 — 무엇을 **버릴 것인가**의 문제다. 그래서 암기가 아니라 **트리**다: "지금 장애(분할)인가?"·"이 데이터를 잃으면?"라는 질문에 답하면 값이 정해진다.
 
-> 🔒 이 장은 **방향성**(어느 쪽으로 돌리면 무엇을 버리나)만 단언한다. **정확한 기본 숫자는 [II권 11장 인덱스](../2-spring/11-config-reference.md)가 SSOT** — 여기에 숫자를 박으면 드리프트가 난다. (표지 집필 공통 규칙)
+> 🔒 이 장은 **방향성**(어느 쪽으로 돌리면 무엇을 버리나)만 단언한다. **정확한 기본 숫자는 [II권 10장 인덱스](../2-spring/10-config-reference.md)가 SSOT** — 여기에 숫자를 박으면 드리프트가 난다. (표지 집필 공통 규칙)
 
 ---
 
@@ -89,7 +89,7 @@ graph TB
 
 **`acks=0`이 유리한 상황** — 한 건쯤 사라져도 통계가 안 흔들리는 **초고처리량 텔레메트리**(IoT 틱, 추적 이벤트). 가장 빠르고 가장 많이 보낸다. **불리한 점**: 받았는지조차 모른다.
 
-> 🔒 **`acks` 단독으로 결정하지 마라.** `enable.idempotence`(3.0+ 기본 `true`)는 이미 `acks=all`을 전제·강제한다 — 멱등을 켠 채 `acks=1`을 주면 [II권 9장의 두 갈래 함정](../2-spring/09-config-combination-traps.md)(명시 시 `ConfigException` / 기본 의존 시 침묵 disable)으로 빠진다. **이 장 = "어느 쪽이 유리한가(trade-off)", 9장 = "조합이 틀리면 어떻게 깨지나(함정)"** — 짝으로 읽어야 한다.
+> 🔒 **`acks` 단독으로 결정하지 마라.** `enable.idempotence`(3.0+ 기본 `true`)는 이미 `acks=all`을 전제·강제한다 — 멱등을 켠 채 `acks=1`을 주면 [II권 8장의 두 갈래 함정](../2-spring/08-config-combination-traps.md)(명시 시 `ConfigException` / 기본 의존 시 침묵 disable)으로 빠진다. **이 장 = "어느 쪽이 유리한가(trade-off)", 8장 = "조합이 틀리면 어떻게 깨지나(함정)"** — 짝으로 읽어야 한다.
 
 ---
 
@@ -137,13 +137,13 @@ graph TB
 같은 L↔처리량 축이 읽기 방향에도 있다.
 
 - **`fetch.min.bytes`↑**: 그만큼 쌓일 때까지 모아 응답 → **처리량↑·요청수↓**, **지연↑**(저지연이면 낮게). `linger.ms`의 읽기판 쌍둥이.
-- **`max.poll.records`↓**: 한 `poll()`의 레코드를 줄이면 **배치 처리 시간↓** → `max.poll.interval.ms` 초과 퇴출 위험↓. 무거운 처리일수록 낮춘다. (퇴출·타이밍 → [II권 10장](../2-spring/10-code-order-traps.md), 원리 → [I권 조정](../1-internals/05-coordination.md))
+- **`max.poll.records`↓**: 한 `poll()`의 레코드를 줄이면 **배치 처리 시간↓** → `max.poll.interval.ms` 초과 퇴출 위험↓. 무거운 처리일수록 낮춘다. (퇴출·타이밍 → [II권 9장](../2-spring/09-code-order-traps.md), 원리 → [I권 조정](../1-internals/05-coordination.md))
 
 ---
 
 ## 10.7 종합 — 워크로드 프로파일별 출발점
 
-트리를 다 타면 현실 워크로드는 대개 **세 프로파일**로 수렴한다. *값이 아니라 방향*으로 읽어라(정확한 숫자는 [II권 11장](../2-spring/11-config-reference.md) + 부하 테스트로 확정).
+트리를 다 타면 현실 워크로드는 대개 **세 프로파일**로 수렴한다. *값이 아니라 방향*으로 읽어라(정확한 숫자는 [II권 10장](../2-spring/10-config-reference.md) + 부하 테스트로 확정).
 
 | 프로파일 | 대표 사례 | PACELC 성향 | `acks` | `linger.ms` | `max.block.ms` |
 |---------|----------|------------|--------|------------|----------------|
@@ -168,8 +168,8 @@ graph TB
 - `acks=all`이 왜 가용성(A)을 **떨어뜨릴** 수 있나? 어느 설정과 묶일 때 그런가? (힌트: `min.insync.replicas`, 분할 P)
 - CAP에서 "P를 고른다/안 고른다"는 왜 부정확한 말인가?
 - PACELC가 CAP보다 Kafka 튜닝을 더 잘 설명하는 지점은 어디인가? (힌트: 평상시 E)
-- "멱등 켜고 `acks=1`"은 왜 이 장(유불리)이 아니라 [II권 9장](../2-spring/09-config-combination-traps.md)(함정) 소관인가?
+- "멱등 켜고 `acks=1`"은 왜 이 장(유불리)이 아니라 [II권 8장](../2-spring/08-config-combination-traps.md)(함정) 소관인가?
 
 ---
 
-← [III권 목차](./README.md) · 원리: [I권](../1-internals/README.md) · 조합 함정: [II권 9·10장](../2-spring/09-config-combination-traps.md) · 기본값: [II권 11장](../2-spring/11-config-reference.md)
+← [III권 목차](./README.md) · 원리: [I권](../1-internals/README.md) · 조합 함정: [II권 8·9장](../2-spring/08-config-combination-traps.md) · 기본값: [II권 10장](../2-spring/10-config-reference.md)

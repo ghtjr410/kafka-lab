@@ -1,6 +1,6 @@
-# II권 9장. 설정 조합의 함정
+# II권 8장. 설정 조합의 함정
 
-> 앞: [II권 목차](./README.md) · 다음: 10장 코드 구조·순서의 함정
+> 앞: [II권 목차](./README.md) · 다음: 9장 코드 구조·순서의 함정
 >
 > **이 장의 관점**: *개별 설정은 다 맞는데, 조합이 틀리면 장애가 난다. "설정 하나"가 아니라 "설정들의 상호작용"을 본다.*
 
@@ -10,7 +10,7 @@
 
 ---
 
-## 9.1 멱등성 삼각형 — `idempotence` × `acks` × `max.in.flight`
+## 8.1 멱등성 삼각형 — `idempotence` × `acks` × `max.in.flight`
 
 가장 흔한 함정. `enable.idempotence=true`는 **세 설정을 동시에 전제**한다:
 
@@ -48,7 +48,7 @@ spring.kafka.producer:
 
 ---
 
-## 9.2 순서 역전 — `순서` × `retries` × `max.in.flight`
+## 8.2 순서 역전 — `순서` × `retries` × `max.in.flight`
 
 멱등을 *끄면* 새로운 함정이 열린다:
 
@@ -62,7 +62,7 @@ spring.kafka.producer:
 
 ---
 
-## 9.3 타이밍 3박자 — `heartbeat` × `session.timeout` × `max.poll.interval`
+## 8.3 타이밍 3박자 — `heartbeat` × `session.timeout` × `max.poll.interval`
 
 컨슈머 "살아있음" 판정은 **세 설정의 순서 관계**가 핵심이다:
 
@@ -91,7 +91,7 @@ spring.kafka.consumer.properties:
 
 ---
 
-## 9.4 트랜잭션 ↔ `isolation.level`
+## 8.4 트랜잭션 ↔ `isolation.level`
 
 프로듀서만 트랜잭션으로 보호하고 **컨슈머를 안 바꾸면** 트랜잭션이 무의미해진다:
 
@@ -110,16 +110,16 @@ spring.kafka:
 - **왜** → [I권 트랜잭션·EOS](../1-internals/07-transactions.md) (control record + LSO가 read_committed의 밑바닥)
 - **증명** → [s06 EOS](../../../src/test/java/com/example/kafka/s06_eos/README.md) `TransactionalProducerTest`
 
-> **트랜잭션을 쓰면 멱등성은 끌 수 없다 — 그래서 9.1의 침묵 함정이 여기선 사라진다.** `enable.idempotence` 기본값이 `true`라 `transaction-id-prefix`(= `transactional.id`)를 준 프로듀서는 멱등으로 동작한다. `enable.idempotence=false`로 끄려 하면 `ConfigException("Cannot set a transactional.id without also enabling idempotence.")`으로 **생성이 실패**한다. 더 중요한 건 — `acks=1`처럼 9.1에서 멱등을 *조용히(INFO)* 끄던 설정을 줘도, `transactional.id`가 있으면 그 silent disable 경로가 다시 `ConfigException`으로 **전환**된다(멱등을 끈 뒤 트랜잭션 검증에서 걸림). **즉 트랜잭션 프로듀서에선 9.1의 침묵이 fail-fast가 된다.** 따라서 9.4 설정을 쓰면 9.1 멱등성 삼각형은 자동 충족 — 멱등을 따로 신경 쓸 필요가 없다. `[code @3.7: ProducerConfig.postProcessAndValidateIdempotenceConfigs]`
+> **트랜잭션을 쓰면 멱등성은 끌 수 없다 — 그래서 8.1의 침묵 함정이 여기선 사라진다.** `enable.idempotence` 기본값이 `true`라 `transaction-id-prefix`(= `transactional.id`)를 준 프로듀서는 멱등으로 동작한다. `enable.idempotence=false`로 끄려 하면 `ConfigException("Cannot set a transactional.id without also enabling idempotence.")`으로 **생성이 실패**한다. 더 중요한 건 — `acks=1`처럼 8.1에서 멱등을 *조용히(INFO)* 끄던 설정을 줘도, `transactional.id`가 있으면 그 silent disable 경로가 다시 `ConfigException`으로 **전환**된다(멱등을 끈 뒤 트랜잭션 검증에서 걸림). **즉 트랜잭션 프로듀서에선 8.1의 침묵이 fail-fast가 된다.** 따라서 8.4 설정을 쓰면 8.1 멱등성 삼각형은 자동 충족 — 멱등을 따로 신경 쓸 필요가 없다. `[code @3.7: ProducerConfig.postProcessAndValidateIdempotenceConfigs]`
 
 ---
 
-## 9.5 정리 — 조합 체크리스트
+## 8.5 정리 — 조합 체크리스트
 
 | 조합 | 깨지는 조건 | 막는 법 | 원리 |
 |------|------------|---------|------|
 | 멱등 삼각형 | `idempotence=true`인데 `acks≠all`·`max.in.flight>5` | acks=all·≤5 유지 | [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) |
-| **내구성 짝** (client×broker) | `acks=all`인데 `min.insync.replicas=1` | min.isr=2 (RF=3) | [III권 10장](../3-operations/10-config-decision-tree.md) · [I권 복제](../1-internals/03-replication.md) |
+| **내구성 짝** (client×broker) | `acks=all`인데 `min.insync.replicas=1` | min.isr=2 (RF=3) | [III권 9장](../3-operations/10-config-decision-tree.md) · [I권 복제](../1-internals/03-replication.md) |
 | 순서 역전 | 멱등 off + `max.in.flight>1` + retry | 멱등 on | [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) |
 | 타이밍 3박자 | `heartbeat≥session` / `max.poll` 너무 짧음 | h < s ≪ m, `max.poll.records`↓ | [I권 조정](../1-internals/05-coordination.md) |
 | 트랜잭션 짝 | 프로듀서만 txn, 컨슈머 `read_uncommitted` | 컨슈머 `read_committed` | [I권 트랜잭션](../1-internals/07-transactions.md) |
