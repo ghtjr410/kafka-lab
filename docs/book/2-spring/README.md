@@ -6,7 +6,7 @@
 > ⚠️ **이 README가 II권의 중심 작업판이자 단일 인덱스다.**
 >
 > 📐 집필 공통 규칙(README=인덱스 · SSOT 표 · 상태 2축 · 증명 모델 등)은 [전체 표지](../README.md)가 단일 진실이다 — 여기서 재서술하지 않는다.
-> 특히 🔒 **불변식: 다른 장·권은 named link로만, 장/권 번호를 본문에 박지 말 것** (`(II권 8장)` ❌ → `[설정 조합의 함정](08-config-combination-traps.md)` ✅). 8장 결번·LSO 드리프트가 전부 이 위반에서 났다.
+> 특히 🔒 **불변식: 다른 장·권은 named link로만, 장/권 번호를 본문에 박지 말 것** (`(II권 8장)` ❌ → `[설정 조합의 함정](08-config-combination-traps.md)` ✅). 8장 결번·권번호/정의 위치 드리프트가 전부 이 위반에서 났다.
 
 ---
 
@@ -50,12 +50,12 @@ graph LR
 
 상태 범례 — **2축**:
 - **[산문]** ✅ 작성 완료 · 🚧 옛 Step 복제본(II권 톤으로 재산문화 대기) · 📝 아웃라인
-- **[executable 증명]** 본편=🧪 기존 Step 테스트 있음 · 횡단편=⬜ **위임**(본편 Step이 증명 — 미구현 아님)
-- 읽는 법: `NN장` 헤더의 마커(🚧/✅)는 **[산문]** 축, 불릿 끝 🧪/⬜는 **[증명]** 축이다.
+- **[executable 증명]** 본편=🧪 기존 Step 테스트 있음 · 횡단편= **⬜ 위임**(설명형 재조합 — 본편 Step이 증명) / **🧩 창발**(silent disable·순서역전·blocking — 자체 통합테스트 필요, 미구현)
+- 읽는 법: `NN장` 헤더의 마커(🚧/✅)는 **[산문]** 축, 불릿 끝 🧪/⬜/🧩는 **[증명]** 축이다. (주석 기호: 🔒 불변식 · 🤖 작업자 노트)
 
 > **증명 모델** — II권의 증명은 **Spring Kafka 통합 테스트**다. I권의 `docker`/CLI 자체증명과 달리 **프레임워크에 의존**한다 — 그래서 이 권에 속한다.
 > - **본편(1~7장)**: 각 장의 증명은 기존 **Step 테스트**(`src/test/.../sNN_*`)가 담당한다.
-> - **횡단편(8~10장)**: 본편 설정의 *조합·순서*를 재배열한 것이라 새 사실을 만들지 않는다 → 본편 Step이 이미 증명한다. 자체 테스트 ⬜는 미구현이 아니라 **설계상 위임**이다(통합 시나리오 테스트가 필요해지면 그때 채운다).
+> - **횡단편(8~10장)**: 증명은 *두 종류*다. (a) **설명형 재조합**(예: `acks=all` 의미는 s01이 증명 → 둘을 잇기만) = **⬜ 위임**. (b) **창발 동작**(8.1 silent disable·8.2 순서역전·9.3 blocking→퇴출 — 실패·재시도·동시성이 *겹쳐야* 발현) = 개별 Step이 증명 못 함 → **🧩 자체 통합테스트 필요**(현재 미구현, 진짜 갭).
 
 > 🔒 **본문 정본(SSOT)은 `docs/book/2-spring/NN-*.md`다.** `src/test/.../sNN_*/README.md`는 **테스트 실행 가이드**로 보존하되(삭제 안 함), 책 본문이 아니다. 같은 산문을 두 곳에 두지 않는다(드리프트 차단).
 
@@ -104,6 +104,7 @@ graph TB
 | `transactional.id` / `transaction-id-prefix` (좀비 펜싱 · 멱등 자동 활성) | **6장** | 6·8·10장 |
 | `isolation.level` (read_committed 짝) | **6장** | 6·8·10장 |
 | 스키마 진화 (`FAIL_ON_UNKNOWN_PROPERTIES`) | **7장** | 7장 (중앙 스키마 → [IV권](../4-beyond-core/README.md)) |
+| `ErrorHandlingDeserializer` (역직렬화 실패→DLT, poison-pill 차단) | **7장** | 5·7·9장 |
 
 > 🚧 = 정의 *위치*는 정해졌으나 본문이 아직 얇음(아래 *다음 작업* 참조). 표는 위치를 가리키되 미완을 숨기지 않는다.
 
@@ -123,6 +124,7 @@ graph TB
 
 - `acks` 0/1/all 의미 · `enable.idempotence`(기본값·강제 조합 → [설정 조합의 함정](08-config-combination-traps.md)) · `ProducerFactory`/`KafkaTemplate` 골격
 - 내구성 짝: `acks=all`은 단독으론 부족 — 정의는 → [설정 조합의 함정](08-config-combination-traps.md), 운영 판단 → [III권 의사결정 트리](../3-operations/10-config-decision-tree.md)
+- `send()`는 **비동기** — 실패는 콜백/`CompletableFuture`로 돌아온다(동기 발행으로 오인하면 유실)
 - 증명 → [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md) `ProducerAcksTest` 등 🧪
 
 ### 2장 — Consumer & Offset   🚧 [02-consumer-offset.md](./02-consumer-offset.md)
@@ -167,9 +169,11 @@ graph TB
 
 ### 7장 — 직렬화 & 스키마 진화   🚧 [07-serialization.md](./07-serialization.md)
 
-> 보장/착각: *"필드 추가했는데 왜 죽나?"* — `FAIL_ON_UNKNOWN_PROPERTIES` 기본 true.
+> 보장/착각: *"필드 추가했는데 왜 죽나?"* — **StringDeserializer + 수동 `ObjectMapper`**(Jackson raw 기본 `FAIL_ON_UNKNOWN=true`)면 죽고, 기본 `JsonDeserializer`(`enhancedObjectMapper`)면 무시된다 — *추가는 허용 / 제거·타입변경은 깨짐*.
 
 - `JsonSerializer`/`JsonDeserializer` (+ `trusted.packages`)
+- **`FAIL_ON_UNKNOWN` 비대칭**: Jackson raw=`true`(수동 ObjectMapper면 죽음) ↔ Spring `JsonDeserializer`=`false`(`enhancedObjectMapper`로 무시) — `spring.jackson.*`는 JsonDeserializer 내부 ObjectMapper에 **미적용** `[code @spring-kafka 3.3]`
+- `ErrorHandlingDeserializer` — 역직렬화 실패(poison-pill)를 리스너 진입 *전*에 잡아 헤더로 옮겨 DLT로 (→ [코드 구조·순서의 함정](09-code-order-traps.md))
 - 하위/상위 호환 · 헤더 기반 버전 관리
 - **중앙 스키마 관리(Avro/Schema Registry)는 → [IV권](../4-beyond-core/README.md)**
 - 증명 → [s07 Serialization](../../../src/test/java/com/example/kafka/s07_serialization/README.md) 🧪
@@ -182,12 +186,12 @@ graph TB
 
 > 관점: *개별 설정은 다 맞는데, **조합**이 틀리면 장애.*
 
-- 8.1 멱등성 삼각형 — `idempotence`×`acks`×`max.in.flight` (명시 충돌=`ConfigException` fail-fast / 기본 의존=INFO 로그 silent disable)
+- 8.1 멱등성 삼각형 — `idempotence`×`acks`×`max.in.flight` (명시 충돌=`ConfigException` fail-fast / 기본 의존=silent disable: `acks`·`retries`=INFO · `max.in.flight`=WARN)
 - 8.2 순서 역전 — `max.in.flight` × `retries` (멱등 off일 때)
 - 8.3 타이밍 3박자 — `heartbeat`<`session`≪`max.poll.interval`
 - 8.4 트랜잭션 ↔ `isolation.level`
 - 8.5 체크리스트 — 내구성 짝(`acks=all`×`min.insync.replicas`) 포함
-- 증명 참조 → s01·s04·s06 (본편 Step) · ⬜ 위임(본편 Step 증명)
+- 증명 참조 → ⬜ 위임: s01·s04·s06 (본편 Step) · 🧩 창발(통합테스트 필요): 8.1 silent disable · 8.2 순서 역전
 
 ### 9장 — 코드 구조·순서의 함정   ✅ [09-code-order-traps.md](./09-code-order-traps.md)
 
@@ -198,7 +202,7 @@ graph TB
 - 9.3 리스너 blocking → poll 초과 → 퇴출
 - 9.4 `@RetryableTopic` — blocking vs non-blocking retry
 - 9.5 `@Transactional`+Kafka 트랜잭션 경계 (→ Outbox는 messaging-lab)
-- 증명 참조 → s05·s02·s04 · ⬜ 위임(본편 Step 증명)
+- 증명 참조 → ⬜ 위임: s05·s02·s04 (본편 Step) · 🧩 창발(통합테스트 필요): 9.3 blocking→퇴출
 
 ### 10장 — 설정 레퍼런스(인덱스)   ✅ [10-config-reference.md](./10-config-reference.md)
 
@@ -213,7 +217,7 @@ graph TB
 ## 🚦 II권 상태 (이 표가 II권 상태 SSOT)
 
 - **[산문]** 본편 = 🚧 · 횡단편 = ✅  (마커 뜻은 위 범례)
-- **[증명]** 본편 = 🧪 · 횡단편 = ⬜ 위임
+- **[증명]** 본편 = 🧪 · 횡단편 = ⬜ 위임 + 🧩 창발(통합테스트 미구현)
 - **다음 작업 (본편 재산문화)** — 7개를 II권 톤(컴포넌트 → 핵심 설정·보장 → 함정 → 올바른 형태 → I권 링크 → Step 증명)으로 다시 깎으며:
   - `# Step N` 헤더·"다음 Step으로" 제거
   - 깨진 `../sNN_*/` 교차참조 → 같은 권 정본(`NN-*.md`) / 원리는 I권 named link (테스트 디렉터리는 「증명 →」 링크에서만)
@@ -221,7 +225,9 @@ graph TB
   - 인용 라벨 주입
   - `@RetryableTopic` 동작 정의(retry 토픽 명명·DLT·attempts/backoff·blocking 곱셈)를 9.4에 보강 → SSOT 표 🚧 해제
   - `partition.assignment.strategy` 등 `?` 기본값 1차 소스 확정
-  - **본편→횡단편 forward link 주입** (1장→8.1 / 2장→9.2 / 3장→9.3 / 4장→8.3·9.3 / 5장→9.1 / 6장→8.4; 근거는 위 SSOT 표 *주 사용처* 열)
+  - **본편→횡단편 forward link 주입** (1장→8.1 / 2장→9.2 / 4장→8.3·9.3 / 5장→9.1 / 6장→8.4·9.5; 근거는 SSOT 표 *주 사용처*·의존 그래프) — 3장은 횡단 함정 씨앗이 약해 제외
+  - **07 본문 보강**: `enhancedObjectMapper` 경로 산문 · `spring.jackson.*` 무효 명시 · `ErrorHandlingDeserializer` 본문화 + raw↔Spring 비대칭
+  - **🧩 창발 통합테스트 구현**: 8.1 silent disable · 8.2 순서 역전 · 9.3 blocking→퇴출
 
 ---
 
