@@ -46,7 +46,7 @@ graph LR
 
 > **resilience4j 비유**: 개별 `retry`·`circuitbreaker`는 멀쩡한데 *조합·순서*가 틀리면 1번 실패를 N번 집계한다. Kafka도 똑같다 — **개별 valid ≠ 조합 valid ≠ 올바른 코드 배치**. (상세 → [코드 구조·순서의 함정](09-code-order-traps.md). 형제 [resilience4j-lab](../../../../resilience4j-lab/))
 
-각 본편 장은 ①②를, 횡단편은 ②③을 정면으로 다룬다.
+본편(1~7장)은 ①을 깎고 ②의 *씨앗*만 남긴다 — [설정 조합의 함정](08-config-combination-traps.md)이 **②를**, [코드 구조·순서의 함정](09-code-order-traps.md)이 **③을** 전담한다.
 
 상태 범례 — **2축**:
 - **[산문]** ✅ 작성 완료 · 🚧 옛 Step 복제본(II권 톤으로 재산문화 대기) · 📝 아웃라인
@@ -55,7 +55,7 @@ graph LR
 
 > **증명 모델** — II권의 증명은 **Spring Kafka 통합 테스트**다. I권의 `docker`/CLI 자체증명과 달리 **프레임워크에 의존**한다 — 그래서 이 권에 속한다.
 > - **본편(1~7장)**: 각 장의 증명은 기존 **Step 테스트**(`src/test/.../sNN_*`)가 담당한다.
-> - **횡단편(8~10장)**: 자체 테스트는 ⬜ 미구현, 본편 Step 테스트를 링크로 참조한다.
+> - **횡단편(8~10장)**: 본편 설정의 *조합·순서*를 재배열한 것이라 새 사실을 만들지 않는다 → 본편 Step이 이미 증명한다. 자체 테스트 ⬜는 미구현이 아니라 **설계상 위임**이다(통합 시나리오 테스트가 필요해지면 그때 채운다).
 
 > 🔒 **본문 정본(SSOT)은 `docs/book/2-spring/NN-*.md`다.** `src/test/.../sNN_*/README.md`는 **테스트 실행 가이드**로 보존하되(삭제 안 함), 책 본문이 아니다. 같은 산문을 두 곳에 두지 않는다(드리프트 차단).
 
@@ -72,6 +72,8 @@ graph TB
     C1 --> C6["6장 EOS & 트랜잭션"]
     C2 --> C6
     C1 --> C7["7장 직렬화 & 스키마 진화"]
+    C2 -. "역직렬화=Consumer 측" .-> C7
+    C1 -. "linger/batch" .-> C3
     C1 -. "멱등 삼각형" .-> X8["8장 설정 조합의 함정"]
     C4 -. "타이밍 3박자" .-> X8
     C6 -. "isolation.level" .-> X8
@@ -96,12 +98,14 @@ graph TB
 | 내구성 짝 (`acks=all` × `min.insync.replicas`, client×broker) | **8장** (8.5) | 1·8장 (+ → III권 결정 트리·I권 복제) |
 | `AckMode` / offset 커밋 시점 | **2장** | 2·9·10장 |
 | 타이밍 3박자 (`heartbeat`<`session`≪`max.poll.interval`, + `max.poll.records`) | **8장** (8.3) | 4·8·9·10장 |
-| `concurrency` / 파티션 ↔ 동시성 상한 | **3장** | 3·9·10장 |
+| `concurrency` / 파티션 ↔ 동시성 상한 | **3장** | 3·10장 |
 | `DefaultErrorHandler` (retry↔DLQ, non-retryable 분류) | **5장** | 5·9장 |
-| `@RetryableTopic` (non-blocking retry) | **9장** (9.4) | 9·10장 |
+| `@RetryableTopic` (non-blocking retry) | **9장** (9.4 🚧정의 보강 중) | 9·10장 |
 | `transactional.id` / `transaction-id-prefix` (좀비 펜싱 · 멱등 자동 활성) | **6장** | 6·8장 |
 | `isolation.level` (read_committed 짝) | **6장** | 6·8·10장 |
 | 스키마 진화 (`FAIL_ON_UNKNOWN_PROPERTIES`) | **7장** | 7장 (중앙 스키마는 IV권) |
+
+> 🚧 = 정의 *위치*는 정해졌으나 본문이 아직 얇음(아래 *다음 작업* 참조). 표는 위치를 가리키되 미완을 숨기지 않는다.
 
 ---
 
@@ -117,7 +121,7 @@ graph TB
 
 > 보장/착각: *"acks=all이면 안전한가?"* — acks·idempotence가 **무엇까지** 보장하는지.
 
-- `acks` 0/1/all 의미 · `enable.idempotence`(3.0+ 기본 true) · `ProducerFactory`/`KafkaTemplate` 골격
+- `acks` 0/1/all 의미 · `enable.idempotence`(3.0+ 기본 true — 정정·조합은 → [설정 조합의 함정](08-config-combination-traps.md)) · `ProducerFactory`/`KafkaTemplate` 골격
 - 내구성 짝: `acks=all`은 단독으론 부족 — 정의는 → [설정 조합의 함정](08-config-combination-traps.md)(8.5), 운영 판단 → [III권 의사결정 트리](../3-operations/10-config-decision-tree.md)
 - 증명 → [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md) `ProducerAcksTest` 등 🧪
 
@@ -134,7 +138,7 @@ graph TB
 > 보장/착각: *"파티션 늘리면 좋은가?"* — `concurrency × 인스턴스 ≤ 파티션`.
 
 - 컨테이너 `concurrency` ↔ 파티션 수 · key 기반 파티셔닝 (코드 제약만)
-- 파티션 수 결정·줄이기 불가·rekey 위험·사이징은 → [III권 토픽 설계](../3-operations/README.md)
+- 파티션 수 결정·줄이기 불가·rekey 위험·사이징은 → [III권 운영](../3-operations/README.md)
 - 증명 → [s03 Partition](../../../src/test/java/com/example/kafka/s03_partition/README.md) 🧪
 
 ### 4장 — 리밸런싱 & 배포   🚧 [04-rebalancing.md](./04-rebalancing.md)
@@ -157,7 +161,7 @@ graph TB
 
 > 보장/착각: *"EOS면 중복 없나?"* — Kafka **내부 한정**, 외부는 멱등키.
 
-- `transaction-id-prefix`(인스턴스별 고유) · `KafkaTransactionManager` · `read_committed` 짝 · `isolation.level`(정의)
+- `transaction-id-prefix`(인스턴스별 고유) · `KafkaTransactionManager` · `read_committed` 짝 · `isolation.level`
 - 트랜잭션을 쓰면 멱등성은 자동으로 켜진다 (→ [설정 조합의 함정](08-config-combination-traps.md))
 - 원리 → [I권 트랜잭션·EOS](../1-internals/07-transactions.md) · 증명 → [s06 EOS](../../../src/test/java/com/example/kafka/s06_eos/README.md) 🧪
 
@@ -179,7 +183,7 @@ graph TB
 > 관점: *개별 설정은 다 맞는데, **조합**이 틀리면 장애.*
 
 - 8.1 멱등성 삼각형 — `idempotence`×`acks`×`max.in.flight` (명시 충돌=`ConfigException` fail-fast / 기본 의존=INFO 로그 silent disable)
-- 8.2 순서 역전 — `max.in.flight` × retry
+- 8.2 순서 역전 — `max.in.flight` × `retries` (멱등 off일 때)
 - 8.3 타이밍 3박자 — `heartbeat`<`session`≪`max.poll.interval`
 - 8.4 트랜잭션 ↔ `isolation.level`
 - 8.5 체크리스트 — 내구성 짝(`acks=all`×`min.insync.replicas`) 포함
@@ -198,7 +202,7 @@ graph TB
 
 ### 10장 — 설정 레퍼런스(인덱스)   ✅ [10-config-reference.md](./10-config-reference.md)
 
-> 성격: *새 설명이 아니라 인덱스.* 의미는 본편·8·9장 SSOT, 여기선 "어디서 다루나 + 검증된 기본값(`✓`)"만.
+> 성격: *새 설명이 아니라 인덱스* — 의미는 본편·8·9장이 SSOT, 여기선 위치 + 검증 라벨(`✓`)만. (설명 산문은 정본에)
 
 - Producer / Consumer / Listener 설정 인덱스 · 기본값은 1차 소스 확인된 것만 `✓`, 나머지는 `?`(검증 대기)
 - 증명 없음(본편·8·9장 테스트를 참조)
@@ -210,8 +214,9 @@ graph TB
 
 - **[산문]** 본편 1~7장 = 🚧 옛 Step 복제본(재산문화 대기) · 횡단편 8~10장 = ✅ 작성
 - **[증명]** 본편 = 🧪 기존 Step 테스트(`src/test/.../sNN_*`) · 횡단편 = ⬜ 미구현(본편 테스트 링크 참조)
-- **다음 작업 (본편 재산문화)**: 7개를 II권 톤(컴포넌트 → 핵심 설정·보장 → 함정 → 올바른 형태 → I권 링크 → Step 증명)으로 다시 깎는다 — `# Step N` 헤더·"다음 Step으로" 제거, 깨진 `../sNN_*/` 교차참조 → named link, **본문 장번호 하드코딩 → named link**, 인용 라벨 주입, `@RetryableTopic` 동작 정의를 9장에 보강, `partition.assignment.strategy` 등 `?` 기본값 1차 소스 확정.
+- **다음 작업 (본편 재산문화)**: 7개를 II권 톤(컴포넌트 → 핵심 설정·보장 → 함정 → 올바른 형태 → I권 링크 → Step 증명)으로 다시 깎는다 — `# Step N` 헤더·"다음 Step으로" 제거, 깨진 `../sNN_*/` 교차참조 → **같은 권 정본(`NN-*.md`) 또는 원리는 I권 named link로** 교체(테스트 디렉터리는 「증명 →」 링크에서만), **본문 장번호 하드코딩 → named link**, 인용 라벨 주입, `@RetryableTopic` 동작 정의(retry 토픽 명명·DLT·attempts/backoff·blocking 곱셈)를 9.4에 보강하고 SSOT 표 🚧 해제, `partition.assignment.strategy` 등 `?` 기본값 1차 소스 확정.
+- **본편→횡단편 forward link 주입**: 각 본편 장 말미에 그 장이 씨앗 뿌린 함정으로의 링크(1장→8.1 멱등 삼각형, 2장→9.2 commit 위치, 3장→9.3 blocking, 4장→8.3·9.3, 5장→9.1, 6장→8.4). 근거는 위 SSOT 표 *주 사용처* 열 — README 안에만 있는 forward link를 본편 정본까지 닫는다.
 
 ---
 
-← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [III권](../3-operations/README.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)
+← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [III권](../3-operations/README.md) · [용어집](../../GLOSSARY.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)

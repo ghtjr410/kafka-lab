@@ -35,7 +35,7 @@
 |------|--------|------|----------|
 | `enable.auto.commit` | (Spring이 `false`로 강제) | ✓ | [본편 2장](../../../src/test/java/com/example/kafka/s02_consumer/README.md) |
 | `auto.offset.reset` | `latest` | ? | 본편 2장 |
-| `isolation.level` | `read_uncommitted` | ✓ | [8장](./08-config-combination-traps.md) · [I권 트랜잭션](../1-internals/07-transactions.md) |
+| `isolation.level` | `read_uncommitted` | ✓ | [본편 6장](../../../src/test/java/com/example/kafka/s06_eos/README.md) · [8장](./08-config-combination-traps.md) · [I권 트랜잭션](../1-internals/07-transactions.md) |
 | `heartbeat.interval.ms` | 3000 | ? | [8장](./08-config-combination-traps.md) · [I권 조정](../1-internals/05-coordination.md) |
 | `session.timeout.ms` | 45000 | ? | 8장 · I권 5장 |
 | `max.poll.interval.ms` | 300000 | ? | 8장 · [9장](./09-code-order-traps.md) |

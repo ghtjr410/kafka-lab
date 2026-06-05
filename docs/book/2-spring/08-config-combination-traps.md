@@ -48,7 +48,7 @@ spring.kafka.producer:
 
 ---
 
-## 8.2 순서 역전 — `순서` × `retries` × `max.in.flight`
+## 8.2 순서 역전 — `max.in.flight` × `retries` (멱등 off일 때)
 
 멱등을 *끄면* 새로운 함정이 열린다:
 

@@ -20,7 +20,7 @@ graph LR
 I권이 "왜"라면, III권은 "그래서 운영에서 **어떤 숫자로, 어떻게 감시하고, 터지면 어떻게**"를 다룬다.
 
 ### 다룬다 (Scope)
-- 클러스터 사이징 · 토픽 설계 BP · 파티셔닝 전략 · 리밸런싱 트리거 전수+대응 · 모니터링(lag/under-replicated) · 동적 설정 · 장애 대응 · 용량
+- 클러스터 사이징 · 토픽 설계 BP · 파티셔닝 전략 · 리밸런싱 트리거 전수+대응 · 모니터링(lag/under-replicated) · 동적 설정 · 장애 대응 · 용량 · **보안(SASL/SSL/ACL)**
 
 ### 다루지 않는다 (Out of Scope)
 - 원리의 "왜"(보장·알고리즘) → [I권](../1-internals/README.md) · Spring 코드·설정 → [II권](../2-spring/README.md)
