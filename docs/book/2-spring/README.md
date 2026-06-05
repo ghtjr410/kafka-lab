@@ -149,7 +149,7 @@ graph TB
 - 파티션 수 결정·줄이기 불가·rekey 위험·사이징은 → [III권 운영](../3-operations/README.md)
 - 증명 → [s03 Partition](../../../src/test/java/com/example/kafka/s03_partition/README.md) 🧪
 
-### 4장 — 리밸런싱 & 배포   🚧 [04-rebalancing.md](./04-rebalancing.md)
+### 4장 — 리밸런싱 & 배포   ✅ [04-rebalancing.md](./04-rebalancing.md)
 
 > 보장/착각: *"롤링 배포 시 왜 멈추나?"* — 리밸런싱 회피 설정.
 
