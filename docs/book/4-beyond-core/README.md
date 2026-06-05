@@ -23,9 +23,9 @@
 ### 다루지 않는다 (Out of Scope)
 | 주제 | 가야 할 곳 |
 |------|-----------|
-| Core 원리(복제·합의·트랜잭션…) | **I권 Internals** |
-| Spring Kafka 애플리케이션 코드 | **II권 Spring** |
-| Core 운영(사이징·모니터링·장애) | **III권 Operations** |
+| Core 원리(복제·합의·트랜잭션…) | [I권](../1-internals/README.md) |
+| Spring Kafka 애플리케이션 코드 | [II권](../2-spring/README.md) |
+| Core 운영(사이징·모니터링·장애) | [III권](../3-operations/README.md) |
 | 이벤트 설계 · **Outbox 패턴 구현** · Saga | messaging-lab / saga-lab |
 
 > 🤖 **경계 주의**: "Outbox/CDC 릴레이를 애플리케이션에서 어떻게 설계하나"는 **messaging-lab**.
@@ -35,49 +35,57 @@
 
 ---
 
-## 목차 (대략 — 깎는 중)
+## 산문화 보류 · 증명 모델
+
+> ⚠️ **IV권 산문화는 의도적으로 보류**다. 각 주제가 (1) 최신 기능이라 **1차 소스 검증이 무겁고**(Streams EOS·Schema Registry 호환성·Tiered Storage 등), (2) **별도 환경**이 필요하다(Streams 앱 · Debezium 커넥터+DB · MirrorMaker 2클러스터 · share/tiered는 4.2+ 브로커). **Core(I~III)를 다진 뒤 착수**한다. 그래서 아래 장은 **📝 아웃라인(골격)** 이고 산문·증명은 미착수다.
+
+- **🧪 증명 모델**: 컴포넌트별 전용 환경에서 증명한다 — Streams=토폴로지 테스트, Connect/CDC=Debezium+DB, MirrorMaker=2클러스터. 환경 구축이 선행이라 현재 전 장 ⬜.
+
+---
+
+## 목차 (골격 — 산문 보류)
 
 ### A. 스트림 처리
 
-#### 1장 — Kafka Streams   🚧
-- KStream / KTable, **stream-table duality** (I권 2장에서 씨앗)
+#### 1장 — Kafka Streams   📝
+- KStream / KTable, **stream-table duality** ([I권 로그 추상](../1-internals/02-log-abstraction.md)에서 씨앗)
 - 상태 저장 — RocksDB state store, changelog 토픽
 - 윈도우 / 조인 / 집계
-- Streams **EOS** (`processing.guarantee=exactly_once_v2`) — Core 트랜잭션(I권 7장) 위에서
+- Streams **EOS** (`processing.guarantee=exactly_once_v2`) — Core 트랜잭션([I권 트랜잭션](../1-internals/07-transactions.md)) 위에서
 - 토폴로지 · 스레드 모델 · 스케일링
 
-#### 2장 — ksqlDB   🚧
+#### 2장 — ksqlDB   📝
 - 스트림을 SQL로 (`CREATE STREAM ... SELECT`)
 - Streams와의 관계 (ksqlDB = Streams 위의 SQL 엔진)
 
 ### B. 데이터 통합
 
-#### 3장 — Kafka Connect (심화)   🚧
+#### 3장 — Kafka Connect (심화)   📝
 - Source / Sink, 분산 워커 · 태스크
 - **SMT**(Single Message Transform)
 - (기존 `s08_connect` 기본 사용 흡수 + 심화)
 
-#### 4장 — CDC / Debezium   🚧
+#### 4장 — CDC / Debezium   📝
 - DB binlog/WAL → Kafka (MySQL / Postgres 변경분 수집)
 - 초기 스냅샷 · 스키마 변경 처리
-- "binlog도 로그 → Kafka 로그" 개념 연결 (I권 2장)
+- "binlog도 로그 → Kafka 로그" 개념 연결 ([I권 로그 추상](../1-internals/02-log-abstraction.md))
 - (경계: 애플리케이션 Outbox 설계는 messaging-lab)
 
-#### 5장 — Schema Registry   🚧
+#### 5장 — Schema Registry   📝
 - Avro / Protobuf, 데이터 계약(contract)
 - 호환성 모드(backward/forward/full) 강제
-- (II권 7장 "JSON 직렬화"의 다음 단계 — 중앙 스키마 관리)
+- ([II권 직렬화](../2-spring/README.md) "JSON 직렬화"의 다음 단계 — 중앙 스키마 관리)
 
 ### C. 멀티클러스터·대규모
 
-#### 6장 — MirrorMaker 2   🚧
+#### 6장 — MirrorMaker 2   📝
 - 클러스터 간 복제, DR, geo-replication
 - offset 변환 · active-active / active-passive
 
-#### 7장 — Tiered Storage (KIP-405)   🚧
+#### 7장 — Tiered Storage (KIP-405)   📝
 - 오래된 로그를 원격 스토리지(S3 등)로, 무한 보존
 
-#### 8장 — Cruise Control   🚧
+#### 8장 — Cruise Control   📝
 - 자동 리밸런싱 · 용량 관리 · 자가 치유
 
 ---
