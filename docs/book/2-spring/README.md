@@ -16,12 +16,10 @@
 - Producer/Consumer/Listener 코드·설정 · 설정 조합 함정 · 코드 구조·순서 함정 · 직렬화 (기존 Step s01~s07)
 
 ### 다루지 않는다 (Out of Scope)
-- 내부 원리(보장·알고리즘) → **I권 Internals** · 운영 절차·모니터링·사이징 → **III권 Operations**
-- **Kafka Connect / CDC / Schema Registry / Streams** → **IV권 Beyond Core** (인프라·플랫폼 영역)
+- 내부 원리(보장·알고리즘) → [I권](../1-internals/README.md) · 운영 절차·모니터링·사이징 → [III권](../3-operations/README.md)
+- **Kafka Connect / CDC / Schema Registry / Streams** → [IV권](../4-beyond-core/README.md) (인프라·플랫폼 영역)
 
-> 🤖 "왜 그런가"는 "→ I권", "운영 기준"은 "→ III권" **링크만**. 여기선 코드 관점만 깎는다.
-
-> 📏 이 README는 **주제를 한 문장으로** 적는 인덱스다. 상세는 개별 `NN-*.md`로. (규칙 → [전체 표지](../README.md))
+> 🤖 "왜 그런가"는 [I권](../1-internals/README.md), "운영 기준"은 [III권](../3-operations/README.md)에 **링크만**. 여기선 코드 관점만 깎는다.
 
 ---
 
@@ -62,6 +60,13 @@ graph LR
 
 ---
 
+## 증명 모델 · 상태
+
+- **🧪 증명 모델**: II권의 증명은 **Spring Kafka 통합 테스트**(기존 Step 테스트)다. I권의 `docker`/CLI 자체증명과 달리 **프레임워크에 의존**한다 — 그래서 이 권에 속한다. (표지 "증명 모델 명시" 규칙)
+- **🚦 상태 2축**: 본편(1~7장)은 산문(Step README)·증명(테스트)이 **둘 다 기존 자산 ✅**. 횡단편(9~11장)은 **📋 신규**(아웃라인만, 산문·테스트 미작성).
+
+---
+
 ## 목차 (Spring 적용 축)
 
 ### 본편 — 기존 Step 재사용(📄)
@@ -76,8 +81,8 @@ graph LR
 | 6장 | EOS & 트랜잭션 | "EOS면 중복 없나?" | 📄 `s06_eos/README.md` | ✅ 8 |
 | 7장 | 직렬화 & 스키마 진화 | "필드 추가했는데 왜 죽나?" | 📄 `s07_serialization/README.md` | ✅ 7 |
 
-> `s08_connect`(Kafka Connect)는 인프라/통합 주제 → **IV권 Beyond Core**로 이동.
-> `s09_monitoring`·`s10_broker`(운영 성격)는 **III권 Operations**로 분류.
+> `s08_connect`(Kafka Connect)는 인프라/통합 주제 → [IV권](../4-beyond-core/README.md)으로 이동.
+> `s09_monitoring`·`s10_broker`(운영 성격)는 [III권](../3-operations/README.md)으로 분류.
 
 ### 횡단편 — 설정·코드 차원의 함정 (신규)
 
