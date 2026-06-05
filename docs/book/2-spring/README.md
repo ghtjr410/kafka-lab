@@ -6,7 +6,7 @@
 > ⚠️ **이 README가 II권의 중심 작업판이자 단일 인덱스다.**
 >
 > 📐 집필 공통 규칙(README=인덱스 · SSOT 표 · 상태 2축 · 증명 모델 등)은 [전체 표지](../README.md)가 단일 진실이다 — 여기서 재서술하지 않는다.
-> 특히 🔒 **불변식: 다른 장·권은 named link로만, 장/권 번호를 본문에 박지 말 것** (`(II권 8장)` ❌ → `[설정 조합의 함정](08-config-combination-traps.md)` ✅). 8장 결번·권번호/정의 위치 드리프트가 전부 이 위반에서 났다.
+> 특히 🔒 **불변식: 다른 장의 *내용*을 가리키는 인라인 번호 금지 — named link로만** (`(II권 8장 참조)` ❌ → `[설정 조합의 함정](08-config-combination-traps.md)` ✅). **예외**: 목차·범위·작업 노트의 *구조적* 장 번호(`본편 1~7장`·forward-link `1장→8.1`)는 허용. 8장 결번·권번호/정의 위치 드리프트가 전부 *내용 참조* 위반에서 났다.
 
 ---
 
@@ -19,7 +19,7 @@
 ### 다룬다 (Scope)
 - Producer / Consumer / Listener 코드·설정 (기존 Step `s01~s07` 재료)
 - **설정 조합 함정** · **코드 구조·순서 함정** (횡단편 신규)
-- 직렬화·스키마 진화 (Spring `JsonSerializer` 한정 — 중앙 스키마는 IV권)
+- 직렬화/역직렬화·스키마 진화 (Spring `Json(De)Serializer` 한정 — 중앙 스키마는 IV권)
 
 ### 다루지 않는다 (Out of Scope)
 | 주제 | 가야 할 곳 |
@@ -40,7 +40,7 @@
 
 ```mermaid
 graph LR
-    L1["① 개별 설정의 의미<br/>(이 설정이 무엇을 보장하나 → I권)"] --> L2["② 설정 조합<br/>(개별 valid인데 조합이 깨짐)"]
+    L1["① 개별 설정의 의미<br/>(코드 관점=II권 본편 · 깊은 보장·왜 → I권)"] --> L2["② 설정 조합<br/>(개별 valid인데 조합이 깨짐)"]
     L2 --> L3["③ 코드 구조·순서<br/>(설정 다 맞아도 레이어 순서가 뒤집음)"]
 ```
 
@@ -49,7 +49,7 @@ graph LR
 본편(1~7장)은 ①을 깎고 ②의 *씨앗*만 남긴다 — [설정 조합의 함정](08-config-combination-traps.md)이 **②를**, [코드 구조·순서의 함정](09-code-order-traps.md)이 **③을** 전담한다.
 
 상태 범례 — **2축**:
-- **[산문]** ✅ 작성 완료 · 🚧 옛 Step 복제본(II권 톤으로 재산문화 대기) · 📝 아웃라인
+- **[산문]** ✅ 작성 완료 · 🚧 옛 Step 복제본(II권 톤으로 재산문화 대기)
 - **[executable 증명]** 본편=🧪 기존 Step 테스트 있음 · 횡단편= **⬜ 위임**(설명형 재조합 — 본편 Step이 증명) / **🧩 창발**(silent disable·순서역전·blocking — 자체 통합테스트 필요, 미구현)
 - 읽는 법: `NN장` 헤더의 마커(🚧/✅)는 **[산문]** 축, 불릿 끝 🧪/⬜/🧩는 **[증명]** 축이다. (주석 기호: 🔒 불변식 · 🤖 작업자 노트)
 
@@ -79,6 +79,7 @@ graph TB
     C6 -. "isolation.level" .-> X8
     C5 -. "retry·DLQ 순서" .-> X9["9장 코드 구조·순서의 함정"]
     C2 -. "commit 위치" .-> X9
+    C4 -. "blocking→퇴출" .-> X9
     C6 -. "트랜잭션 경계" .-> X9
     X8 --> X10["10장 설정 레퍼런스(인덱스)"]
     X9 --> X10
@@ -169,10 +170,13 @@ graph TB
 
 ### 7장 — 직렬화 & 스키마 진화   🚧 [07-serialization.md](./07-serialization.md)
 
-> 보장/착각: *"필드 추가했는데 왜 죽나?"* — **StringDeserializer + 수동 `ObjectMapper`**(Jackson raw 기본 `FAIL_ON_UNKNOWN=true`)면 죽고, 기본 `JsonDeserializer`(`enhancedObjectMapper`)면 무시된다 — *추가는 허용 / 제거·타입변경은 깨짐*.
+> 보장/착각: *"필드 추가했는데 왜 죽나?"* — **StringDeserializer + 수동 `ObjectMapper`**(Jackson raw 기본 `FAIL_ON_UNKNOWN=true`)면 죽고, 기본 `JsonDeserializer`(`enhancedObjectMapper`)면 무시된다.
 
 - `JsonSerializer`/`JsonDeserializer` (+ `trusted.packages`)
-- **`FAIL_ON_UNKNOWN` 비대칭**: Jackson raw=`true`(수동 ObjectMapper면 죽음) ↔ Spring `JsonDeserializer`=`false`(`enhancedObjectMapper`로 무시) — `spring.jackson.*`는 JsonDeserializer 내부 ObjectMapper에 **미적용** `[code @spring-kafka 3.3]`
+- **`FAIL_ON_UNKNOWN` 비대칭** `[code @spring-kafka 3.3]`:
+  - Jackson raw = `true` (수동 `ObjectMapper`면 unknown field에서 죽음)
+  - Spring `JsonDeserializer` = `false` (`enhancedObjectMapper`로 무시) — `spring.jackson.*`는 여기 미적용
+- **스키마 진화**(consumer 관점): 필드 *추가* → `FAIL_ON_UNKNOWN` 의존(false면 무시) / 필드 *제거* → 없는 필드는 기본값(`null`/0; primitive·`required`는 예외) / *타입 변경* → `MismatchedInputException`(하드 브레이크)
 - `ErrorHandlingDeserializer` — 역직렬화 실패(poison-pill)를 리스너 진입 *전*에 잡아 헤더로 옮겨 DLT로 (→ [코드 구조·순서의 함정](09-code-order-traps.md))
 - 하위/상위 호환 · 헤더 기반 버전 관리
 - **중앙 스키마 관리(Avro/Schema Registry)는 → [IV권](../4-beyond-core/README.md)**
@@ -186,7 +190,7 @@ graph TB
 
 > 관점: *개별 설정은 다 맞는데, **조합**이 틀리면 장애.*
 
-- 8.1 멱등성 삼각형 — `idempotence`×`acks`×`max.in.flight` (명시 충돌=`ConfigException` fail-fast / 기본 의존=silent disable: `acks`·`retries`=INFO · `max.in.flight`=WARN)
+- 8.1 멱등성 삼각형 — `idempotence`×`acks`×`max.in.flight` (명시 충돌=`ConfigException` fail-fast / 기본 의존=silent disable: `acks`·`retries`=INFO · `max.in.flight`=WARN `[code @3.7]`)
 - 8.2 순서 역전 — `max.in.flight` × `retries` (멱등 off일 때)
 - 8.3 타이밍 3박자 — `heartbeat`<`session`≪`max.poll.interval`
 - 8.4 트랜잭션 ↔ `isolation.level`
@@ -231,4 +235,4 @@ graph TB
 
 ---
 
-← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [III권](../3-operations/README.md) · [용어집](../../GLOSSARY.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)
+← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [III권](../3-operations/README.md) · [IV권](../4-beyond-core/README.md) · [용어집](../../GLOSSARY.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)
