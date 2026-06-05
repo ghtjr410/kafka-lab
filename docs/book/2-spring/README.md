@@ -131,7 +131,7 @@ graph TB
 - `send()`는 **비동기** — 실패는 콜백/`CompletableFuture`로 돌아온다(동기 발행으로 오인하면 유실)
 - 증명 → [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md) `ProducerAcksTest` 등 🧪
 
-### 2장 — Consumer & Offset   🚧 [02-consumer-offset.md](./02-consumer-offset.md)
+### 2장 — Consumer & Offset   ✅ [02-consumer-offset.md](./02-consumer-offset.md)
 
 > 보장/착각: *"예외를 삼키면 안전한가?"* — **커밋 시점이 유실·중복을 가른다.**
 
