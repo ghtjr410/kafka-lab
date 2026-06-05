@@ -88,7 +88,7 @@ graph LR
 
 | 장 | 제목 | 다루는 핵심 | 상태 |
 |----|------|------------|------|
-| 9장 | **설정 조합의 함정** | idempotence ↔ acks ↔ max.in.flight / order ↔ retry / `session·heartbeat·max.poll` 3박자 타이밍 / transactional ↔ isolation.level | 📋 예정 |
+| 9장 | **[설정 조합의 함정](./09-config-combination-traps.md)** | idempotence ↔ acks ↔ max.in.flight / order ↔ retry / `session·heartbeat·max.poll` 3박자 타이밍 / transactional ↔ isolation.level | ✅ 산문 |
 | 10장 | **코드 구조·순서의 함정** | ErrorHandler retry↔DLQ 순서·non-retryable 분류 / commit 위치(처리 전 vs 후) / `@RetryableTopic` non-blocking retry / `@Transactional`+Kafka 트랜잭션 경계 / 리스너 내 blocking 호출 → poll 초과 | 📋 예정 |
 | 11장 | **설정 레퍼런스** | Producer/Consumer/Listener 주요 설정의 의미·기본값·버전별 변경 (단일 설정 카탈로그) | 📋 예정 |
 
