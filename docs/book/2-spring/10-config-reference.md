@@ -1,12 +1,12 @@
 # II권 10장. 설정 레퍼런스 (인덱스)
 
-> 앞: [9장 코드 구조·순서의 함정](./09-code-order-traps.md) · [II권 목차](./README.md)
+> 앞: [코드 구조·순서의 함정](./09-code-order-traps.md) · [II권 목차](./README.md)
 >
-> **이 장의 성격**: *새 설명이 아니라 인덱스다.* 각 설정의 *의미*는 본편·9·9장이 단일 진실(SSOT)이고, 여기서는 "어디서 다루나 + 검증된 기본값"만 모은다. 같은 설명을 두 번 적지 않는다(드리프트 방지).
+> **이 장의 성격**: *새 설명이 아니라 인덱스다.* 각 설정의 *의미*는 본편·8·9장이 단일 진실(SSOT)이고, 여기서는 "어디서 다루나 + 검증된 기본값"만 모은다. 같은 설명을 두 번 적지 않는다(드리프트 방지).
 
 > ⚠️ **기본값 검증 정책**: 아래 기본값 중 **`✓` 표시만 1차 소스(KIP/공식 docs/`*Config.java`)로 확인됨.** 나머지(`?`)는 **검증 대기**다 — 추정값을 사실처럼 쓰지 않기 위해 별도 라운드에서 확정한다. (이 책 [SOURCES](./../SOURCES.md) 규율)
 >
-> 🧭 **이 표는 "무엇이 기본값인가"의 인덱스다. "언제 어느 값으로 돌리는 게 유리한가(trade-off)"는** → [III권 9장 — 설정 의사결정 트리(CAP·PACELC)](../3-operations/10-config-decision-tree.md). 특히 `acks` · `linger.ms` · `max.block.ms`.
+> 🧭 **이 표는 "무엇이 기본값인가"의 인덱스다. "언제 어느 값으로 돌리는 게 유리한가(trade-off)"는** → [III권 의사결정 트리(CAP·PACELC)](../3-operations/10-config-decision-tree.md). 특히 `acks` · `linger.ms` · `max.block.ms`.
 
 ---
 
@@ -20,8 +20,8 @@
 | `linger.ms` | 0 | ? | [본편 1장](../../../src/test/java/com/example/kafka/s01_producer/README.md) |
 | `batch.size` | 16384 | ? | 본편 1장 |
 | `buffer.memory` | 33554432 (32MB) | ? | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
-| `max.block.ms` | 60000 | ? | 본편 1장 · I권 8장 |
-| `delivery.timeout.ms` | 120000 | ✓ `[KIP-91]` | 본편 1장 · I권 8장 |
+| `max.block.ms` | 60000 | ? | 본편 1장 · I권 9장 |
+| `delivery.timeout.ms` | 120000 | ✓ `[KIP-91]` | 본편 1장 · I권 9장 |
 | `transaction.timeout.ms` | 60000 | ✓ | [I권 트랜잭션](../1-internals/07-transactions.md) |
 | `transactional.id` / Spring `transaction-id-prefix` | (없음, 인스턴스별 고유 필수) | — | [본편 6장](../../../src/test/java/com/example/kafka/s06_eos/README.md) |
 
@@ -40,8 +40,8 @@
 | `session.timeout.ms` | 45000 | ? | 8장 · I권 5장 |
 | `max.poll.interval.ms` | 300000 | ? | 8장 · [9장](./09-code-order-traps.md) |
 | `max.poll.records` | 500 | ? | 8장 · 9장 |
-| `fetch.min.bytes` | 1 | ? | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) (8.7 fetch) |
-| `fetch.max.wait.ms` | 500 | ? | I권 8장 |
+| `fetch.min.bytes` | 1 | ? | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) (9.7 fetch) |
+| `fetch.max.wait.ms` | 500 | ? | I권 9장 |
 | `group.instance.id` (static membership) | (없음) | — | [본편 4장](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) · I권 5장 |
 | `partition.assignment.strategy` | `[RangeAssignor, CooperativeStickyAssignor]` (3.x) | ? | 본편 4장 · I권 5장 |
 
@@ -68,4 +68,4 @@
 
 ---
 
-← [9장 코드 구조·순서의 함정](./09-code-order-traps.md) · [II권 목차](./README.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)
+← [코드 구조·순서의 함정](./09-code-order-traps.md) · [II권 목차](./README.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)

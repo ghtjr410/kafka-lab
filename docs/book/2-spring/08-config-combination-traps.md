@@ -1,12 +1,12 @@
 # II권 8장. 설정 조합의 함정
 
-> 앞: [II권 목차](./README.md) · 다음: 9장 코드 구조·순서의 함정
+> 앞: [II권 목차](./README.md) · 다음: [코드 구조·순서의 함정](./09-code-order-traps.md)
 >
 > **이 장의 관점**: *개별 설정은 다 맞는데, 조합이 틀리면 장애가 난다. "설정 하나"가 아니라 "설정들의 상호작용"을 본다.*
 
 본편(1~7장)이 "설정 하나하나의 의미"였다면, 이 장은 **여러 설정이 서로를 전제·강제·배신하는** 지점이다. 각 값은 문서상 valid인데, 조합이 깨지면 멱등성이 사라지거나 순서가 뒤집히거나 컨슈머가 퇴출된다. **왜 그렇게 되는가의 원리는 I권**에 있고, 여기서는 *Spring 설정에서 어떻게 깨지고 어떻게 막나*를 본다.
 
-> **resilience4j 비유**: 개별 `retry`·`circuitbreaker`는 멀쩡한데 *조합·순서*가 틀리면 1번 실패를 N번 집계한다. Kafka 설정도 똑같다 — 개별 valid ≠ 조합 valid. (형제 [resilience4j-lab](../../../../resilience4j-lab/))
+> **resilience4j 비유**: 개별 `retry`·`circuitbreaker`는 멀쩡한데 *조합*이 틀리면 1번 실패를 N번 집계한다 — **개별 valid ≠ 조합 valid**. (레이어 *순서* 함정의 확장판 비유는 → [코드 구조·순서의 함정](./09-code-order-traps.md). 형제 [resilience4j-lab](../../../../resilience4j-lab/))
 
 ---
 
@@ -119,7 +119,7 @@ spring.kafka:
 | 조합 | 깨지는 조건 | 막는 법 | 원리 |
 |------|------------|---------|------|
 | 멱등 삼각형 | `idempotence=true`인데 `acks≠all`·`max.in.flight>5` | acks=all·≤5 유지 | [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) |
-| **내구성 짝** (client×broker) | `acks=all`인데 `min.insync.replicas=1` | min.isr=2 (RF=3) | [III권 9장](../3-operations/10-config-decision-tree.md) · [I권 복제](../1-internals/03-replication.md) |
+| **내구성 짝** (client×broker) | `acks=all`인데 `min.insync.replicas=1` | min.isr=2 (RF=3) | [III권 의사결정 트리(CAP·PACELC)](../3-operations/10-config-decision-tree.md) · [I권 복제](../1-internals/03-replication.md) |
 | 순서 역전 | 멱등 off + `max.in.flight>1` + retry | 멱등 on | [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) |
 | 타이밍 3박자 | `heartbeat≥session` / `max.poll` 너무 짧음 | h < s ≪ m, `max.poll.records`↓ | [I권 조정](../1-internals/05-coordination.md) |
 | 트랜잭션 짝 | 프로듀서만 txn, 컨슈머 `read_uncommitted` | 컨슈머 `read_committed` | [I권 트랜잭션](../1-internals/07-transactions.md) |

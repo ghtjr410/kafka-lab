@@ -1,6 +1,6 @@
 # II권 9장. 코드 구조·순서의 함정
 
-> 앞: [8장 설정 조합의 함정](./08-config-combination-traps.md) · 다음: 10장 설정 레퍼런스
+> 앞: [설정 조합의 함정](./08-config-combination-traps.md) · 다음: [설정 레퍼런스](./10-config-reference.md)
 >
 > **이 장의 관점**: *설정이 다 맞아도, 코드의 레이어 순서·위치가 틀리면 장애가 난다. 이건 I권(원리)도 III권(운영)도 못 잡는, 오직 코드에서만 보이는 함정이다.*
 
@@ -104,4 +104,4 @@ DB 트랜잭션과 Kafka 발행을 **한 메서드에 섞으면** 경계가 꼬�
 
 ---
 
-← [8장 설정 조합의 함정](./08-config-combination-traps.md) · [II권 목차](./README.md) · 원리 출처: [I권](../1-internals/README.md)
+← [설정 조합의 함정](./08-config-combination-traps.md) · [II권 목차](./README.md) · 원리 출처: [I권](../1-internals/README.md)

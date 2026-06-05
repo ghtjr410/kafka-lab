@@ -166,15 +166,13 @@ spring.jackson.deserialization:
 - 필드 삭제나 타입 변경 같은 Breaking Change는 어떻게 대응하는가?
 - Schema Registry 없이 버전 관리를 하려면?
 
-> 답이 바로 나오면 Step 8로 넘어가자.
+> 답이 바로 나오면 [설정 조합의 함정](./08-config-combination-traps.md)으로 넘어가자.
 > 막히면 `JsonSerializerTest`, `SchemaEvolutionTest`를 실행해서 확인하자.
 
 ---
 
-## 다음 Step으로
+## 다음으로
 
-직렬화와 스키마 호환성 문제를 해결했다.
-근데 DB 변경사항을 Kafka로 보내려면 매번 Producer를 직접 짜야 하나?
+직렬화와 스키마 호환성을 해결했다. 다음은 개별 설정들이 **조합**될 때 터지는 함정이다 → [설정 조합의 함정](./08-config-combination-traps.md).
 
-Step 8에서는 Kafka Connect를 다룬다.
-"설정만으로 데이터 파이프라인을 만들 수 있다" — 이 가능성에서 시작한다.
+> DB 변경사항을 Kafka로 흘려보내는 파이프라인(Kafka Connect)·중앙 스키마 관리(Schema Registry)는 이 권의 범위가 아니다 → [IV권 Beyond Core](../4-beyond-core/README.md).
