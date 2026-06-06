@@ -1,3 +1,19 @@
+---
+volume: II
+chapter: 3
+title: 파티션 & 동시성
+prose: done
+proof:
+  tests: [s03_partition/PartitionKeyTest, s03_partition/PartitionRekeyTest,
+          s03_partition/PartitionConsumerTest]
+  gaps: []
+upstream: ["../1-internals/06-ordering-atomicity.md", "../1-internals/05-coordination.md",
+           "../1-internals/09-client-runtime.md"]
+forward: []
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # II권 3장 — 파티션 & 동시성
 
 > 앞: [Consumer & Offset](./02-consumer-offset.md) · 다음: [리밸런싱 & 배포](./04-rebalancing.md)
@@ -10,7 +26,13 @@
 
 ## 3.1 파티션을 늘렸더니 순서가 깨졌다
 
-트래픽이 늘어 파티션을 3→6, Consumer도 6대로. 처리량은 2배가 됐는데 — **같은 고객의 "주문 취소"가 "주문 생성"보다 먼저 처리**되어 *"없는 주문을 취소?"* 에러가 난다. 늘리기 전엔 없던 문제다. 왜인지는 3.3에서.
+트래픽이 늘어 파티션을 3→6, Consumer도 6대로 올렸다. 처리량은 2배가 됐다.
+
+**[고민]** *"처리량은 2배가 됐는데 왜 같은 고객의 '주문 취소'가 '주문 생성'보다 먼저 처리되지?"* — 늘리기 전엔 없던 **"없는 주문을 취소?"** 에러다.
+
+**[본질]** 파티션 수를 바꾸는 순간 key→파티션 매핑이 재계산되어, 같은 고객의 이벤트가 두 파티션·두 Consumer로 갈렸다. 같은 파티션 안에서만 보장되던 순서가 그 경계 밖으로 새어 나간 것이다.
+
+**[해결]** 정체는 rekey다 — 매핑 규칙(`murmur2(key) % 파티션수`)과 "데이터는 이동하지 않는다"는 사실이 만나 생긴 결과다. 메커니즘은 3.3에서 펼친다.
 
 ---
 
@@ -29,13 +51,17 @@ graph LR
 
 > ⚠️ 이 순서 보장은 **같은 파티션을 단일 스레드로 처리할 때만** 성립한다(3.4 참고). 리스너 안에서 별도 스레드풀로 넘기면 같은 파티션도 동시 처리되어 깨진다.
 
-- **증명** → [s03 Partition](../../../src/test/java/com/example/kafka/s03_partition/README.md) `PartitionKeyTest` 🧪
+**[증명]** [s03 Partition](../../../src/test/java/com/example/kafka/s03_partition/README.md) `PartitionKeyTest` 🧪
 
 ---
 
 ## 3.3 rekey 함정 — 파티션 수를 바꾸면 매핑이 깨진다
 
-`murmur2(key) % 파티션수`에서 **파티션수가 바뀌면 나머지 결과가 달라진다.** `murmur2("order-A") % 3 = 1`이던 게 `% 6 = 4`가 된다 — 같은 key가 다른 파티션으로.
+`murmur2(key) % 파티션수`라는 한 줄에 함정이 숨어 있다.
+
+**[고민]** *"파티션을 늘리면 기존 메시지도 새 규칙대로 재배치되는 것 아닌가?"*
+
+**[본질]** **파티션수가 바뀌면 나머지 결과가 달라진다.** `murmur2("order-A") % 3 = 1`이던 게 `% 6 = 4`가 된다 — 같은 key가 다른 파티션으로. 그런데 기존 파티션 데이터는 **이동하지 않는다** — 새 파티션은 비어서 시작하고, 이후 발행분만 새 규칙을 따른다. 그래서 같은 key가 두 Consumer에 갈려 순서가 깨진다.
 
 ```mermaid
 graph TB
@@ -47,11 +73,9 @@ graph TB
     NEW --> X
 ```
 
-기존 파티션 데이터는 **이동하지 않는다** — 새 파티션은 비어서 시작하고, 이후 발행분만 새 규칙을 따른다. 그래서 같은 key가 두 Consumer에 갈려 순서가 깨진다.
+**[해결]** **파티션은 늘릴 수만 있고 줄일 수 없다.** 그래서 *초기 수 결정·사이징·rekey를 감수할지*는 운영 판단이라 → [III권 토픽 설계](../3-operations/README.md). II권의 결론은 하나 — **운영 중 파티션 수 변경은 순서를 깬다.**
 
-> **파티션은 늘릴 수만 있고 줄일 수 없다.** 그래서 *초기 수 결정·사이징·rekey를 감수할지*는 운영 판단이라 → [III권 토픽 설계](../3-operations/README.md). II권의 결론은 하나 — **운영 중 파티션 수 변경은 순서를 깬다.**
-
-- **증명** → `PartitionRekeyTest` 🧪
+**[증명]** `PartitionRekeyTest` 🧪
 
 ---
 
@@ -72,8 +96,9 @@ graph TB
 
 > **핵심: `concurrency × 인스턴스 수 > 파티션 수`면 IDLE 스레드가 생긴다** — 파티션 이하로 맞춘다. 그리고 `concurrency>1`이면 한 인스턴스가 여러 파티션을 **병렬** 처리하므로 **파티션 *간* 순서는 보장 안 됨**(같은 파티션 *내*만 보장).
 
-- **왜**(배타 배정·리밸런싱) → [I권 조정](../1-internals/05-coordination.md) · 배포 시 리밸런싱은 → [리밸런싱 & 배포](./04-rebalancing.md)
-- **증명** → `PartitionConsumerTest` 🧪
+**왜**(배타 배정·리밸런싱) → [I권 조정](../1-internals/05-coordination.md) · 배포 시 리밸런싱은 → [리밸런싱 & 배포](./04-rebalancing.md).
+
+**[증명]** `PartitionConsumerTest` 🧪
 
 ---
 

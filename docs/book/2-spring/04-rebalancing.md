@@ -1,3 +1,18 @@
+---
+volume: II
+chapter: 4
+title: 리밸런싱 & 배포
+prose: done
+proof:
+  tests: [s04_rebalancing/RebalancingEagerVsCooperativeTest, s04_rebalancing/StaticMembershipTest,
+          s04_rebalancing/MaxPollIntervalTest]
+  gaps: []
+upstream: ["../1-internals/05-coordination.md"]
+forward: ["8.3 타이밍 순서 관계", "9.3 리스너 blocking 함정"]
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # II권 4장 — 리밸런싱 & 배포
 
 > 앞: [파티션 & 동시성](./03-partition-concurrency.md) · 다음: [에러 처리 & DLQ](./05-error-handling-dlq.md)
@@ -10,7 +25,11 @@
 
 ## 4.1 롤링 배포 시 왜 멈추나 — Eager
 
-3대가 6파티션을 나눠 처리 중, 배포로 한 대를 내리는 순간 **나머지 2대도 처리를 멈췄다.** 이게 **Eager 리밸런싱** — 그룹에 변경이 생기면 **모든 파티션을 revoke하고 다시 배분**한다(Stop-the-World). `RangeAssignor`·`RoundRobinAssignor`가 이 방식이다.
+3대가 6파티션을 나눠 처리 중, 배포로 한 대를 내렸다.
+
+**[고민]** *"내린 건 한 대뿐인데, 왜 **나머지 2대도 처리를 멈췄나**?"* — C3이 합류했을 뿐인데 C1·C2가 갖던 파티션을 전부 반납한다 — 어차피 돌려받을 것도.
+
+**[본질]** 이게 **Eager 리밸런싱** — 그룹에 변경이 생기면 **모든 파티션을 revoke하고 다시 배분**한다(Stop-the-World). `RangeAssignor`·`RoundRobinAssignor`가 이 방식이다.
 
 ```mermaid
 sequenceDiagram
@@ -22,9 +41,9 @@ sequenceDiagram
     Coord->>C1: 재배정 → 처리 재개
 ```
 
-C3이 합류했을 뿐인데 C1·C2가 갖던 파티션을 전부 반납한다 — 어차피 돌려받을 것도.
+**[해결]** 변경이 생긴 일부만 옮기는 프로토콜로 바꾼다(Cooperative, 4.2).
 
-- **증명** → [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) `RebalancingEagerVsCooperativeTest` 🧪
+**[증명]** [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) `RebalancingEagerVsCooperativeTest` 🧪
 
 ---
 
@@ -32,7 +51,7 @@ C3이 합류했을 뿐인데 C1·C2가 갖던 파티션을 전부 반납한다 �
 
 `CooperativeStickyAssignor`는 **실제 이동이 필요한 파티션만** revoke하고 나머지는 계속 처리한다(2라운드 동작: 1라운드 이동 대상만 revoke → 2라운드 assign). C3 합류 시 C1은 한 번도 안 멈추고, C2는 넘길 파티션만 잠깐 멈춘다.
 
-- **증명** → `RebalancingEagerVsCooperativeTest` 🧪
+**[증명]** `RebalancingEagerVsCooperativeTest` 🧪
 
 ---
 
@@ -50,23 +69,32 @@ C3이 합류했을 뿐인데 C1·C2가 갖던 파티션을 전부 반납한다 �
 
 ## 4.4 Static Membership — 재접속해도 리밸런싱 없이
 
-Dynamic(기본)은 재접속할 때마다 새 멤버로 보고 리밸런싱한다. **`group.instance.id`** 를 주면 **Static Membership** — 같은 ID로 재접속하면 갖던 파티션을 리밸런싱 없이 돌려받는다. K8s에선 `${HOSTNAME}`(Pod 이름)이 일반적이다.
+Consumer 하나가 잠깐 재시작했다.
 
-- **왜** → [I권 조정](../1-internals/05-coordination.md) (static membership·`group.instance.id`)
-- **증명** → `StaticMembershipTest` 🧪
+**[고민]** *"같은 인스턴스가 다시 붙는 것뿐인데, 왜 그룹 전체가 리밸런싱을 도나?"*
+
+**[본질]** Dynamic(기본)은 재접속할 때마다 **새 멤버로 보고** 리밸런싱한다 — 코디네이터는 떠난 멤버와 돌아온 멤버가 같은 인스턴스인지 알 수 없다.
+
+**[해결]** **`group.instance.id`** 를 주면 **Static Membership** — 같은 ID로 재접속하면 갖던 파티션을 리밸런싱 없이 돌려받는다. K8s에선 `${HOSTNAME}`(Pod 이름)이 일반적이다.
+
+**[증명]** `StaticMembershipTest` 🧪 · **왜** [I권 조정](../1-internals/05-coordination.md) (static membership·`group.instance.id`)
 
 ---
 
 ## 4.5 퇴출은 두 메커니즘 — 타이밍 3박자
 
-"죽었다" 판정은 **두 축**이고, 정의(`heartbeat`<`session`≪`max.poll.interval`의 순서 관계)는 [설정 조합의 함정](08-config-combination-traps.md)(8.3)이 SSOT다:
+프로세스는 멀쩡히 살아 있는데도 그룹에서 쫓겨났다.
+
+**[고민]** *"죽지도 않았는데 왜 퇴출되나?"* — "죽었다" 판정이 하나의 신호가 아니기 때문이다.
+
+**[본질]** 판정은 **두 축**이고, 정의(`heartbeat`<`session`≪`max.poll.interval`의 순서 관계)는 [설정 조합의 함정](08-config-combination-traps.md)(8.3)이 SSOT다:
 
 - **`session.timeout.ms`(기본 45초)** — heartbeat 스레드가 이 안에 신호를 못 보내면 퇴출(프로세스 죽음·네트워크 단절 감지).
 - **`max.poll.interval.ms`(기본 5분)** — poll 간격이 이를 넘으면 퇴출(프로세스는 살아 있지만 **처리가 느린** 경우).
 
-처리 지연으로 퇴출되면 offset이 커밋 안 돼 다른 Consumer가 **중복 처리**한다. 조정 공식: `1건 처리시간 × max.poll.records < max.poll.interval.ms` — `max.poll.records`를 줄여 poll 간격을 좁힌다. 리스너 안 blocking이 이 퇴출을 부르는 코드 함정은 → [코드 구조·순서의 함정](09-code-order-traps.md)(9.3).
+**[해결]** 처리 지연으로 퇴출되면 offset이 커밋 안 돼 다른 Consumer가 **중복 처리**한다. 조정 공식: `1건 처리시간 × max.poll.records < max.poll.interval.ms` — `max.poll.records`를 줄여 poll 간격을 좁힌다. 리스너 안 blocking이 이 퇴출을 부르는 코드 함정은 → [코드 구조·순서의 함정](09-code-order-traps.md)(9.3).
 
-- **증명** → `MaxPollIntervalTest` 🧪
+**[증명]** `MaxPollIntervalTest` 🧪
 
 ---
 

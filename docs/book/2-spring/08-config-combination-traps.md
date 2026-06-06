@@ -1,3 +1,19 @@
+---
+volume: II
+chapter: 8
+title: 설정 조합의 함정
+prose: done
+proof:
+  tests: [s01_producer/ProducerAcksTest, s04_rebalancing/MaxPollIntervalTest,
+          s06_eos/TransactionalProducerTest]
+  gaps: []
+upstream: ["../1-internals/06-ordering-atomicity.md", "../1-internals/03-replication.md",
+           "../1-internals/05-coordination.md", "../1-internals/07-transactions.md"]
+forward: ["코드 구조·순서의 함정"]
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # II권 8장. 설정 조합의 함정
 
 > 앞: [II권 목차](./README.md) · 다음: [코드 구조·순서의 함정](./09-code-order-traps.md)
@@ -12,7 +28,11 @@
 
 ## 8.1 멱등성 삼각형 — `idempotence` × `acks` × `max.in.flight`
 
-가장 흔한 함정. `enable.idempotence=true`는 **세 설정을 동시에 전제**한다:
+가장 흔한 함정. 세 설정이 다 valid한데 조합이 어긋나면 멱등성이 사라진다.
+
+**[고민]** *"나는 `acks`를 설정한 적도 없는데 왜 `all`처럼 동작하지?"* — 그리고 *"`acks=1`만 줬는데 왜 예외도 없이 멱등성이 꺼졌지?"*
+
+**[본질]** `enable.idempotence=true`는 **세 설정을 동시에 전제**한다:
 
 ```mermaid
 graph TB
@@ -26,11 +46,13 @@ graph TB
 
 - Kafka **3.0+부터 `enable.idempotence`가 기본 `true`** → 명시하지 않아도 이미 `acks=all`이 강제된다. (엄밀히는 `3.0.0`·`3.1.0`엔 config 검증 버그로 이 기본값이 실제 적용되지 않았고 — `acks=all` 기본 전환은 정상 — **`3.2.0`부터 정상**이다. 본서 baseline `3.7`은 무관. `[KAFKA-13598]`)
 - 그래서 "나는 `acks` 설정 안 했는데 왜 all처럼 동작하지?"라는 혼란이 생긴다.
-- 충돌 시 동작은 **두 갈래**로 갈린다:
-  - **명시적으로 `enable.idempotence=true`를 켠 상태** + `acks=1` → **`ConfigException`으로 프로듀서 생성 자체가 실패(fail-fast)**. 시끄럽게 죽으므로 오히려 안전하다.
-  - **기본값에 의존**(idempotence 미명시)하다 `acks=1`만 줌 → 예외는 안 나고 **멱등성이 비활성화**된다. 이때 `"Idempotence will be disabled because acks is set to 1, not set to 'all'."` 로그가 남지만 **`INFO` 레벨**이라 — WARN조차 아니라 — 기동 로그 수천 줄에 묻혀 아무도 못 본다. *그게 진짜 함정.* `[code @3.7]`
-- ⚠️ 충돌 종류마다 로그 레벨이 다르다: `acks≠all`·`retries=0`은 **INFO**, `max.in.flight>5`는 **WARN**. 셋 중 **어느 하나만 어긋나도** silent disable된다.
-- 그래서 `acks`를 명시할 때는 **멱등성도 함께 명시**하라(둘을 같이 박으면 충돌이 fail-fast로 드러난다). 운영에선 `"Idempotence will be disabled"` 로그를 알람에 걸어 침묵을 깬다.
+
+**[해결]** 충돌 시 동작은 **두 갈래**로 갈린다:
+
+- **명시적으로 `enable.idempotence=true`를 켠 상태** + `acks=1` → **`ConfigException`으로 프로듀서 생성 자체가 실패(fail-fast)**. 시끄럽게 죽으므로 오히려 안전하다.
+- **기본값에 의존**(idempotence 미명시)하다 `acks=1`만 줌 → 예외는 안 나고 **멱등성이 비활성화**된다. 이때 `"Idempotence will be disabled because acks is set to 1, not set to 'all'."` 로그가 남지만 **`INFO` 레벨**이라 — WARN조차 아니라 — 기동 로그 수천 줄에 묻혀 아무도 못 본다. *그게 진짜 함정.* `[code @3.7]`
+
+⚠️ 충돌 종류마다 로그 레벨이 다르다: `acks≠all`·`retries=0`은 **INFO**, `max.in.flight>5`는 **WARN**. 셋 중 **어느 하나만 어긋나도** silent disable된다. 그래서 `acks`를 명시할 때는 **멱등성도 함께 명시**하라(둘을 같이 박으면 충돌이 fail-fast로 드러난다). 운영에선 `"Idempotence will be disabled"` 로그를 알람에 걸어 침묵을 깬다.
 
 **Spring 설정:**
 ```yaml
@@ -41,8 +63,7 @@ spring.kafka.producer:
     max.in.flight.requests.per.connection: 5   # 멱등이면 ≤5 강제
 ```
 
-- **왜 이 조합인가** → [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) (PID+epoch+sequence가 max.in.flight≤5에서만 순서·중복을 보장)
-- **증명** → [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md) `ProducerAcksTest`
+**[증명]** [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md) `ProducerAcksTest` · **왜 이 조합인가** → [I권 멱등·순서](../1-internals/06-ordering-atomicity.md) (PID+epoch+sequence가 max.in.flight≤5에서만 순서·중복을 보장)
 
 > **짝 주의 — `acks=all`은 혼자선 내구성을 보장하지 못한다.** `acks=all`은 "**현재 ISR 전부**"의 ack인데, 토픽/브로커 `min.insync.replicas=1`(기본)이면 ISR이 리더 하나로 쪼그라든 순간에도 ack가 떨어진다 → 그 리더가 죽으면 **유실**. "acks=all이면 안전"이라는 client쪽 믿음이 깨지는 지점이다. 정석은 `acks=all` + `min.insync.replicas=2`(RF=3). 이건 **client × broker 경계를 넘는 조합**이라 이 장은 짚기만 하고 본문은 → [III권 의사결정 트리(CAP·PACELC)](../3-operations/10-config-decision-tree.md) · 원리 → [I권 복제](../1-internals/03-replication.md).
 
@@ -50,21 +71,25 @@ spring.kafka.producer:
 
 ## 8.2 순서 역전 — `max.in.flight` × `retries` (멱등 off일 때)
 
-멱등을 *끄면* 새로운 함정이 열린다:
+멱등을 *끄면* 새로운 함정이 열린다. "처리량 올리려고 `max.in.flight`를 키웠는데 순서가 깨졌다."
 
-- 멱등 **off** + `max.in.flight > 1` + `retries > 0` → 앞 요청이 실패해 재전송되는 사이 뒤 요청이 먼저 기록되어 **순서가 뒤집힌다.**
-- 멱등 **on**이면 `max.in.flight ≤ 5`까지 브로커가 sequence로 재정렬·거부해 순서를 지킨다.
+**[고민]** *"동시 전송 수를 늘려 처리량을 올렸을 뿐인데, 왜 받는 쪽 순서가 뒤집히지?"*
 
-→ "처리량 올리려고 `max.in.flight`를 키웠는데 순서가 깨졌다"의 정체. 순서가 필요하면 **멱등을 켜라**(끄고 `max.in.flight=1`은 처리량을 버린다).
+**[본질]** 멱등 **off** + `max.in.flight > 1` + `retries > 0` → 앞 요청이 실패해 재전송되는 사이 뒤 요청이 먼저 기록되어 **순서가 뒤집힌다.** 멱등 **on**이면 `max.in.flight ≤ 5`까지 브로커가 sequence로 재정렬·거부해 순서를 지킨다.
 
-- **왜** → [I권 멱등·순서](../1-internals/06-ordering-atomicity.md)
-- **증명** → [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md)
+**[해결]** 순서가 필요하면 **멱등을 켜라**(끄고 `max.in.flight=1`은 처리량을 버린다).
+
+**[증명]** [s01 Producer](../../../src/test/java/com/example/kafka/s01_producer/README.md) · **왜** → [I권 멱등·순서](../1-internals/06-ordering-atomicity.md)
 
 ---
 
 ## 8.3 타이밍 3박자 — `heartbeat` × `session.timeout` × `max.poll.interval`
 
-컨슈머 "살아있음" 판정은 **세 설정의 순서 관계**가 핵심이다:
+컨슈머가 멀쩡히 처리 중인데 그룹에서 퇴출되어 리밸런싱 폭풍이 났다.
+
+**[고민]** *"하트비트는 잘 보내고 있는데 왜 컨슈머가 죽은 것으로 판정되지?"*
+
+**[본질]** 컨슈머 "살아있음" 판정은 **세 설정의 순서 관계**가 핵심이다:
 
 ```
 heartbeat.interval.ms  <  session.timeout.ms  ≪  max.poll.interval.ms
@@ -72,10 +97,14 @@ heartbeat.interval.ms  <  session.timeout.ms  ≪  max.poll.interval.ms
                             = 죽음 판정)                = 처리 지연으로 퇴출)
 ```
 
-함정:
+"살아있음(heartbeat)"과 "처리 진행(poll 간격)"은 **다른 축**이다 — 둘을 분리해서 잡아야 한다. 그래서 하트비트가 멀쩡해도 `max.poll.interval` 안에 다음 `poll()`이 안 오면 퇴출된다.
+
+**[해결]** 함정은 두 가지다:
+
 - `heartbeat.interval ≥ session.timeout` → 하트비트가 무의미(죽음 판정이 먼저).
 - `max.poll.interval`이 처리 시간보다 짧음 → **멀쩡히 처리 중인데 퇴출**되어 리밸런싱 폭풍.
-- "살아있음(heartbeat)"과 "처리 진행(poll 간격)"은 **다른 축**이다 — 둘을 분리해서 잡아야 한다.
+
+`max.poll.interval`은 한 배치 처리에 걸리는 최대 시간보다 넉넉히 잡고, 처리가 느리면 `max.poll.records`를 줄여 poll 간격을 좁힌다.
 
 **Spring 설정:**
 ```yaml
@@ -86,19 +115,19 @@ spring.kafka.consumer.properties:
   max.poll.records: 500            # 처리가 느리면 줄여서 poll 간격을 좁힌다
 ```
 
-- **왜** → [I권 조정](../1-internals/05-coordination.md) (5.7 타이밍 3박자 + heartbeat 백그라운드 스레드)
-- **증명** → [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) `MaxPollIntervalTest`
+**[증명]** [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) `MaxPollIntervalTest` · **왜** → [I권 조정](../1-internals/05-coordination.md) (5.7 타이밍 3박자 + heartbeat 백그라운드 스레드)
 
 ---
 
 ## 8.4 트랜잭션 ↔ `isolation.level`
 
-프로듀서만 트랜잭션으로 보호하고 **컨슈머를 안 바꾸면** 트랜잭션이 무의미해진다:
+프로듀서에 트랜잭션을 걸었는데도 롤백된 메시지가 컨슈머에 보인다.
 
-- 컨슈머 `isolation.level` 기본값은 **`read_uncommitted`** — 즉 abort된(롤백된) 메시지까지 다 읽는다.
-- 트랜잭션을 쓰는데 abort 메시지를 거르려면 컨슈머를 **`read_committed`로 명시**해야 한다.
+**[고민]** *"프로듀서 트랜잭션 걸었는데 왜 abort된(롤백된) 메시지가 보이지?"*
 
-→ "프로듀서 트랜잭션 걸었는데 왜 롤백된 메시지가 보이지?"의 정체. **프로듀서·컨슈머는 짝**이다.
+**[본질]** 프로듀서만 트랜잭션으로 보호하고 **컨슈머를 안 바꾸면** 트랜잭션이 무의미해진다. 컨슈머 `isolation.level` 기본값은 **`read_uncommitted`** — 즉 abort된(롤백된) 메시지까지 다 읽는다. **프로듀서·컨슈머는 짝**이다.
+
+**[해결]** 트랜잭션을 쓰는데 abort 메시지를 거르려면 컨슈머를 **`read_committed`로 명시**해야 한다.
 
 **Spring 설정:**
 ```yaml
@@ -107,8 +136,7 @@ spring.kafka:
   consumer.isolation-level: read_committed
 ```
 
-- **왜** → [I권 트랜잭션·EOS](../1-internals/07-transactions.md) (control record + LSO가 read_committed의 밑바닥)
-- **증명** → [s06 EOS](../../../src/test/java/com/example/kafka/s06_eos/README.md) `TransactionalProducerTest`
+**[증명]** [s06 EOS](../../../src/test/java/com/example/kafka/s06_eos/README.md) `TransactionalProducerTest` · **왜** → [I권 트랜잭션·EOS](../1-internals/07-transactions.md) (control record + LSO가 read_committed의 밑바닥)
 
 > **트랜잭션을 쓰면 멱등성은 끌 수 없다 — 그래서 8.1의 침묵 함정이 여기선 사라진다.** `enable.idempotence` 기본값이 `true`라 `transaction-id-prefix`(= `transactional.id`)를 준 프로듀서는 멱등으로 동작한다. `enable.idempotence=false`로 끄려 하면 `ConfigException("Cannot set a transactional.id without also enabling idempotence.")`으로 **생성이 실패**한다. 더 중요한 건 — `acks=1`처럼 8.1에서 멱등을 *조용히(INFO)* 끄던 설정을 줘도, `transactional.id`가 있으면 그 silent disable 경로가 다시 `ConfigException`으로 **전환**된다(멱등을 끈 뒤 트랜잭션 검증에서 걸림). **즉 트랜잭션 프로듀서에선 8.1의 침묵이 fail-fast가 된다.** 따라서 8.4 설정을 쓰면 8.1 멱등성 삼각형은 자동 충족 — 멱등을 따로 신경 쓸 필요가 없다. `[code @3.7: ProducerConfig.postProcessAndValidateIdempotenceConfigs]`
 
