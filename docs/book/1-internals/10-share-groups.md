@@ -6,7 +6,7 @@ prose: done
 proof: { mode: self, executable: "전부 미구현([테스트로 결정]); 10장은 lab baseline 3.7이 아닌 별도 4.2+ 브로커 필요", note: "3-broker docker(Kafka 4.2+)로 consumer>partition 동시 소비·락 타임아웃 재전달·ack·delivery 한도 Archived 직접 관측" }
 upstream: ["09-client-runtime.md"]
 forward: []
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 
@@ -123,7 +123,7 @@ share group은 큐를 얻는 대신 몇 가지를 포기한다:
 | ack 후 같은 레코드 | 재전달 안 됨(Acknowledged) | `[테스트로 결정]` |
 | 반복 실패로 delivery 한도 초과 | `group.share.delivery.count.limit`(기본 5) 후 Archived | `[테스트로 결정]` |
 
-> ⚠️ share group은 Kafka **4.2 GA**다. 이 lab의 baseline은 3.7이므로, 이 장의 증명은 **4.2+ 브로커**를 별도로 띄워야 한다(3.7에선 불가). 버전 매트릭스 갱신 시 [CHARTER](../../CHARTER.md) 참조.
+> ⚠️ share group은 Kafka **4.2 GA**다. 이 lab의 브로커 baseline은 그보다 낮아, 이 장의 증명은 **4.2+ 브로커**를 별도로 띄워야 한다. 버전 매트릭스 갱신 시 [CHARTER](../../CHARTER.md) 참조.
 
 ---
 

@@ -6,7 +6,7 @@ prose: done
 proof: { mode: delegated, executable: "미구현 (러프 초안, 이 장 자체 executable 테스트 없음)", note: "프롤로그/맥락 장 — 자체 관측 없음. \"읽고→의심하고→직접 돌려본다\" 증명 철학만 세우고 구체 증명은 이후 장에 위임" }
 upstream: []
 forward: ["01-what-is-kafka.md"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 
@@ -23,7 +23,7 @@ conventions: ../README.md
 
 이 책은 반대로 간다. **"무슨 문제가 있었고, 그걸 풀려고 무엇이 나왔나"** 를 먼저 깔고, 그 흐름 위에 용어를 얹는다. 그러면 `KRaft`는 외울 단어가 아니라 *"아, ZooKeeper가 불편해서 Kafka가 스스로 해결하게 만든 거구나"* 라는 **이야기의 한 장면**이 된다.
 
-그리고 모든 핵심 주장은 **돌아가는 테스트로 증명한다.** 읽고 → 의심하고 → 직접 돌려본다.
+그리고 모든 핵심 주장은 **돌아가는 테스트로 증명한다.** 읽고 → 의심하고 → 직접 돌려본다. (다만 이 프롤로그·개념 장 자체엔 테스트가 없다 — 런타임 증명은 뒤 장과 II권 Spring Step이 맡는다.)
 
 ---
 
@@ -43,7 +43,7 @@ graph LR
 > *소스 N개 × 목적지 M개 → point-to-point 파이프라인이 **N×M개로 폭발**.*
 
 - 시스템 하나를 추가할 때마다 **기존 모든 시스템과 새로 이어야** 했다.
-- 기존 메시지 큐(ActiveMQ 등)는 이 규모의 **처리량·영속성·재처리**를 감당하지 못했다. (읽으면 메시지가 사라지니 여러 소비자가 같은 데이터를 독립적으로 **구독·소비**하기 어려웠다.)
+- 기존 메시지 큐(ActiveMQ 등)는 **LinkedIn 규모의 처리량**과, **임의 시점부터의 재생을 여러 독립 소비자가 값싸게** 하는 데 맞지 않았다. (persistent 전달·durable 구독 자체는 있었지만, 큐 시맨틱에서는 읽으면 사라져 다수 소비자의 독립 재처리가 비쌌다.)
 
 > 핵심 통증: **통합의 복잡도가 N×M으로 폭발**하고, 한 번 흘려보낸 데이터를 **다시 읽을 수 없었다.**
 
@@ -57,7 +57,7 @@ LinkedIn의 팀(Jay Kreps 등)이 내린 결론은 단순했다:
 
 ```mermaid
 graph LR
-    DB[(DB)] & 활동[활동] & 로그[로그] & 결제[결제] -->|쓰기만| K["📜 Kafka<br/>중앙 로그 (백본)"]
+    DB[(DB)] & 활동[활동] & 로그[앱 로그] & 결제[결제] -->|쓰기만| K["📜 Kafka<br/>중앙 로그 (백본)"]
     K -->|읽기만| 검색 & 하둡 & 모니터링 & 추천 & 캐시
 ```
 
@@ -85,11 +85,11 @@ Kafka의 핵심(Core)은 의외로 단순하다: **로그에 쓰는 Producer, �
 | 로그를 단순 전달이 아니라 **변환·집계·조인** 하고 싶은데, 그러려고 Spark/Flink 별도 클러스터를 띄우기는 무거웠다 | **Kafka Streams** | 별도 클러스터 없이 **라이브러리**로 스트림 처리 (상태 저장·윈도우 집계) |
 | Streams마저 코드인데, **SQL로** 스트림을 다루고 싶었다 | **ksqlDB** | `SELECT ... FROM stream` 으로 실시간 처리 |
 | Producer가 메시지 형식을 바꾸면 **Consumer가 조용히 깨졌다** (데이터 계약 부재) | **Schema Registry** | 스키마(Avro 등)를 중앙에서 관리하고 호환성을 강제 |
-
-> ※ **Apache Kafka 핵심**은 Connect·Streams·KRaft이고, **ksqlDB·Schema Registry는 Confluent 제품**(Community License)이다. 같은 "Kafka 생태계"라도 출처가 다르다.
 | 메타데이터·리더 선출을 **ZooKeeper라는 외부 시스템**에 의존해서 운영이 무겁고 느렸다 | **KRaft** | Kafka가 **스스로** 합의(Raft)해서 메타데이터를 관리(외부 의존 제거) |
 
-> **KRaft가 특히 우아한 이유**: "데이터를 로그로 관리하자"는 Kafka의 핵심 발상을, **Kafka 자신의 메타데이터에도 적용**한 것이다. 클러스터 상태마저 `__cluster_metadata`라는 내부 로그에 쌓는다. (Kafka 3.3에서 안정화, 4.0에서 ZooKeeper 완전 제거. 이 lab은 3.7.0 KRaft로 동작.)
+> ※ **Apache Kafka에 기본 포함**된 것은 Connect·Streams·KRaft이고, **ksqlDB·Schema Registry는 Confluent 제품**(Community License)이다. 같은 "Kafka 생태계"라도 출처가 다르다.
+
+> **KRaft가 특히 우아한 이유**: "데이터를 로그로 관리하자"는 Kafka의 핵심 발상을, **Kafka 자신의 메타데이터에도 적용**한 것이다. 클러스터 상태마저 `__cluster_metadata`라는 내부 로그에 쌓는다. (Kafka 3.3에서 안정화, 4.0에서 ZooKeeper 완전 제거. 이 lab도 KRaft 모드로 동작한다.)
 
 ---
 

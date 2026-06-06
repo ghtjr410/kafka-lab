@@ -180,3 +180,4 @@ src/test/.../sNN_*/README.md  [로컬 명세]  상위 문서를 참조, 재정�
 > 헌법이 바뀌면 한 줄 남긴다. (날짜는 절대표기)
 
 - 2026-06-01 — 최초 초안 작성. Baseline: Java 21 / Spring Boot 3.4.4 / Kafka 3.7.0 (KRaft).
+- 2026-06-06 — baseline broker를 Kafka 3.9.x(MSK Recommended)로 변경(client는 3.7 유지). §3 매트릭스·docker-compose·book frontmatter를 함께 동기화.

@@ -9,7 +9,7 @@ proof:
   gaps: []
 upstream: ["../1-internals/05-coordination.md"]
 forward: ["8.3 타이밍 순서 관계", "9.3 리스너 blocking 함정"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

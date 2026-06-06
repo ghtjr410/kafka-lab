@@ -6,7 +6,7 @@ prose: done
 proof: { mode: self, executable: "9.9 증명 표 4개 실험 모두 [테스트로 결정]", note: "9.9 증명(executable) 표: 콜백 sleep으로 처리량 급락, buffer.memory 폭주로 max.block.ms TimeoutException, Sender 스레드 이름 확인, max.poll.records로 퇴출을 테스트로 관측" }
 upstream: ["08-storage-engine.md"]
 forward: ["10-share-groups.md"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

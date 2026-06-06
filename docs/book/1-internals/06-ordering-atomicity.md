@@ -6,7 +6,7 @@ prose: done
 proof: { mode: self, executable: "미구현([테스트로 결정] 3개: 멱등 on 중복 거부 / 재시작 후 중복 / 멱등 off max.in.flight>1 순서 역전)", note: "6.6 executable 표: 멱등 on/off·강제 재시도·프로듀서 재시작으로 중복 append·순서 역전·세션 한계를 직접 관측·단언" }
 upstream: ["05-coordination.md"]
 forward: ["07-transactions.md"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

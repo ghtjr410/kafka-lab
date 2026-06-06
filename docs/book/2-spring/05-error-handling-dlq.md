@@ -8,7 +8,7 @@ proof:
   gaps: []
 upstream: ["../1-internals/06-ordering-atomicity.md"]
 forward: ["9.1 retry↔DLQ 순서·분류"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

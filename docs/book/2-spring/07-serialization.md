@@ -8,7 +8,7 @@ proof:
   gaps: []
 upstream: []
 forward: ["9.1 poison-pill 분류"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

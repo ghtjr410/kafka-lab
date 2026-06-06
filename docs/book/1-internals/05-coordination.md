@@ -6,7 +6,7 @@ prose: done
 proof: { mode: self, executable: "5.10 증명 4개 실험 모두 [테스트로 결정] (미구현)", note: "3-broker docker로 eager vs cooperative revoke 범위, group.instance.id 재접속 유지, max.poll.interval 초과 퇴출, 두 그룹 독립 offset 관측" }
 upstream: ["04-consensus.md"]
 forward: ["06-ordering-atomicity.md"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

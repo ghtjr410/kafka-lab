@@ -6,7 +6,7 @@ prose: done
 proof: { mode: self, executable: "executable(3-broker), describeCluster·controller kill·메타 전파는 [테스트로 결정], __cluster_metadata 덤프는 [code @3.7]", note: "3-broker docker로 describeCluster·active controller kill 승계·토픽 생성 후 메타 전파 관측, __cluster_metadata 덤프" }
 upstream: ["03-replication.md"]
 forward: ["05-coordination.md"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

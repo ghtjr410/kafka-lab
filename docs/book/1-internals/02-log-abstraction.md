@@ -6,7 +6,7 @@ prose: done
 proof: { mode: self, executable: "증명(executable, 멀티브로커) — compaction key별 최신만 남는지 확인은 [테스트로 결정]", note: "멀티브로커 executable: compaction 토픽에 같은 key 반복 쓰기 후 key별 최신만 남는지·tombstone(value=null)로 key 삭제·두 consumer group이 처음부터 읽어 동일 결과(결정성) 관측" }
 upstream: ["01-what-is-kafka.md"]
 forward: ["03-replication.md"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

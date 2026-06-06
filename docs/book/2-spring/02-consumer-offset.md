@@ -9,7 +9,7 @@ proof:
   gaps: []
 upstream: ["../1-internals/05-coordination.md"]
 forward: ["9.2 commit 위치", "9.6 batch 에러"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

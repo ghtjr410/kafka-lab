@@ -10,7 +10,7 @@ proof:
 upstream: ["../1-internals/06-ordering-atomicity.md", "../1-internals/05-coordination.md",
            "../1-internals/09-client-runtime.md"]
 forward: []
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

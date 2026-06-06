@@ -6,7 +6,7 @@ prose: done
 proof: { mode: self, executable: "증명 절(3.9)은 대부분 [테스트로 결정]로 미구현(ISR 축소·NotEnoughReplicasException·HW 가시성·리더 kill); unclean election 항목만 [docs @3.7]", note: "3-broker docker로 follower/leader stop 후 AdminClient.describeTopics로 ISR 축소·새 리더 승격·HW 가시성·NotEnoughReplicasException 직접 관측" }
 upstream: ["02-log-abstraction.md"]
 forward: ["04-consensus.md"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

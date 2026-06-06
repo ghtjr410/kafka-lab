@@ -10,7 +10,7 @@ proof:
 upstream: ["../1-internals/06-ordering-atomicity.md", "../1-internals/03-replication.md",
            "../1-internals/05-coordination.md", "../1-internals/07-transactions.md"]
 forward: ["코드 구조·순서의 함정"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 
@@ -44,7 +44,7 @@ graph TB
     K -->|"기본값 의존"| SD["INFO 로그만 남고 silent disable<br/>(WARN도 아님 → 진짜 함정 ⚠️)"]
 ```
 
-- Kafka **3.0+부터 `enable.idempotence`가 기본 `true`** → 명시하지 않아도 이미 `acks=all`이 강제된다. (엄밀히는 `3.0.0`·`3.1.0`엔 config 검증 버그로 이 기본값이 실제 적용되지 않았고 — `acks=all` 기본 전환은 정상 — **`3.2.0`부터 정상**이다. 본서 baseline `3.7`은 무관. `[KAFKA-13598]`)
+- Kafka **3.0+부터 `enable.idempotence`가 기본 `true`** → 명시하지 않아도 이미 `acks=all`이 강제된다. (엄밀히는 `3.0.0`·`3.1.0`엔 config 검증 버그로 이 기본값이 실제 적용되지 않았고 — `acks=all` 기본 전환은 정상 — **`3.2.0`부터 정상**이다. 본서 client baseline `3.7`은 무관. `[KAFKA-13598]`)
 - 그래서 "나는 `acks` 설정 안 했는데 왜 all처럼 동작하지?"라는 혼란이 생긴다.
 
 **[해결]** 충돌 시 동작은 **두 갈래**로 갈린다:

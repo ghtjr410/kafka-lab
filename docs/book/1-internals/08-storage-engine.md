@@ -6,7 +6,7 @@ prose: done
 proof: { mode: self, executable: "8.12 증명(docker exec): .log 열기·kafka-dump-log는 [code @3.7], segment rolling·compaction은 [테스트로 결정]", note: "3-broker docker exec로 .log 세그먼트 파일·kafka-dump-log 배치 헤더 관측, segment rolling·compaction 단언" }
 upstream: ["07-transactions.md"]
 forward: ["09-client-runtime.md"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

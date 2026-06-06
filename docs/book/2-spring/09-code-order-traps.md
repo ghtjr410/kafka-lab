@@ -10,7 +10,7 @@ proof:
 upstream: ["../1-internals/05-coordination.md", "../1-internals/09-client-runtime.md",
            "../1-internals/07-transactions.md"]
 forward: ["8.3 타이밍", "9.3 리스너 blocking"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

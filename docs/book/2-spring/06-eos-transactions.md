@@ -9,7 +9,7 @@ proof:
   gaps: []
 upstream: ["../1-internals/07-transactions.md", "../1-internals/06-ordering-atomicity.md"]
 forward: ["8.1 멱등 삼각형", "8.4 트랜잭션 조합 동작", "9.5 코드 경계 함정"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 

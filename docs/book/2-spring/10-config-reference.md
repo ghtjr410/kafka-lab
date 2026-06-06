@@ -11,7 +11,7 @@ upstream: ["../1-internals/03-replication.md", "../1-internals/05-coordination.m
            "../1-internals/09-client-runtime.md"]
 forward: ["8.1 멱등성 삼각형", "8.2 순서 역전", "8.3 리밸런싱 타이밍", "9.1 poison-pill",
           "9.2 commit 위치", "9.6 배치 재시도"]
-baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
 
