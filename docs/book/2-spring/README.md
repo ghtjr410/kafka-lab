@@ -101,7 +101,7 @@ graph TB
 | 타이밍 3박자 (`heartbeat`<`session`≪`max.poll.interval`, + `max.poll.records`) | **8장** (순서 관계 — 개별 설정값은 4장) | 4·8·9·10장 |
 | `concurrency` / 파티션 ↔ 동시성 상한 | **3장** | 3·10장 |
 | `DefaultErrorHandler` (retry↔DLQ, non-retryable 분류) | **5장** | 5·9·10장 |
-| `@RetryableTopic` (non-blocking retry) | **9장** (🚧정의 보강 중) | 9·10장 |
+| `@RetryableTopic` (non-blocking retry) | **9장** | 9·10장 |
 | `transactional.id` / `transaction-id-prefix` (좀비 펜싱 · 멱등 자동 활성) | **6장** | 6·8·10장 |
 | `isolation.level` (read_committed 짝) | **6장** | 6·8·10장 |
 | 스키마 진화 (`FAIL_ON_UNKNOWN_PROPERTIES`) | **7장** | 7장 (중앙 스키마 → [IV권](../4-beyond-core/README.md)) |
@@ -110,7 +110,7 @@ graph TB
 | 배치 리스너 / `BatchListenerFailedException` (단건 복구) | **9장** | 9·10장 |
 | 컨테이너 `pause()`/`resume()` (백프레셔 처방) | **9장** | 9장 |
 
-> 🚧 = 정의 *위치*는 정해졌으나 본문이 아직 얇음(아래 *다음 작업* 참조). 표는 위치를 가리키되 미완을 숨기지 않는다.
+> 이 표가 정의 위치의 단일 진실이다. 표↔산문이 어긋나면 *산문 기준으로 표를 고친다*.
 
 ---
 
@@ -230,11 +230,10 @@ graph TB
 
 - **[산문]** 본편 = ✅ · 횡단편 = ✅  (마커 뜻은 위 범례)
 - **[증명]** 본편 = 🧪 · 횡단편 = ⬜ 위임 + 🧩 창발(통합테스트 미구현)
-- **✅ 본편 재산문화 완료** (1~7장: II권 톤 · 절번호 · 보장/착각 · 인용 라벨 · named link · 본편→횡단 forward link · 07 `enhancedObjectMapper`/`ErrorHandlingDeserializer` 본문화).
-- **남은 작업**:
-  - `@RetryableTopic` 동작 정의(retry 토픽 명명·DLT·attempts/backoff·blocking 곱셈)를 9.4에 보강 → SSOT 표 🚧 해제
-  - `partition.assignment.strategy`·`auto.offset.reset`·`fetch.*` 등 `?` 기본값 1차 소스 확정(10장)
-  - **🧩 창발 통합테스트 구현**: 8.1 silent disable · 8.2 순서 역전 · 9.3 blocking→퇴출 · 9.6 배치 단건 복구
+- **✅ 본편 재산문화 완료** (1~7장: II권 톤·절번호·보장/착각·인용 라벨·named link·forward link).
+- **✅ `?` 기본값 12개 1차 소스 확정** (10장, kafka-clients 3.7 `*Config.java` verbatim).
+- **✅ `@RetryableTopic` 9.4 정의 보강** (attempts·backoff·retry/dlt 명명·곱셈 메커니즘).
+- **남은 작업** — **🧩 창발 통합테스트 구현**: 8.1 silent disable · 8.2 순서 역전 · 9.3 blocking→퇴출 · 9.6 배치 단건 복구 (개별 Step으로 증명 불가 — 유일한 진짜 갭).
 
 ---
 

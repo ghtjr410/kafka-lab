@@ -28,10 +28,10 @@
 | `acks` | `all` (3.0+ idempotence=true가 강제) | ✓ | [본편 1장](../../../src/test/java/com/example/kafka/s01_producer/README.md) · [8장](./08-config-combination-traps.md) |
 | `enable.idempotence` | `true` (3.0+) | ✓ `[KIP-679]` | [8장](./08-config-combination-traps.md) · [I권 멱등](../1-internals/06-ordering-atomicity.md) |
 | `max.in.flight.requests.per.connection` | 5 | ✓ | [8장](./08-config-combination-traps.md) |
-| `linger.ms` | 0 | ? | [본편 1장](../../../src/test/java/com/example/kafka/s01_producer/README.md) |
-| `batch.size` | 16384 | ? | 본편 1장 |
-| `buffer.memory` | 33554432 (32MB) | ? | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
-| `max.block.ms` | 60000 | ? | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
+| `linger.ms` | 0 | ✓ `[code @3.7]` | [본편 1장](../../../src/test/java/com/example/kafka/s01_producer/README.md) |
+| `batch.size` | 16384 | ✓ `[code @3.7]` | 본편 1장 |
+| `buffer.memory` | 33554432 (32MB) | ✓ `[code @3.7]` | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
+| `max.block.ms` | 60000 | ✓ `[code @3.7]` | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
 | `delivery.timeout.ms` | 120000 | ✓ `[KIP-91]` | 본편 1장 · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
 | `transaction.timeout.ms` | 60000 | ✓ | [I권 트랜잭션](../1-internals/07-transactions.md) |
 | `transactional.id` / Spring `transaction-id-prefix` | (없음, 인스턴스별 고유 필수) | — | [본편 6장](../../../src/test/java/com/example/kafka/s06_eos/README.md) |
@@ -45,16 +45,16 @@
 | 설정 | 기본값 | 검증 | 다루는 곳 |
 |------|--------|------|----------|
 | `enable.auto.commit` | (Spring이 `false`로 강제) | ✓ | [본편 2장](../../../src/test/java/com/example/kafka/s02_consumer/README.md) |
-| `auto.offset.reset` | `latest` | ? | 본편 2장 |
+| `auto.offset.reset` | `latest` | ✓ `[code @3.7]` | 본편 2장 |
 | `isolation.level` | `read_uncommitted` | ✓ | [본편 6장](../../../src/test/java/com/example/kafka/s06_eos/README.md) · [8장](./08-config-combination-traps.md) · [I권 트랜잭션](../1-internals/07-transactions.md) |
-| `heartbeat.interval.ms` | 3000 | ? | [8장](./08-config-combination-traps.md) · [I권 조정](../1-internals/05-coordination.md) |
-| `session.timeout.ms` | 45000 | ? | 8장 · [I권 조정](../1-internals/05-coordination.md) |
-| `max.poll.interval.ms` | 300000 | ? | 8장 · [9장](./09-code-order-traps.md) |
-| `max.poll.records` | 500 | ? | 8장 · 9장 |
-| `fetch.min.bytes` | 1 | ? | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) (9.7 fetch) |
-| `fetch.max.wait.ms` | 500 | ? | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
+| `heartbeat.interval.ms` | 3000 | ✓ `[code @3.7]` | [8장](./08-config-combination-traps.md) · [I권 조정](../1-internals/05-coordination.md) |
+| `session.timeout.ms` | 45000 | ✓ `[code @3.7]` | 8장 · [I권 조정](../1-internals/05-coordination.md) |
+| `max.poll.interval.ms` | 300000 | ✓ `[code @3.7]` | 8장 · [9장](./09-code-order-traps.md) |
+| `max.poll.records` | 500 | ✓ `[code @3.7]` | 8장 · 9장 |
+| `fetch.min.bytes` | 1 | ✓ `[code @3.7]` | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) (9.7 fetch) |
+| `fetch.max.wait.ms` | 500 | ✓ `[code @3.7]` | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
 | `group.instance.id` (static membership) | (없음) | — | [본편 4장](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) · [I권 조정](../1-internals/05-coordination.md) |
-| `partition.assignment.strategy` | `[RangeAssignor, CooperativeStickyAssignor]` (3.x) | ? | 본편 4장 · [I권 조정](../1-internals/05-coordination.md) |
+| `partition.assignment.strategy` | `[RangeAssignor, CooperativeStickyAssignor]` (3.x) | ✓ `[code @3.7]` | 본편 4장 · [I권 조정](../1-internals/05-coordination.md) |
 
 ---
 
@@ -69,13 +69,12 @@
 
 ---
 
-## 검증 대기 목록 (다음 라운드)
+## 기본값 검증 — 완료 ✅
 
-위 표의 `?` 기본값은 **Kafka 3.7 / spring-kafka 3.3.x 기준으로 1차 소스 확정**해야 한다 — 특히:
-- `partition.assignment.strategy` 3.x 기본값 (sticky 관련, 8.2·본편 3장에서도 미검증 지적됨)
-- `auto.offset.reset`·`fetch.*`·타이밍 3박자 기본값
-
-확정 후 `?` → `✓`로 갱신하고, 버전 라벨(`[docs @3.7]`)을 단다.
+표의 모든 기본값을 **kafka-clients 3.7.0 `ProducerConfig`/`ConsumerConfig`로 verbatim 확인**했다(`✓ [code @3.7]`). 특이:
+- `session.timeout.ms=45000` — `[KIP-735]`로 `10000`→`45000`(3.0+).
+- `partition.assignment.strategy` = `[RangeAssignor, CooperativeStickyAssignor]`(Range 우선 · cooperative 자동 전환은 → [리밸런싱 & 배포](./04-rebalancing.md)).
+- 라벨 `[code @3.7]`은 **클라이언트(kafka-clients 3.7) 기준**이다. 브로커 baseline은 MSK 3.9 → 버전 매트릭스는 [CHARTER](../../CHARTER.md).
 
 ---
 
@@ -97,7 +96,7 @@
 | 컨슈머가 **퇴출**된다 | 리스너 blocking / poll 초과 → [9.3](./09-code-order-traps.md)·[8.3](./08-config-combination-traps.md) |
 | 새 그룹인데 **메시지가 안 온다** | `auto.offset.reset=latest`(기본) → [2장](#) |
 
-> `#` 링크(본편 1·2·4·5·7장)는 정본 본문이 🚧 재산문화 후 정확한 named anchor로 채운다 — 그 전까진 장 단위로 읽는다.
+> `#` 링크(본편 1·2·4·5·7장)는 정본 본문에 정확한 named anchor를 박아 채울 수 있다(본편 재산문화 완료 ✅) — 장 단위로도 읽힌다.
 
 ---
 

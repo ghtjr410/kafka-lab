@@ -60,9 +60,9 @@
 | Spring Boot | **3.4.4** | `org.springframework.boot` 플러그인 |
 | Spring dependency-management | **1.1.7** | — |
 | spring-kafka | **3.3.x** | Spring Boot BOM 관리 (명시 버전 미고정) |
-| Kafka client | **3.7.x** | spring-kafka가 가져오는 버전 |
-| Apache Kafka (broker) | **3.7.0** | Docker 이미지 `apache/kafka:3.7.0` |
-| 실행 모드 | **KRaft, 3-broker** | ZooKeeper 없음. 운영 관점의 멀티브로커가 기본 |
+| Kafka client | **3.7.x** | spring-kafka(3.3.x)가 가져오는 버전 · 본문 `[code @3.7]` 라벨 = 클라이언트 동작 기준 |
+| Apache Kafka (broker) | **3.9.x** | **MSK Recommended** (엔터프라이즈 타깃 · 2년+ 지원 · KRaft). 로컬 docker `apache/kafka:3.9.0`. *브로커 ≥ 클라이언트*라 client 3.7과 호환 |
+| 실행 모드 | **KRaft, 3-broker** | ZooKeeper 없음. 멀티브로커가 기본 (3.9는 ZK+KRaft 둘 다 지원하는 마지막 버전 — KRaft 안정) |
 | 테스트 | JUnit 5 + AssertJ | spring-boot-starter-test |
 | JSON | Jackson (jackson-databind) | Step 7 |
 

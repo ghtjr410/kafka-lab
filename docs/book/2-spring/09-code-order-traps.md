@@ -66,15 +66,22 @@ graph LR
 
 ---
 
-## 9.4 `@RetryableTopic` — blocking vs non-blocking retry
+## 9.4 `@RetryableTopic` — non-blocking retry, 그리고 blocking과의 곱셈
 
-재시도에는 두 종류가 있고, **혼용하면 중복 재시도**가 된다:
+재시도는 두 종류다:
 
-- **blocking retry**: 리스너 안에서 그 자리에서 재시도(ErrorHandler BackOff). 재시도 동안 그 파티션이 막힌다(9.3 위험).
-- **non-blocking retry** (`@RetryableTopic`): 실패한 메시지를 **retry 토픽**으로 보내 나중에 재처리. 원래 파티션은 안 막힌다.
-- 함정: 둘을 같이 켜면 같은 메시지가 양쪽에서 재시도되어 **재시도 횟수가 곱**해진다.
+- **blocking retry**: `DefaultErrorHandler`의 BackOff로 **그 자리에서** 같은 레코드를 재전달 — 재시도 동안 그 파티션이 막힌다(9.3 위험).
+- **non-blocking retry** (`@RetryableTopic`): 실패 레코드를 **retry 토픽**으로 *전달*해 별도 리스너가 나중에 재처리 — 원래 파티션은 안 막힌다.
 
-→ 하나를 선택하라. 처리량 민감하면 non-blocking, 순서 민감하면 blocking(단 9.3 주의).
+**기본 동작** `[code @spring-kafka 3.3]`:
+- `attempts` 기본 **3**(최초 1회 + 재시도 2회 → retry 토픽 2개), backoff 기본 **fixed `1000ms`**.
+- retry 토픽 명명: 기본 suffix **`-retry`**. 시도별로 분리돼 `{topic}-retry-0`·`-retry-1`…(고정 간격 재사용이면 단일 `{topic}-retry`, 지수 백오프면 지연값 suffix). 소진 후 DLT는 **`{topic}-dlt`** ([에러 처리 & DLQ](./05-error-handling-dlq.md)의 DLT 네이밍과 동일).
+
+**곱셈 함정**: 같은 예외를 **blocking BackOff와 non-blocking 양쪽에** 분류하면, 각 non-blocking 단계(원본 + retry 토픽 N개)가 다시 blocking으로 B회 재시도되어 **총 ≈ N × B회**가 된다(예: non-blocking 4 × `FixedBackOff(50,3)` → ~12회 — 의도한 4회가 아니다). 프레임워크는 보통 retry-topic이 처리하는 예외를 blocking에서 *제외*해 막는다 — **같은 예외를 양쪽에 명시 분류하는 게 곱셈의 방아쇠**다(의도적 결합은 `configureBlockingRetries(...)`, 2.8.4+).
+
+→ 하나를 기본으로: 처리량 민감하면 non-blocking, 순서 민감하면 blocking(단 9.3). 결합은 의도할 때만.
+
+- **증명** → 🧩 곱셈 동작은 통합테스트 필요(실패·재시도·전달이 겹쳐야 발현)
 
 ---
 
