@@ -1,12 +1,18 @@
+---
+volume: "I — Internals (원리와 내부)"
+role: index
+prose: done       # 들어가며·1~10장 산문 완료
+executable: "전 장 미구현([테스트로 결정]). 10장 share group은 4.2+ 브로커 별도 필요"
+proof_model: "혼합: 저장·프로토콜 장(복제·합의·트랜잭션·저장엔진·클라이언트런타임)=I권 자체 증명(docker/CLI/AdminClient) / 개념 장 런타임 동작(offset 이동·순서·pull)=II권 Spring Step에 위임"
+ssot: "교차요소 정의 위치 = 본문 SSOT 표(HW=3장·LSO=7장 등). 표↔산문 어긋나면 산문 기준으로 표를 고친다."
+invariant: "다른 장·권 참조는 named link only, 장/권 번호 본문 금지. LSO·권번호 드리프트가 이 위반에서 났다."
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", note: "10장은 4.2+ 별도", ref: "../../CHARTER.md" }
+conventions: "../README.md"
+---
+
 # 📘 I권 — Internals (원리와 내부)
 
-> Kafka를 **분산 시스템의 제1원리부터** 깎아 올라간다. "ISR이 어쩌구"가 아니라
-> **왜 그렇게 되어야 하는지 · 무엇을 보장하는지 · 어떤 구조인지 · 어떤 합의 알고리즘인지.**
-
-> ⚠️ **이 README가 I권의 중심 작업판이자 단일 인덱스다.**
->
-> 📐 집필 공통 규칙(README=인덱스 · SSOT 표 · 상태 2축 · 증명 모델 등)은 [전체 표지](../README.md)가 단일 진실이다 — 여기서 재서술하지 않는다.
-> 특히 🔒 **불변식: 다른 장·권은 named link로만, 장/권 번호를 본문에 박지 말 것** (`(I권 7장)` ❌ → `[저장 엔진](08-storage-engine.md)` ✅). LSO·권번호 드리프트가 전부 이 위반에서 났다.
+> Kafka를 **분산 시스템의 제1원리부터** 깎아 올라간다. "ISR이 어쩌구"가 아니라 **왜 그렇게 되어야 하는지 · 무엇을 보장하는지 · 어떤 구조인지 · 어떤 합의 알고리즘인지.**
 
 ---
 
@@ -18,7 +24,7 @@
 
 ### 다룬다 (Scope)
 - 로그라는 추상 · 복제/ISR · 합의/KRaft · Consumer Group 조정 · 멱등·순서 · 트랜잭션·EOS · 저장 엔진 · 클라이언트 런타임
-- 각 주제를 *무엇을 보장하나 / 왜 이 설계인가 / 어떤 구조·합의 알고리즘인가 / 트레이드오프*로
+- 각 주제를 *무엇을 보장하나 / 왜 이 설계인가 / 어떤 구조·알고리즘인가 / 트레이드오프*로
 - **Kafka 그 자체** — 특정 언어·프레임워크에 중립 (코드는 증명 도구일 뿐)
 
 ### 다루지 않는다 (Out of Scope)
@@ -28,13 +34,13 @@
 | 운영 절차 · 클러스터 사이징 · 모니터링 · 장애 대응 · 보안 | **III권 Operations** |
 | 이벤트 설계 · Outbox · Saga | messaging-lab / saga-lab |
 
-> 🤖 **이 권을 작업하는 AI/작업자에게**: II·III권 주제(Spring 코드, 운영 절차)로 새지 말 것.
-> 필요하면 "→ II권" / "→ III권" 링크만 남기고, 여기서는 **원리만** 깎는다.
 > **결정 규칙**: correctness가 변하면 여기(I권), 트레이드오프만 변하면 III권.
 
 ---
 
 ## 집필 틀 (각 장을 깎는 6단계)
+
+각 장은 *무엇을 보장하나 → 왜 이 설계인가(대안 비교) → 구조·알고리즘 → 다른 개념과의 관계 → 트레이드오프 → 실험으로 증명* 순으로 전개된다.
 
 ```mermaid
 graph LR
@@ -45,17 +51,7 @@ graph LR
     E --> F["⑥ 실험으로 증명<br/>(executable)"]
 ```
 
-- **Mermaid 적극 활용** · 모든 핵심 주장에 ⑥ 증명 테스트 · **KIP·논문 적극 인용**
-- 전제: **3-broker 멀티브로커**(복제·ISR·리더 선출·KRaft 합의는 단일 브로커로 증명 불가) → [ROADMAP](../../ROADMAP.md)
-
-상태 범례 — **2축**:
-- **[산문]** ✅ 완료(개별 md) · 📝 아웃라인 확정(산문 대기) · 🚧 깎는 중
-- **[executable 증명]** 현재 **전 장 ⬜ 미구현** (각 장 `[테스트로 결정]` 항목 / 10장은 4.2+ 브로커 필요). 장 헤더의 ✅는 *산문* 기준이다.
-
-> **증명 모델 (혼합)** — 이 책의 증명은 한 곳이 아니다:
-> - **저장·프로토콜 장**(복제·합의·트랜잭션·저장 엔진·클라이언트 런타임 등)은 **I권 자체 증명**: `docker`/CLI/`AdminClient`로 프레임워크 중립하게 관측한다(집필 틀 ⑥이 가리키는 게 이것).
-> - **개념 장**(1장 등)이 던진 런타임 동작(offset 이동·순서·pull 등)의 증명은 **II권 Spring Step**에 위임한다.
-> 즉 "I권이 다 증명한다"가 아니라 *장 성격에 따라 증명 위치가 갈린다*. 1.6의 증명 표가 II권을 가리키는 건 이 모델의 결과다.
+> 전제는 **3-broker 멀티브로커**다 — 복제·ISR·리더 선출·KRaft 합의는 단일 브로커로 증명할 수 없다.
 
 ---
 
@@ -83,10 +79,9 @@ graph TB
     C9 -->|"ShareFetch RPC"| C10
 ```
 
-### 교차 요소 SSOT — "정의 위치"의 단일 진실
+### 교차 요소 SSOT — 정의 위치
 
-> 같은 개념이 여러 장에 걸칠 때, **정의 위치는 이 표가 유일한 진실**이다.
-> 본문·그래프는 정의 위치를 **재서술하지 말고 이 표를 따른다**(인라인 `(N장 정의)` 금지 — 드리프트의 근원). 표와 산문이 어긋나면 *산문 기준으로 표를 고친다*(번호는 진실의 원천이 아니다).
+같은 개념이 여러 장에 걸칠 때, **정의 위치**를 한 곳에 모은다.
 
 | 요소 | 정의 위치 | 주 사용처 |
 |------|----------|-----------|
@@ -102,170 +97,286 @@ graph TB
 
 ---
 
-# 목차 + 각 장 아웃라인
+# 목차
 
-## 들어가며 — Kafka는 무엇을 풀려고 태어났나   ✅ [00-prologue.md](./00-prologue.md)
+## 들어가며 — Kafka는 무엇을 풀려고 태어났나
 
-- 이 책 읽는 법 (이름 암기 ❌ / 문제→해결 맥락 ⭕ / 모든 주장은 테스트로 증명)
-- Kafka 이전: **N×M 통합 지옥** (LinkedIn, point-to-point 폭발)
-- 발상의 전환: 중앙 로그 하나 → **N×M → N+M** (데이터 백본)
-- 생태계는 결핍에서: Connect / Streams / ksqlDB / Schema Registry / **KRaft**
+Kafka가 N×M 통합 지옥을 "중앙 로그 하나"로 풀어낸 발상과, 그 핵심의 결핍에서 생태계가 자라난 맥락을 먼저 잡는 프롤로그.
 
-## 1장 — Kafka란 무엇인가   ✅ [01-what-is-kafka.md](./01-what-is-kafka.md)
+- **이 책을 읽는 법**
+  - `acks`·`ISR`·`KRaft` 같은 용어를 외우지 말고 "무슨 문제가 있었고 그걸 풀려고 무엇이 나왔나"를 먼저 깔고 돌아가는 테스트로 증명한다.
+- **Kafka 이전의 세계: N×M 통합 지옥**
+  - 소스 N개 × 목적지 M개의 point-to-point 파이프라인이 N×M으로 폭발하고, 한 번 흘려보낸 데이터를 다시 읽을 수 없었다.
+- **발상의 전환: "모든 데이터를 하나의 로그로 흘려보낸다"**
+  - 시스템끼리 직접 잇지 말고 중앙 로그 하나에 쓰고 읽게 해 통합 복잡도를 N×M→N+M으로 줄이고 생산자·소비자를 디커플링·재생 가능하게 만든 것이 Kafka의 정체성(데이터 백본)이다.
+- **생태계는 "결핍"에서 하나씩 자라났다**
+  - Producer·Broker·Consumer라는 단순한 Core의 결핍마다 `Kafka Connect`·`Kafka Streams`·`ksqlDB`·`Schema Registry`·`KRaft`가 태어났다(Connect·Streams·KRaft는 핵심, ksqlDB·Schema Registry는 Confluent 제품).
+- **이 책의 지도**
+  - Core(Producer/Consumer/Broker)의 원리와 함정이 본진이며, 같은 주제를 I권(원리)→II권(코드·Spring)→III권(운영) 세 깊이로 내려가며 다룬다.
+- **다음 장**
+  - 다음 장(1장)에서 "로그"라는 자료구조와 가장 작은 단위들(Topic·Partition·Offset), 그리고 왜 이렇게 설계했는가를 다룬다.
 
-- 1.1 한 문장 (분산·복제·순서 보장 append-only 로그)
-- 1.2 큐가 아니라 로그 (읽어도 안 사라짐, offset만 이동)
-  - (경계) "읽어도 안 사라짐"은 **consumer group 한정** — share group(KIP-932)은 레코드별 ack·락 기반 큐 시맨틱 → 10장. 저장은 로그, 그 위에 큐 시맨틱을 얹음
-- 1.3 가장 작은 단위 (Record / Topic / Partition / Offset)
-- 1.4 등장인물 (Producer / Broker / Consumer / Group)
-- 1.5 설계 3원칙 (디스크인데 빠른 이유 / 파티션 순서 / pull)
-- 1.6 증명(executable) / 1.7 다음 장
+📄 [00-prologue.md](./00-prologue.md)
 
-## 2장 — 로그라는 추상   ✅ [02-log-abstraction.md](./02-log-abstraction.md)
+## 1장 — Kafka란 무엇인가
 
-> 보장: *상태는 로그의 파생물 — 로그가 source of truth.*
+Kafka는 큐가 아니라 분산·복제·순서 보장 append-only 로그이며, 그 한 끗 차이가 어휘·등장인물·근본 설계 결정과 증명 방식을 모두 결정한다.
 
-- 2.1 append-only · 불변 · offset 단조성(위치이자 논리 시계)
-- 2.2 왜 로그인가 — 큐/테이블 대비, **MySQL은 테이블이 본체·로그가 보조 / Kafka는 반대**
-- 2.3 상태 = `fold(로그)` (event sourcing, materialized view)
-- 2.4 compaction의 **의미** = 키별 최신 = 상태 스냅샷 ([메커니즘](08-storage-engine.md))
-- 2.5 stream-table duality (로그↔테이블, → Streams)
-- 2.6 메타데이터도 로그 (`__cluster_metadata` 4장·`__consumer_offsets` 5장·control record 6장 예고)
-- 2.7 트레이드오프(무한 로그→retention/compaction) · 증명(compaction·tombstone)
-- 참조: Kreps *"The Log"*, DDIA 11·3장
+- **1.1 한 문장으로**
+  - Kafka는 메시지 큐가 아니라 분산·복제되고 순서가 보장되는 append-only 로그(commit log)이며, 이 차이가 거의 모든 동작을 설명한다.
+- **1.2 "큐가 아니라 로그"가 왜 중요한가**
+  - 전통 큐는 읽으면 사라지지만 로그는 읽어도 안 사라지고 소비자는 데이터가 아니라 `offset`(어디까지 읽었는지)만 기억한다.
+- **1.3 가장 작은 단위들 (어휘)**
+  - `Record`·`Topic`·`Partition`·`Offset`을 정의하며, 순서는 파티션 안에서만 보장되고 파티션 수가 병렬 처리(최대 동시 소비자)의 단위다.
+- **1.4 등장인물**
+  - `Producer`(append)·`Broker`(저장)·`Consumer`(offset 들고 읽음)·`Consumer Group`(나눠 읽음)의 역할을 정리한다.
+- **1.5 왜 이렇게 설계했나 — 3가지 근본 결정**
+  - 순차 append·page cache·zero-copy로 디스크가 빠른 이유, 순서를 파티션 단위로 좁힌 트레이드오프, Consumer가 `offset`을 들고 당기는 pull 모델 세 가지 근본 결정을 설명한다.
+  - ① 순차 append·`OS page cache`·`zero-copy(sendfile)`로 디스크에 쓰는데도 빠르다
+  - ② 파티션 단위로 순서를 좁혀 병렬성+부분 순서를 얻고 전역 순서는 포기(처리량↔순서 트레이드오프)
+  - ③ Broker는 push하지 않고 Consumer가 `offset`을 들고 자기 속도로 pull — 제어권을 Consumer가 쥔다
+- **1.6 이 책은 개념을 "증명"한다 (executable book)**
+  - 모든 핵심 주장에 돌아가는 테스트가 붙으며, 1장이 던진 개념(offset 이동·순서·pull)의 런타임 증명은 II권 Spring Step에 있다.
+- **1.7 다음 장**
+  - 2장(로그라는 추상)과 3장(복제: `ISR`·`HW`·leader epoch)으로 이어진다고 안내한다.
 
-## 3장 — 복제: 데이터는 어떻게 살아남나   ✅ [03-replication.md](./03-replication.md)
+📄 [01-what-is-kafka.md](./01-what-is-kafka.md)
 
-> 보장: *커밋된 메시지는 min.insync.replicas개 복제본에 존재 → 그만큼 동시 장애까지 무손실.*
+## 2장 — 로그라는 추상
 
-- 3.1 문제: 브로커는 언젠가 죽는다 (단일 노드 내구성·가용성 한계, "커밋했는데 사라짐"이 최악)
-- 3.2 복제의 세 선택지 — 완전 동기 / 완전 비동기 / **ISR** (보장·대가 비교표 + Mermaid)
-- 3.3 ISR이라는 절충 (`replica.lag.time.max.ms`, 진입/축출, 기록 주체→4장)
-- 3.4 "커밋"이란 무엇인가 — **HW** (LEO vs HW, consumer 가시성 = HW까지)
-- 3.5 보장의 다이얼 — `acks × min.insync.replicas × RF` (조합표, RF=3+min.isr=2가 균형점)
-- 3.6 리더가 죽으면 — ISR 선출 / **unclean leader election** on·off 트레이드오프
-- 3.7 로그가 어긋나지 않으려면 — **leader epoch** (HW-only truncation 버그 KIP-101, fencing = Raft term과 동형→4장)
-- 3.8 복제는 합의가 아니다 — ISR primary-backup vs KRaft, 왜 분리했나(처리량)
-- 3.9 직접 증명 — follower 정지→ISR 축소 / 2대 정지→쓰기 거부 / leader kill→무손실
-- 참조: KIP-101/279, DDIA 5·9장
+append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생물이라는 한 문장을, 큐·테이블과의 대비부터 compaction·duality·메타데이터까지 밀어붙인다.
 
-## 4장 — 합의: 누가 결정하나 (KRaft)   ✅ [04-consensus.md](./04-consensus.md)
+- **2.1 로그의 세 가지 성질 — append-only · 불변 · 단조 offset**
+  - commit log의 세 성질 append-only(순차 I/O)·불변(replay 토대)·단조 offset(논리적 시계)이 각각 무엇을 가능하게 하나
+- **2.2 왜 로그인가 — 큐도 테이블도 아닌 이유**
+  - 큐는 소비 시 삭제하지만 로그는 소비자가 offset만 옮겨 replay 가능하고, 테이블과 달리 로그가 본체(source of truth)이고 상태는 파생물이다
+- **2.3 상태 = fold(로그)**
+  - 어떤 상태든 로그를 처음부터 fold하면 결정적으로 재현되며, 이것이 N×M 통합을 N+M으로 바꾼 힘의 정체다
+- **2.4 Log Compaction의 "의미" — 로그를 상태 스냅샷으로**
+  - 같은 key의 옛 레코드를 버리고 key별 최신값만 남겨 로그를 "key→최신값" 테이블 스냅샷으로 만들며, tombstone(`key=null`)으로 삭제를 표식한다
+- **2.5 Stream–Table Duality**
+  - fold하면 로그(스트림)가 테이블이 되고 changelog로 흘리면 테이블이 로그가 되는 stream–table duality가 Kafka Streams `KStream`/`KTable`의 토대다
+- **2.6 메타데이터도 로그다**
+  - Kafka는 자기 상태마저 로그로 관리한다 — `__consumer_offsets`·`__cluster_metadata`·`__transaction_state`·control record가 그 예이고 KRaft가 우아한 이유다
+- **2.7 트레이드오프와 증명**
+  - 로그 무한 증가는 retention/compaction으로 잘라야 하고, compaction+tombstone으로 key별 최신만 남는지·결정성을 executable 테스트로 증명한다
+- **참조**
+  - Jay Kreps의 The Log, DDIA, Kafka 공식 Log Compaction 문서가 이 장의 사상적 출처다
 
-> 보장: *메타데이터(리더가 누구인지 등)에 모든 노드가 단일 진실로 합의.*
+📄 [02-log-abstraction.md](./02-log-abstraction.md)
 
-- 4.1 문제: 메타데이터 단일 진실 + split-brain 방지 (데이터 복제 3장과 구분)
-- 4.2 분산 합의란 (과반/quorum, FLP 불가능성)
-- 4.3 **Paxos vs Raft** — 왜 Raft(이해가능성, 강한 리더)
-- 4.4 KRaft = "메타데이터도 로그로"(2장) → 외부 의존 제거 (정통 Raft의 push 아닌 **pull 기반** 변형, KIP-595 — 9장 fetch·3장 복제와 통일)
-- 4.5 `__cluster_metadata` · Controller Quorum · active controller · term
-- 4.6 파티션 리더 선출 (controller가 ISR에서 지정 → 전파)
-- 4.7 ZooKeeper 시절 → KRaft 전환 (KIP-500, 4.0 ZK 제거)
-- 4.8 메타데이터 로그도 무한히 안 자란다 — KRaft 스냅샷(KIP-630), 2장 키별 log compaction과 달리 **상태 스냅샷 후 로그 절단**
-- 4.9 증명 — `describeCluster`, active controller kill, 메타데이터 전파
-- 참조: Raft 논문(Ongaro 2014), Paxos(Lamport), KIP-500/595/631, DDIA 9장
+## 3장 — 복제: 데이터는 어떻게 살아남나
 
-## 5장 — 조정: Consumer Group은 어떻게 나눠 읽나   ✅ [05-coordination.md](./05-coordination.md)
+로그를 죽지 않게 만드는 복제의 원리 — `ISR`·`HW`·`acks`·`min.insync.replicas`가 "커밋됐다"는 보장을 어떻게 세우고 어디서 무너지는지를 본다.
 
-> 보장: *그룹 내 각 파티션은 정확히 한 consumer에게 배정(배타성). 멤버 변동 시 리밸런싱으로 유지.*
+- **3.1 문제: 브로커는 언젠가 죽는다**
+  - 단일 브로커는 내구성과 가용성을 동시에 잃고, 최악은 성공 응답한 데이터가 사라지는 것 — 복제는 이 최악을 막는 장치다
+- **3.2 복제의 딜레마 — 완전 동기 vs 완전 비동기**
+  - 완전 동기는 느린 한 대에 전체가 인질이 되고 완전 비동기는 내구성이 없어, Kafka는 그 사이 절충인 `ISR`을 택한다
+- **3.3 ISR — "지금 따라잡은 복제본만 기다린다"**
+  - `ISR`은 리더를 따라잡은 복제본 집합으로, pull(`Fetch`) 모델에서 `replica.lag.time.max.ms`를 못 맞추면 축출하며 뒤처진 놈은 빼 가용성을, 든 놈은 기다려 내구성을 지킨다
+- **3.4 "커밋"이란 무엇인가 — High Watermark**
+  - `HW`는 `ISR` 전체의 `LEO` 중 최소값이고 consumer는 `HW`까지만 읽으니, "커밋됐다 = `HW` 도달 = consumer에게 보인다"가 일관성의 정의다
+- **3.5 보장의 다이얼 — acks × min.insync.replicas × RF**
+  - 내구성은 `acks`·`min.insync.replicas`·RF의 조합으로 서며, `acks=all`이라도 `min.insync.replicas=1`이면 `acks=1`로 퇴화해 의미 있는 조합은 RF=3 + `min.insync.replicas=2` + `acks=all`이다
+- **3.6 리더가 죽으면 — 선출과 unclean election**
+  - 컨트롤러가 `ISR` 안에서 새 리더를 뽑아 무손실이나, `ISR`이 전부 죽으면 `unclean.leader.election.enable`로 파티션 중단(안전) vs 밖 복제본 승격(손실 감수)을 가른다
+- **3.7 로그가 어긋나지 않으려면 — Leader Epoch**
+  - `HW` 기준 truncate만으론 리더 교체 시 로그가 영구히 분기하므로, 리더 교체마다 증가하는 leader epoch로 어느 리더 시대의 로그가 정당한지 펜싱한다
+- **3.8 복제는 합의(consensus)가 아니다**
+  - 데이터 경로는 `ISR` primary-backup으로 과반 투표 없이 싸게 복제하고, "누가 리더인가" 같은 메타데이터만 KRaft 합의로 비싸게 정하는 분리가 고성능의 핵심이다
+- **3.9 증명 (executable — 3-broker)**
+  - follower 정지 시 `ISR` 축소, 브로커 2대 정지 시 `NotEnoughReplicasException`, `HW` 이전 미가시, 리더 kill 후 승격·보존 등을 3-broker로 단언한다
+- **참조**
+  - leader epoch는 `[KIP-101]`·`[KIP-279]`, 일반 이론은 DDIA 5·9장, `unclean.leader.election.enable` 기본값은 Kafka 공식 문서 `[docs @3.7]`에 근거한다
 
-- 5.1 배타 배정 불변식 (파티션 수 = 병렬성 상한)
-  - (경계) 이 배타성·"파티션 수 = 병렬성 상한"은 **consumer group 한정** — share group은 한 파티션을 여러 consumer가 공유, 파티션 수 < consumer 수도 가능 → 10장
-- 5.2 왜 배정을 클라이언트(Group Leader)에 위임했나 (브로커 부하)
-- 5.3 **Group Coordinator** (브로커 중 하나, Controller 4장과 다른 역할)
-- 5.4 JoinGroup → SyncGroup 2단계 (Coordinator가 Leader 지정→Leader가 계산→전파)
-- 5.5 배정 전략 (Range / RoundRobin / Sticky / CooperativeSticky)
-- 5.6 **리밸런싱 세대** — eager(stop-the-world) → cooperative(KIP-429) → KIP-848(서버 주도)
-- 5.7 타이밍 3박자 — `heartbeat.interval < session.timeout ≪ max.poll.interval`
-- 5.8 static membership (KIP-345)
-- 5.9 `__consumer_offsets` (compacted 로그, 2장)
-- 5.10 증명 — eager vs cooperative revoke 범위 / static 재접속
-- 참조: KIP-429/848/345 · (트리거 전수=III권, Spring 설정=II권)
+📄 [03-replication.md](./03-replication.md)
 
-## 6장 — 멱등·순서: 중복 없이, 순서대로   ✅ [06-ordering-atomicity.md](./06-ordering-atomicity.md)
+## 4장 — 합의: 누가 결정하나 (KRaft)
 
-> 보장: *멱등 — 재시도해도 파티션 내 중복 없음. 순서 — 파티션 내에서 보장.*
+메타데이터(누가 리더인가)를 모든 노드가 단일 진실로 보게 하는 합의를, Raft·`KRaft`·`__cluster_metadata` 로그로 어떻게 구현하는지 본다.
 
-- 6.1 파티션 내 순서 한계 (전체 순서는 단일 파티션이면 가능하나 병렬성 포기 — trade)
-- 6.2 "그냥 재시도"의 함정 (ACK 유실 → 중복 append)
-- 6.3 **멱등 프로듀서** — PID + epoch + sequence (요구 조합: `idempotence=true`→`acks=all`·`max.in.flight≤5`)
-- 6.4 멱등의 세션 한계 (재시작=새 PID → 보장 끊김)
-- 6.5 순서와 `max.in.flight` (멱등 off면 재시도 시 순서 역전)
-- 6.6 증명 — 멱등 재시도 중복 없음 / 세션 한계 중복 / 순서 역전
-- 참조: KIP-98, DDIA 9장
+- **4.1 문제: 메타데이터의 단일 진실과 split-brain**
+  - 데이터보다 먼저 합의돼야 할 메타데이터(누가 리더인가)가 노드마다 다르면 `split-brain`으로 로그가 갈라지므로 모든 노드가 하나의 진실로 봐야 한다.
+- **4.2 분산 합의라는 문제**
+  - FLP 불가능성 때문에 완벽한 합의는 어렵지만 현실 알고리즘은 과반(quorum)으로 우회한다 — 과반끼리는 반드시 겹쳐 모순된 결정이 동시에 확정될 수 없다.
+- **4.3 왜 Raft인가 — Paxos와의 대비**
+  - Paxos는 이해가 어려워, Raft는 같은 안전성에 이해가능성을 설계 목표로 삼았고 강한 리더와 term을 도입했다 — term은 3장 leader epoch과 같은 발상이다.
+- **4.4 KRaft — "메타데이터도 로그로"**
+  - `KRaft`는 모든 메타데이터 변경을 `__cluster_metadata` 로그에 append하고 active controller가 그 리더이며, 정통 Raft의 push와 달리 voter·observer가 `Fetch`로 당겨가는 pull 모델이다.
+- **4.5 Controller Quorum · active controller · term**
+  - voter들이 메타데이터 로그를 복제하며 Raft 과반 투표로 active controller를 뽑고, standby가 이미 로그를 따라 읽고 있어 active가 죽어도 거의 즉시 승계한다.
+- **4.6 파티션 리더 선출은 컨트롤러가 한다**
+  - 파티션 리더는 active controller가 `ISR` 안에서 지정해 메타데이터 로그에 기록 후 브로커에 전파하며, 컨트롤러(4장)와 코디네이터(5장)는 역할이 다르다.
+- **4.7 ZooKeeper에서 KRaft로 (왜 걷어냈나)**
+  - ZooKeeper는 별도 운영 부담·컨트롤러 장애 시 전체 상태 재로딩·확장 한계의 비용이 있어, `KRaft`가 그 의존을 제거하고 Kafka가 스스로 합의하게 했다.
+- **4.8 메타데이터 로그도 무한히 안 자란다 — KRaft 스냅샷**
+  - `__cluster_metadata`도 자라므로 KRaft 스냅샷이 어느 시점의 전체 상태를 통째로 저장하고 이전 로그를 잘라내어, key별 최신만 남기는 log compaction과 다르다.
+- **4.9 증명 (executable — 3-broker)**
+  - `describeCluster`로 컨트롤러 확인, active controller kill 시 승계, 토픽 생성 직후 메타 전파, `__cluster_metadata` 덤프로 메타데이터가 로그임을 실험으로 단언한다.
+- **참조**
+  - Raft 논문(Ongaro & Ousterhout 2014), Paxos Made Simple, `[KIP-500]`·`[KIP-595]`·`[KIP-631]`, DDIA 9장 등 인용 출처를 모은다.
 
-## 7장 — 트랜잭션·EOS: 전부 또는 전무   ✅ [07-transactions.md](./07-transactions.md)
+📄 [04-consensus.md](./04-consensus.md)
 
-> 보장: *다중 파티션 쓰기(+offset 커밋)가 원자적. EOS = 멱등 + 트랜잭션 + read-process-write (Kafka 내부 한정).*
+## 5장 — 조정: Consumer Group은 어떻게 나눠 읽나
 
-- 7.1 왜 트랜잭션인가 — 다중 파티션 원자성 + read-process-write (6장 멱등 위에 쌓는다)
-- 7.2 `transactional.id` 와 좀비 펜싱 (producer epoch로 옛 인스턴스 차단) — KIP-890: epoch-bump-per-txn으로 hanging txn 방지
-- 7.3 **Transaction Coordinator** + `__transaction_state` (트랜잭션 상태도 로그 — 2장)
-- 7.4 2단계 흐름 — `AddPartitionsToTxn` → produce → commit/abort
-- 7.5 **control record**(commit/abort marker) + **LSO** + `read_committed`(abort 배치 스킵)
-- 7.6 read-process-write — `sendOffsetsToTransaction` (consumer offset도 트랜잭션에)
-- 7.7 **EOS의 경계** — Kafka 내부 한정, 외부 시스템은 멱등키(→ II권)
-- 7.8 증명 — abort+read_committed 안 보임 / `isolation.level` 기본값(read_uncommitted) 함정 / read-process-write 원자성
-- 참조: KIP-98/129, Confluent *EOS* 문서, DDIA 9·7장
+한 Consumer Group에서 각 파티션을 정확히 한 consumer에게 배정하는 배타성을, 코디네이터·리밸런싱·offset 저장이 어떻게 유지하는지를 본다.
 
-## 8장 — 저장 엔진: 디스크인데 왜 빠른가   ✅ [08-storage-engine.md](./08-storage-engine.md)
+- **5.1 배타 배정 불변식**
+  - 그룹 안에서 한 파티션은 한 consumer에게만 배정되므로 파티션 수가 그룹 내 최대 병렬성이고, 멤버가 들고 날 때 이를 다시 맞추는 게 리밸런싱이다.
+- **5.2 왜 배정을 클라이언트에 위임했나**
+  - 브로커 부하 분산을 위해 배정 계산을 그룹 내 한 consumer(Group Leader)에 위임하고 브로커(코디네이터)는 멤버십·통신만 조율한다.
+- **5.3 Group Coordinator — 컨트롤러와 다른 것**
+  - `hash(groupId) % __consumer_offsets 파티션 수`로 정해지는 코디네이터는 그룹 레벨(멤버십·offset)을, 컨트롤러는 클러스터 레벨(리더·메타데이터)을 맡아 역할이 다르다.
+- **5.4 JoinGroup → SyncGroup**
+  - `JoinGroup`에서 코디네이터가 Group Leader를 지정하고, `SyncGroup`에서 Group Leader가 계산한 배정을 코디네이터가 각 멤버에게 전달하는 2단계 프로토콜이다.
+- **5.5 배정 전략**
+  - `partition.assignment.strategy`로 Range·RoundRobin(크게 뒤섞임)·Sticky(최소 이동)·CooperativeSticky(Sticky+협력적 리밸런싱) 중 알고리즘을 고른다.
+- **5.6 리밸런싱 세대 — eager → cooperative → KIP-848**
+  - eager는 전 파티션을 내려놓아 stop-the-world였고, cooperative `[KIP-429]`는 이동 필요분만 내려놓으며, `[KIP-848]`은 배정 계산을 다시 서버로 옮긴다.
+- **5.7 살아있음을 판정하는 타이밍 3박자**
+  - `heartbeat.interval.ms` < `session.timeout.ms`로 죽음·단절을, `session.timeout.ms` ≪ `max.poll.interval.ms`로 처리 지연을 판정해 살아있음과 처리 진행을 분리한다.
+- **5.8 Static Membership**
+  - `[KIP-345]`의 `group.instance.id`를 부여하면 같은 id로 재접속 시 기존 배정을 유지해 롤링 배포의 불필요한 리밸런싱을 줄인다.
+- **5.9 offset은 어디에 — `__consumer_offsets`**
+  - 커밋된 offset은 `key=(group, topic, partition)`·`value=offset`으로 내부 compacted 토픽 `__consumer_offsets`에 저장돼 재시작 시 마지막 위치를 복원한다.
+- **5.10 증명 (executable — 3-broker)**
+  - eager vs cooperative revoke 범위, `group.instance.id` 재접속, `max.poll.interval` 초과 퇴출, 두 그룹의 독립 offset 소비를 `[테스트로 결정]`으로 단언한다.
+- **참조**
+  - `[KIP-429]`·`[KIP-848]`·`[KIP-345]` `[Tier 1]`와 Consumer Group·`__consumer_offsets` 공식 문서 `[docs @3.7]`를 근거로 든다.
 
-> 보장: *디스크 기반인데도 순차 IO·OS 최적화로 고처리량.*
+📄 [05-coordination.md](./05-coordination.md)
 
-- 8.1 로그(2장)의 물리 실체
-- 8.2 디스크인데 빠른 이유 — **순차 IO** / **page cache**(JVM 힙 아님) / **zero-copy(sendfile)**
-- 8.3 **Log Segment** — `.log`/`.index`/`.timeindex`, 파일명=base offset, active segment, rolling(`segment.bytes/ms`)
-  - `.index`/`.timeindex`는 memory-mapped(mmap) → OS 페이지 관리, 크래시 시 복구 필요(8.9와 연결)
-- 8.4 **Record Batch v2** — baseOffset·producerId·epoch·압축타입 (멱등/트랜잭션 6·7장이 여기 박힘)
-- 8.5 조회 — sparse index 점프 → `.log` 순차 스캔
-- 8.6 압축 — producer batch 단위(lz4/zstd/snappy/gzip), 브로커는 그대로 저장·전송
-- 8.7 **log compaction 메커니즘** — cleaner thread, 키별 최신 + tombstone (2장 의미→여기 메커니즘)
-- 8.8 retention — 시간/크기, **세그먼트 단위 삭제**
-- 8.9 로그 복구 — clean vs unclean shutdown / 체크포인트 파일(recovery-point-offset-checkpoint·replication-offset-checkpoint·log-start-offset-checkpoint) / unclean 종료 시 마지막 세그먼트 재검증 (3.1 유실 방지의 물리 구현)
-- 8.10 시간의 의미
-  - `message.timestamp.type` — CreateTime(프로듀서) vs LogAppendTime(브로커)
-  - `.timeindex` 인덱싱 + 시간 기반 seek
-  - **retention이 쓰는 timestamp** → 조기·지연 삭제 함정의 원인
-- 8.11 Tiered Storage(KIP-405) — RemoteLogManager / 읽기 remote fallback / local vs remote retention 분리
-- 8.12 증명 — `docker exec`로 `.log` 직접 보기 / `kafka-dump-log` / rolling 관측
-- 참조: Kafka design 문서(Persistence·Efficiency·Compaction), `sendfile(2)`, KIP-405(tiered storage)
+## 6장 — 멱등·순서: 중복 없이, 순서대로
 
-## 9장 — 클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나   ✅ [09-client-runtime.md](./09-client-runtime.md)
+재시도가 만드는 파티션 내 중복과 순서 역전을, 멱등 프로듀서의 `PID`·`epoch`·`sequence`가 어떻게 막고 그 한계가 어디서 끝나는지를 본다.
 
-> 보장/관점: *send()는 비동기다 — 사용자 스레드와 IO 스레드가 분리돼 있고, 그 경계를 모르면 콜백 한 줄로 처리량을 무너뜨린다.*
-> scope: 클라이언트 런타임 + 그 클라이언트가 말을 거는 **broker 측 요청 처리**(fetch·purgatory)까지.
+- **6.1 파티션 내 순서, 그 한계**
+  - 순서는 파티션 안에서만 보장되어 같은 key는 key 단위 순서를 얻지만, 토픽 전체 순서는 파티션 1개나 key 설계로 풀어야 한다.
+- **6.2 "그냥 재시도"의 함정 — 중복 append**
+  - 리더가 저장했는데 ACK가 유실되면 프로듀서가 재시도해 같은 메시지를 두 번 쌓고, `max.in.flight=1`로 막으면 처리량이 죽는 딜레마를 멱등이 푼다.
+- **6.3 멱등 프로듀서 — PID + epoch + sequence**
+  - `enable.idempotence=true`는 `PID`·`epoch`·`sequence`로 메시지에 신원을 붙여, 브로커가 같은 sequence는 버리고 건너뛴 sequence는 거부해 중복 제거와 순서를 보장한다.
+  - 요구 조합: `enable.idempotence=true`는 `acks=all`·`max.in.flight≤5`·`retries>0`을 전제하며, 3.0+ 기본 true라 `acks=1` 명시는 이 전제를 깬다 `[KIP-98/679 · docs @3.7]`
+- **6.4 멱등의 한계 — 세션 경계**
+  - 멱등성은 한 프로듀서 세션 안에서만 보장되어, 재시작하면 새 `PID`를 받아 이전 메시지를 다시 보내면 중복되고 이 한계는 트랜잭션의 `transactional.id`가 넘는다.
+- **6.5 순서와 `max.in.flight`**
+  - 멱등 off에 `max.in.flight>1`과 재시도면 순서가 뒤바뀌지만, 멱등 on이면 `sequence`로 `max.in.flight≤5`까지 순서가 보장된다.
+- **6.6 증명 (executable)**
+  - 멱등 on의 강제 재시도는 중복 없음, 프로듀서 재시작 후 재전송은 중복 발생, 멱등 off에 `max.in.flight>1`+재시도는 순서 역전을 관측한다.
+- **참조**
+  - `[KIP-98]`·Kafka 공식 문서의 `enable.idempotence` 기본값·DDIA 9장을 근거로 든다.
 
-- 9.1 Producer 스레드 모델 — 사용자 스레드(send) vs **Sender(IO) 스레드**(`kafka-producer-network-thread`)
-- 9.2 send()의 여정 — 직렬화/파티셔닝 → RecordAccumulator(버퍼) → 배치 → 전송
-  - key 없는 메시지의 파티션 선택: sticky partitioner(KIP-480) → uniform sticky(KIP-794)가 `batch.size`·`linger.ms`와 맞물려 배치 효율을 좌우(9.5와 연결)
-- 9.3 콜백/Future 완료는 누가 실행하나 — **Sender(IO) 스레드** → `whenComplete`에서 blocking하면 produce 정지 (★→ II권 코드 함정)
-- 9.4 backpressure — `buffer.memory` 가득 → `send()`가 `max.block.ms`까지 블록 → TimeoutException
-- 9.5 설정 조합 — `buffer.memory × batch.size × linger.ms × max.block.ms` = 처리량·지연·역압
-- 9.6 Consumer 런타임 — 단일 스레드 poll 루프 / 백그라운드 heartbeat 스레드 / `max.poll.records ↔ max.poll.interval`
-- 9.7 Consumer/Replica fetch 메커니즘 — long-poll(`fetch.min.bytes` × `fetch.max.wait.ms`) / incremental fetch session(KIP-227) / **복제도 동일 fetch 프로토콜 사용**(3장 follower↔여기) / fetch-from-follower(KIP-392)
-- 9.8 broker 측 지연 요청 — purgatory: DelayedProduce(acks=all ISR 대기 ↔3.5)·DelayedFetch(min.bytes 대기 ↔9.7) / timer wheel·watcher
-- 참조: Kafka producer/consumer design 문서, `KafkaProducer` Javadoc
+📄 [06-ordering-atomicity.md](./06-ordering-atomicity.md)
 
-## 10장 — 공유 소비: Share Group (큐 시맨틱)   ✅ [10-share-groups.md](./10-share-groups.md)
+## 7장 — 트랜잭션·EOS: 전부 또는 전무
 
-> 보장: *한 파티션을 여러 consumer가 공유 소비 · 레코드별 개별 ack/재전달 · at-least-once · 배치 안에서만 순서 보장.* (Kafka 4.2 GA)
+멱등 위에 트랜잭션을 쌓아 다중 파티션과 read-process-write를 원자적으로 묶고, `control record`·`LSO`·`read_committed`로 가시성을 제어하되 그 보장이 Kafka 경계에서 끝남을 본다.
 
-- 10.1 왜 별도 모델인가 — consumer group 배타 배정(5.1)·로그 retention(2장)과 큐(개별 ack·작업 분배)의 긴장 → 기존 group에 못 얹고 새 group type으로 분리
-- 10.2 consumer group과의 대조 — 배타 vs 공유 / commit offset vs 레코드별 상태 / consumer≤파티션 vs consumer>파티션 가능
-- 10.3 in-flight 레코드 상태 머신 — Available→Acquired(락 `group.share.record.lock.duration.ms` 기본 30s)→Acknowledged / Released(재전달) / Archived(`group.share.delivery.count.limit` 기본 5 초과)
-- 10.4 Share Coordinator + `__share_group_state`(50파티션) — Group·Transaction에 이은 셋째 coordinator (Controller는 합의/메타라 결이 다름)
-- 10.5 새 프로토콜 RPC — ShareFetch / ShareAcknowledge (share session = GroupId+MemberId, 9장 일반 fetch와 대비)
-- 10.6 한계 — 배치 간 순서 없음 / **EOS 미지원**(at-least-once, `share.isolation.level`로 read 제어) / fetch-from-follower 미지원
-- 10.7 증명 — consumer>partition 동시 소비 / 락 만료 후 재전달 / ack 후 미재전달 / delivery 한도 후 Archived (★4.2+ 브로커 필요)
-- 참조: KIP-932, Kafka 4.2 GA
+- **7.1 왜 트랜잭션인가**
+  - 멱등을 넘는 두 요구 — 다중 파티션 원자성과 read-process-write 사이클 — 때문에 트랜잭션이 멱등 위에 쌓인다
+- **7.2 `transactional.id`와 좀비 펜싱**
+  - `transactional.id`가 PID를 세션 너머로 영속화하고 좀비 등장 시 epoch를 올려 옛 프로듀서 쓰기를 거부하며, `[KIP-890]`은 이를 매 트랜잭션마다 bump로 강화해 hanging transaction을 막는다
+- **7.3 Transaction Coordinator와 `__transaction_state`**
+  - 트랜잭션 상태는 Transaction Coordinator가 관리하고 `__transaction_state` 내부 로그에 저장돼 코디네이터가 죽어도 복구된다
+- **7.4 2단계 흐름**
+  - `commitTransaction` 시 코디네이터가 관련 모든 파티션에 `control record`(마커)를 박는 2PC 닮은 구조로 원자성을 만들고, `transaction.timeout.ms`(기본 60000ms) 초과 시 자동 abort한다
+- **7.5 핵심: control record + LSO + `read_committed`**
+  - `control record`로 트랜잭션 경계를 긋고 `LSO`(Last Stable Offset = min(`HW`, 가장 오래된 열린 트랜잭션 시작))로 가시성을 막아, `read_committed`는 `LSO`까지만 읽고 abort 배치를 스킵한다
+- **7.6 read-process-write — offset도 트랜잭션에**
+  - consumer offset 커밋조차 `sendOffsetsToTransaction`으로 트랜잭션에 포함시켜 출력 쓰기와 입력 offset 전진을 한 단위로 묶는 것이 Kafka 내부 진짜 exactly-once다
+- **7.7 EOS의 경계 — 어디까지가 exactly-once인가**
+  - EOS는 Kafka 토픽→처리→Kafka 토픽(+offset)까지만 보장하고 외부 DB·API는 롤백 불가라 멱등키로 방어해야 한다
+- **7.8 증명 (executable — 3-broker)**
+  - 트랜잭션 abort + `read_committed`, `isolation.level` 기본값(`read_uncommitted`), read-process-write 실패 롤백, 같은 `transactional.id` 중복 프로듀서 펜싱을 3-broker로 단언한다
+- **참조**
+  - `[KIP-98]`·`[KIP-129]`·`[KIP-890]`과 Confluent EOS 설계 문서, DDIA 9·7장을 출처로 든다
 
-> 기존 [`KAFKA-ARCHITECTURE.md`](../../../KAFKA-ARCHITECTURE.md)는 3·4·5장 산문화 시 **분해·흡수 예정**.
+📄 [07-transactions.md](./07-transactions.md)
 
----
+## 8장 — 저장 엔진: 디스크인데 왜 빠른가
 
-## ✅ I권 산문화 완료
+디스크 기반 로그가 순차 I/O·`page cache`·`zero-copy`로 어떻게 빨라지고, 세그먼트·인덱스·압축·compaction·retention·복구·Tiered Storage로 어떻게 물리적으로 놓이는지를 본다.
 
-- 들어가며·1~10장 전부 산문화 완료. 10장 share group은 KIP-932 + Kafka 4.2 GA 1차 소스로 검증해 작성.
-- 남은 작업: 각 장 `[테스트로 결정]` 증명을 실제 테스트로 구현(executable 단계). 특히 10장은 **4.2+ 브로커** 별도 필요(baseline 3.7).
+- **8.1 통념 깨기 — "디스크 = 느리다"가 틀리는 지점**
+  - 디스크가 느린 건 랜덤 접근일 때이고, append-only 로그라 항상 순차 쓰기/읽기만 하는 것이 첫 번째 비결
+- **8.2 page cache와 zero-copy**
+  - 데이터를 JVM 힙 대신 OS `page cache`에 맡기고 `sendfile`로 디스크→소켓 직송하되, TLS·재압축·다운컨버전이 끼면 `sendfile`을 우회
+- **8.3 Log Segment — 로그의 물리적 실체**
+  - 파티션 로그는 base offset을 파일명으로 한 세그먼트들로 쪼개지고, `segment.bytes`/`segment.ms` 도달 시 active segment를 롤링하며 `.index`/`.timeindex`는 mmap으로 다뤄진다
+- **8.4 Record Batch (v2) — 멱등·트랜잭션이 박히는 곳**
+  - 레코드는 배치(RecordBatch) 단위로 저장되고 v2 헤더에 `producerId`·`producerEpoch`·`baseSequence` 등 멱등·트랜잭션 정보가 박힌다
+- **8.5 조회 — sparse index**
+  - `.index`는 `index.interval.bytes` 간격으로 드문드문만 기록해 근처까지 점프한 뒤 `.log`를 순차 스캔한다
+- **8.6 압축(compression)**
+  - 프로듀서가 배치 단위로 압축하면 브로커는 그대로 저장·전송하고 consumer가 풀어 압축률·CPU를 아낀다
+- **8.7 Log Compaction의 "메커니즘"**
+  - log cleaner 스레드가 같은 key의 옛 레코드를 제거하고 최신만 남기며, tombstone(`key=null`)은 삭제를 의미하고 `cleanup.policy=compact`로 켠다
+- **8.8 Retention — 세그먼트 단위 삭제**
+  - `cleanup.policy=delete`에서 `retention.ms`/`retention.bytes`를 넘긴 데이터를 레코드가 아니라 세그먼트 통째로 삭제한다
+- **8.9 로그 복구 — 재시작 시 어디부터 믿나**
+  - 체크포인트 파일(`recovery-point-offset-checkpoint`·`replication-offset-checkpoint`·`log-start-offset-checkpoint`)을 두어, clean shutdown이면 즉시 시작하고 unclean이면 마지막 세그먼트를 스캔·재검증해 손상 배치를 잘라낸다
+- **8.10 시간의 의미 — timestamp.type과 retention**
+  - 레코드 timestamp는 `message.timestamp.type`의 CreateTime/LogAppendTime 중 하나이고, retention도 이 timestamp를 보기에 잘못된 CreateTime은 너무 일찍 삭제되거나 안 지워질 수 있다
+- **8.11 Tiered Storage — 무한 보존 (KIP-405)**
+  - RemoteLogManager가 오래된 세그먼트를 원격 스토리지로 내리고 local/remote retention을 따로 설정해 보존을 로컬 디스크 용량에서 분리한다
+- **8.12 증명 (executable — docker exec)**
+  - 브로커 컨테이너의 `.log` 열기·`kafka-dump-log`·`segment.bytes` 작게 produce·compaction cleaner로 세그먼트 파일명·배치 헤더·rolling·키별 최신을 관측
+- **참조**
+  - Kafka 공식 문서(Persistence·Efficiency·Log Compaction)·`sendfile(2)`·KIP-405·DDIA 3장을 출처로 든다
+
+📄 [08-storage-engine.md](./08-storage-engine.md)
+
+## 9장 — 클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나
+
+`send()`는 비동기다 — 사용자 스레드와 IO 스레드가 분리돼 있고, 그 경계(콜백 실행 위치·역압·purgatory)를 모르면 코드 한 줄로 처리량이 무너진다.
+
+- **9.1 Producer 스레드 모델 — 두 개의 스레드**
+  - 사용자 스레드는 직렬화·파티셔닝 후 `RecordAccumulator`에 적재하고 곧바로 반환하며, 별도의 `Sender`(IO) 스레드 `kafka-producer-network-thread`가 배치를 꺼내 브로커로 보내고 응답을 처리한다.
+- **9.2 `send()`의 여정**
+  - `send()`는 직렬화·파티션 결정·`RecordAccumulator` 적재까지만 사용자 스레드가 하고, 배치 모음(`batch.size`/`linger.ms`)·전송·ACK·콜백은 `Sender` 스레드의 일이며, key 없는 메시지는 sticky partitioner가 배치를 키운다.
+- **9.3 콜백은 누가 실행하나 — 그리고 그게 왜 위험한가**
+  - `send()`가 돌려주는 Future의 콜백(`whenComplete`/`Callback`)은 `Sender`(IO) 스레드에서 실행되므로, 콜백에서 blocking 작업을 하면 보통 1개뿐인 그 스레드가 막혀 전체 produce가 정지한다.
+- **9.4 Backpressure — `buffer.memory`와 `max.block.ms`**
+  - `buffer.memory`가 차면 `send()`가 블록되고 `max.block.ms` 안에 자리가 안 나면 `TimeoutException`이 나며, 전송·재시도까지의 전체 상한은 별도로 `delivery.timeout.ms`가 정한다.
+- **9.5 설정 조합 — 처리량·지연·역압의 삼각형**
+  - `batch.size`·`linger.ms`·`buffer.memory`·`max.block.ms` 네 설정이 개별이 아니라 함께 처리량·지연·역압을 결정한다.
+- **9.6 Consumer 런타임**
+  - Consumer는 단일 스레드 `poll()` 루프가 처리까지 담당하고 `heartbeat` 스레드가 백그라운드로 `session.timeout`을 유지하므로, `max.poll.records`가 너무 크면 `max.poll.interval` 초과로 퇴출된다.
+- **9.7 Consumer/Replica는 어떻게 읽나 — fetch 프로토콜**
+  - Consumer와 Replica는 둘 다 `Fetch` 요청으로 당기며(pull), long-poll(`fetch.max.wait.ms`/`fetch.min.bytes`)·incremental fetch session·fetch-from-follower가 모두 동일한 fetch 메커니즘이다.
+- **9.8 broker가 요청을 보류하는 법 — purgatory**
+  - `acks=all` produce(`DelayedProduce`)와 long-poll fetch(`DelayedFetch`)처럼 즉시 응답할 수 없는 요청은 timer wheel과 watcher로 관리되는 동일한 purgatory 메커니즘으로 보류된다.
+- **9.9 증명 (executable)**
+  - 콜백 `Thread.sleep` 시 처리량 급락, 작은 `buffer.memory`+폭주 시 `TimeoutException`, 콜백이 `kafka-producer-network-thread`에서 실행됨, 큰 `max.poll.records`+느린 처리 시 `max.poll.interval` 초과 퇴출을 테스트로 단언한다.
+- **참조**
+  - Producer/Consumer Configs 공식 문서, `KafkaProducer`/`KafkaConsumer` JavaDoc, Kafka 소스 `clients/`(RecordAccumulator·Sender)를 근거로 제시한다.
+
+📄 [09-client-runtime.md](./09-client-runtime.md)
+
+## 10장 — 공유 소비: Share Group (큐 시맨틱)
+
+로그 위에 큐 시맨틱을 얹는 Share Group(KIP-932)이 consumer group의 배타 배정·offset 진행을 어떻게 레코드별 락·ack로 바꾸는지, 그 대가로 무엇을 포기하는지를 본다.
+
+- **10.1 왜 별도 모델인가 — consumer group으로는 안 됐던 것**
+  - 큐가 원하는 작업 분배·개별 ack는 consumer group의 배타 배정(consumer ≤ 파티션)과 offset 진행과 정면 충돌해서, 같은 로그를 쓰되 소비 모델만 큐로 바꾼 새 group type(share group)으로 분리했다.
+- **10.2 consumer group과의 대조**
+  - Share Group은 파티션을 공유 배정해 consumer를 파티션 수보다 늘리고, offset 대신 레코드별 상태로 진행을 추적하며 레코드 단위 재전달과 `at-least-once`만 제공한다.
+- **10.3 in-flight 레코드 상태 머신**
+  - 레코드마다 상태가 있어 `poll` 시 시간제한 락(Acquired)이 걸리고, `group.share.record.lock.duration.ms`(기본 30초) 타임아웃이나 `group.share.delivery.count.limit`(기본 5) 초과에 따라 재전달·Acknowledged·Archived로 전이한다.
+- **10.4 Share Coordinator와 `__share_group_state`**
+  - 레코드별 상태는 Group·Transaction에 이은 셋째 coordinator인 Share Coordinator가 내부 토픽 `__share_group_state`에 durable하게 보관하며, compaction이 아니라 delete + `retention.ms=-1` + 주기적 prune으로 정리한다.
+- **10.5 새 프로토콜 — ShareFetch / ShareAcknowledge**
+  - share group은 일반 `Fetch` 대신 레코드를 락 걸어 가져오는 `ShareFetch`와 ack를 명시적으로 전달하는 `ShareAcknowledge`를 `(GroupId, MemberId)` 기반 share session으로 유지한다.
+- **10.6 한계 (지금은 못 하는 것)**
+  - share group은 배치 간 순서 보장·Exactly-Once·fetch-from-follower를 포기하므로, 큐가 필요하되 엄격한 순서와 EOS는 필요 없을 때가 그 자리다.
+- **10.7 증명 (executable — 3-broker, Kafka 4.2+)**
+  - 파티션 1개에 consumer 3대 동시 소비·락 타임아웃 재전달·ack 후 미재전달·delivery 한도 초과 후 Archived를 4.2+ 브로커로 단언하는 실험 표다.
+- **참조**
+  - `KIP-932`·Kafka 4.2 GA 문서·`KafkaShareConsumer` JavaDoc과 1.2·5.1·2장·9.7 연결 링크를 모은 절이다.
+
+📄 [10-share-groups.md](./10-share-groups.md)
 
 ---
 
