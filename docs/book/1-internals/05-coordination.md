@@ -1,3 +1,15 @@
+---
+volume: I
+chapter: 5
+title: "조정 — Consumer Group은 어떻게 나눠 읽나"
+prose: done
+proof: { mode: self, executable: "5.10 증명 4개 실험 모두 [테스트로 결정] (미구현)", note: "3-broker docker로 eager vs cooperative revoke 범위, group.instance.id 재접속 유지, max.poll.interval 초과 퇴출, 두 그룹 독립 offset 관측" }
+upstream: ["04-consensus.md"]
+forward: ["06-ordering-atomicity.md"]
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # 5장. 조정 — Consumer Group은 어떻게 나눠 읽나
 
 > 앞 장: [4장 합의(KRaft)](./04-consensus.md) · 다음 장: [6장 멱등·순서](./06-ordering-atomicity.md)

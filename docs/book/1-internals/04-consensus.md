@@ -1,3 +1,15 @@
+---
+volume: I
+chapter: 4
+title: "합의 — 누가 결정하나 (KRaft)"
+prose: done
+proof: { mode: self, executable: "executable(3-broker), describeCluster·controller kill·메타 전파는 [테스트로 결정], __cluster_metadata 덤프는 [code @3.7]", note: "3-broker docker로 describeCluster·active controller kill 승계·토픽 생성 후 메타 전파 관측, __cluster_metadata 덤프" }
+upstream: ["03-replication.md"]
+forward: ["05-coordination.md"]
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # 4장. 합의 — 누가 결정하나 (KRaft)
 
 > 앞 장: [3장 복제](./03-replication.md) · 다음 장: [5장 조정](./05-coordination.md)

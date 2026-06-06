@@ -1,3 +1,15 @@
+---
+volume: I
+chapter: 3
+title: "복제 — 데이터는 어떻게 살아남나"
+prose: done
+proof: { mode: self, executable: "증명 절(3.9)은 대부분 [테스트로 결정]로 미구현(ISR 축소·NotEnoughReplicasException·HW 가시성·리더 kill); unclean election 항목만 [docs @3.7]", note: "3-broker docker로 follower/leader stop 후 AdminClient.describeTopics로 ISR 축소·새 리더 승격·HW 가시성·NotEnoughReplicasException 직접 관측" }
+upstream: ["02-log-abstraction.md"]
+forward: ["04-consensus.md"]
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # 3장. 복제 — 데이터는 어떻게 살아남나
 
 > 앞 장: [2장 로그라는 추상](./02-log-abstraction.md) · 다음 장: [4장 합의(KRaft)](./04-consensus.md)

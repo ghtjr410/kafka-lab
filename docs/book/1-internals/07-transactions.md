@@ -1,3 +1,15 @@
+---
+volume: I
+chapter: 7
+title: "트랜잭션·EOS — 전부 또는 전무"
+prose: done
+proof: { mode: mixed, executable: "7.8 증명 표 4개 실험 중 3개 [테스트로 결정](미구현), 1개는 [docs @3.7]로 확인", note: "3-broker docker로 abort+read_committed 미가시·isolation.level 기본값·read-process-write 롤백·transactional.id 좀비 펜싱을 직접 관측; 함정의 코드 처리와 멱등키 패턴은 II권 Step에 위임" }
+upstream: ["06-ordering-atomicity.md"]
+forward: ["08-storage-engine.md"]
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # 7장. 트랜잭션·EOS — 전부 또는 전무
 
 > 앞 장: [6장 멱등·순서](./06-ordering-atomicity.md) · 다음 장: [8장 저장 엔진](./08-storage-engine.md)

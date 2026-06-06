@@ -1,3 +1,15 @@
+---
+volume: I
+chapter: 9
+title: "클라이언트 런타임 — Producer/Consumer는 내부에서 어떻게 도나"
+prose: done
+proof: { mode: self, executable: "9.9 증명 표 4개 실험 모두 [테스트로 결정]", note: "9.9 증명(executable) 표: 콜백 sleep으로 처리량 급락, buffer.memory 폭주로 max.block.ms TimeoutException, Sender 스레드 이름 확인, max.poll.records로 퇴출을 테스트로 관측" }
+upstream: ["08-storage-engine.md"]
+forward: ["10-share-groups.md"]
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # 9장. 클라이언트 런타임 — Producer/Consumer는 내부에서 어떻게 도나
 
 > 앞 장: [8장 저장 엔진](./08-storage-engine.md) · [I권 목차](./README.md)

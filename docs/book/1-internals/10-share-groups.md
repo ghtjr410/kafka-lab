@@ -1,3 +1,15 @@
+---
+volume: I
+chapter: 10
+title: "공유 소비 — Share Group (큐 시맨틱)"
+prose: done
+proof: { mode: self, executable: "전부 미구현([테스트로 결정]); 10장은 lab baseline 3.7이 아닌 별도 4.2+ 브로커 필요", note: "3-broker docker(Kafka 4.2+)로 consumer>partition 동시 소비·락 타임아웃 재전달·ack·delivery 한도 Archived 직접 관측" }
+upstream: ["09-client-runtime.md"]
+forward: []
+baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7" }
+conventions: ../README.md
+---
+
 # 10장. 공유 소비 — Share Group (큐 시맨틱)
 
 > 앞 장: [9장 클라이언트 런타임](./09-client-runtime.md) · [I권 목차](./README.md)
