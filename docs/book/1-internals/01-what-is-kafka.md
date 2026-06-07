@@ -5,7 +5,7 @@ title: "Kafka란 무엇인가"
 prose: done
 proof: { mode: delegated, executable: "이 장 자체 테스트 없음 — 개념 증명을 II권 Spring Step(Consumer seek/AckMode, Partition 순서·병렬성)에 위임", note: "1장이 던진 개념(offset 이동·순서·pull)의 런타임 증명은 II권 Spring Step에 위임(1.6절)" }
 upstream: ["00-prologue.md"]
-forward: ["10-share-groups.md", "08-storage-engine.md", "05-coordination.md"]
+forward: ["02-log-abstraction.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
 conventions: ../README.md
 ---
@@ -14,7 +14,7 @@ conventions: ../README.md
 
 > 책의 도입부 개념장. (진행 상태는 [I권 목차](./README.md)가 단일 진실)
 > 앞 장: [들어가며](./00-prologue.md)
-> [KAFKA-ARCHITECTURE.md](../../../KAFKA-ARCHITECTURE.md)(클러스터·복제·컨트롤러·코디네이터)는 [3·4·5장](./README.md)으로 분해·흡수 예정이다.
+> [KAFKA-ARCHITECTURE.md](../../../KAFKA-ARCHITECTURE.md)(클러스터·복제·컨트롤러·코디네이터)는 [복제](./03-replication.md)·[합의](./04-consensus.md)·[조정](./05-coordination.md)으로 분해·흡수 예정이다.
 
 ---
 
@@ -34,7 +34,7 @@ conventions: ../README.md
 |---|---------|-------------|
 | 메시지를 읽으면 | **사라진다** (소비 = 삭제) | **안 사라진다** (offset만 앞으로 이동) |
 | 보관 | 소비될 때까지 | retention 기간 동안 (읽든 안 읽든) |
-| 같은 메시지를 여러 소비자가 | 어렵다 (경쟁 소비) | 자연스럽다 (각자 자기 offset) |
+| 같은 메시지를 여러 소비자가 | 같은 큐에선 경쟁 소비 (fan-out하려면 exchange+큐 추가) | 자연스럽다 (각자 자기 offset) |
 | 과거로 되감기(replay) | (기본 모델에선) 어렵다 | 가능 (offset을 뒤로) |
 
 ```mermaid
@@ -51,7 +51,7 @@ graph LR
 
 **핵심**: Kafka는 "읽어도 지워지지 않는 로그"다. 소비자는 데이터를 가져가는 게 아니라 **"어디까지 읽었는지(offset)"만 기억**한다.
 
-> ⚠️ (경계) 이 "읽어도 안 사라짐"은 **consumer group 소비 한정**이다. Kafka의 **share group**(KIP-932, 4.2 GA)은 레코드별 ack·락 기반의 **큐 시맨틱**을 더한다 — 저장은 여전히 append-only 로그이고, 그 **위에 큐 시맨틱을 얹는** 것이다(→ 10장). `[KIP-932 · docs @4.2]`
+> ⚠️ (경계) 정확히는 **"각자 자기 offset으로 독립·반복 재생"** 이 consumer group 모델의 성질이다. "읽어도 안 사라짐"(저장 보존) 자체는 share group도 같다 — **share group**(KIP-932, 4.2 GA)은 **같은 append-only 로그 위에** 레코드별 ack·락(큐 시맨틱)을 얹어, 한 번 ack된 레코드를 그 그룹에 다시 주지 않는 방식으로 작업을 분배한다. 저장이 사라지는 게 아니라 **전달 모델이 다른** 것이다([→ 공유 소비](10-share-groups.md)). `[KIP-932 · docs @4.2]`
 
 > 이 성질이 뿌리가 되는 곳:
 > - 여러 소비자 독립 소비 → Consumer Group
@@ -71,7 +71,7 @@ graph TB
     end
 ```
 
-> *append만 되고 앞으로만 자란다. 각 칸 아래 번호가 offset.*
+> *append만 되고 앞으로만 자란다. 각 칸의 r0·r1…이 offset.*
 
 - **Record** — 한 건의 메시지. `key`·`value`·`timestamp`·`headers`로 구성되고, `offset`은 프로듀서가 채우는 게 아니라 **브로커가 append할 때 부여**하는 위치다.
 - **Topic** — 레코드가 쌓이는, 이름 붙은 로그. (논리적 단위)
@@ -105,7 +105,7 @@ graph LR
 | **Consumer Group** | 나눠 읽는다 | 여러 Consumer가 파티션을 분담하는 단위 |
 
 > 여러 Broker가 모여 이루는 **Cluster**, 그 두뇌인 **Controller**, Consumer Group을 관리하는 **Coordinator**는
-> I권 3~5장에서 제1원리로 깊게 다룬다.
+> [복제](./03-replication.md)·[합의](./04-consensus.md)·[조정](./05-coordination.md)에서 제1원리로 깊게 다룬다.
 
 ---
 
@@ -133,7 +133,7 @@ graph LR
 ### ③ 왜 Consumer가 offset을 들고 다니나 (pull 모델)?
 
 - Broker는 컨슈머 진척에 맞춰 **밀어주지(push) 않는다** — 컨슈머가 자기 속도로 당긴다(pull). offset 커밋은 **컨슈머 주도** 동작이고, 그 결과만 브로커에 저장된다([→ 조정](05-coordination.md)). (즉 "흐름 제어"를 컨슈머가 쥔다는 뜻이지 브로커가 무상태라는 말은 아니다.)
-- Consumer가 **자기 속도로** 당겨간다(pull). 느린 소비자가 빠른 소비자를 막지 않음
+- 그래서 **느린 소비자가 빠른 소비자를 막지 않는다.**
 - 재처리도 Consumer가 offset만 되감으면 됨
 
 → Broker는 단순하게, 제어권은 Consumer에게.
@@ -151,11 +151,13 @@ graph LR
 | 파티션 수 = 병렬성의 한계 | II권 Partition — `Consumer_수가_파티션_수보다_많으면_놀리는_Consumer가_발생한다` |
 | pull 모델 / Consumer가 offset 관리 | II권 Consumer — AckMode, auto-commit 함정 |
 
+> *"순서는 파티션 안에서만"의 음의 절반 — 다른 파티션 레코드는 재정렬될 수 있다 — 은 위 per-key 테스트로는 안 보인다. 그 관측은 II권 Partition 트랙에 따로 추가한다.*
+
 ---
 
 ## 1.7 다음 장
 
-→ **2장. 로그라는 추상** — 왜 하필 append-only 로그인가, "현재 상태는 로그의 파생물"이라는 발상.
-→ 이어서 **3장. 복제** — 이 로그가 어떻게 죽지 않고 살아남는가 (ISR·HW·leader epoch).
+→ [로그라는 추상](./02-log-abstraction.md) — 왜 하필 append-only 로그인가, "현재 상태는 로그의 파생물"이라는 발상.
+→ 이어서 [복제](./03-replication.md) — 이 로그가 어떻게 죽지 않고 살아남는가 (ISR·HW·leader epoch).
 
 ← [들어가며](./00-prologue.md) · [I권 목차](./README.md) · [용어집](../../GLOSSARY.md)
