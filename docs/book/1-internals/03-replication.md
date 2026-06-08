@@ -3,7 +3,7 @@ volume: I
 chapter: 3
 title: "복제 — 데이터는 어떻게 살아남나"
 prose: done
-proof: { mode: self, executable: "증명 절(3.9)은 대부분 [테스트로 결정]로 미구현(ISR 축소·NotEnoughReplicasException·HW 가시성·리더 kill); unclean election 항목만 [docs @3.9]", note: "3-broker docker로 follower/leader stop 후 AdminClient.describeTopics로 ISR 축소·새 리더 승격·HW 가시성·NotEnoughReplicasException 직접 관측" }
+proof: { mode: self, executable: "증명 절(3.9)은 대부분 [테스트로 결정]로 미구현(ISR 축소·NotEnoughReplicasException·HW 가시성·리더 kill); unclean election 항목만 [docs @3.9]", note: "관측 방법(예정): 3-broker docker에서 follower/leader stop 후 AdminClient.describeTopics로 ISR 축소·새 리더 승격·HW 가시성·NotEnoughReplicasException을 관측한다" }
 upstream: ["02-log-abstraction.md"]
 forward: ["04-consensus.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -14,7 +14,7 @@ conventions: ../README.md
 
 > 앞 장: [2장 로그라는 추상](./02-log-abstraction.md) · 다음 장: [4장 합의(KRaft)](./04-consensus.md)
 >
-> **이 장의 보장(한 문장)**: *커밋으로 인정된 메시지는 `min.insync.replicas`개의 복제본 로그에 존재한다 — 그 수보다 적은 수의 브로커 동시 장애까지 무손실이다.*
+> **이 장의 보장(한 문장)**: *커밋으로 인정된 메시지는 **최소** `min.insync.replicas`개의 복제본 로그에 존재한다 — 그 수보다 적은 수의 브로커 동시 장애까지 무손실이다.*
 
 2장에서 로그는 "진실의 원천"이었다. 그런데 그 로그가 한 대의 브로커 디스크에만 있다면? 그 브로커가 죽는 순간 진실이 사라진다. 이 장은 **로그를 어떻게 죽지 않게 만드는가**, 그리고 그 과정에서 "커밋됐다"는 말이 정확히 무엇을 뜻하는가를 다룬다.
 
@@ -70,7 +70,11 @@ stateDiagram-v2
 
 핵심: ISR은 **뒤처진 놈은 빼서 가용성을 지키고, 들어와 있는 놈은 반드시 기다려 내구성을 지킨다**. 동기/비동기의 절충을 *런타임에 동적으로* 한다.
 
-> Kafka는 과반(quorum) 복제가 아니라 ISR 기반이다 — 같은 내구성을 더 적은 복제본으로, 더 낮은 지연으로 얻기 위한 선택. (왜 데이터 복제에 합의 알고리즘을 안 쓰는지는 3.8과 4장.)
+> Kafka는 과반(quorum) 복제가 아니라 ISR 기반이다 — 같은 내구성을 **더 적은 복제본으로** 얻기 위한 선택이다(과반 합의는 f개 장애에 2f+1개, ISR은 f+1개면 된다).
+>
+> 대신 ISR은 현재 ISR 멤버 *전원*의 ACK를 기다린다 — 과반 방식이 무시할 가장 느린 복제본에 오히려 **더 민감**하다(지연 우위는 quorum 쪽이다). 이 민감성은 동적 축출(lag 초과 멤버 제외)로 방어한다.
+>
+> (왜 데이터 복제에 합의 알고리즘을 안 쓰는지는 3.8과 4장.)
 
 ---
 
@@ -93,6 +97,8 @@ graph LR
 
 **consumer는 HW까지만 읽을 수 있다.** 왜? HW 이전은 ISR 전체가 가진 데이터라 "어느 한 대가 죽어도 살아남는" 데이터다. HW 이후는 아직 일부만 가진 데이터라, 리더가 죽으면 사라질 수 있다 → 그래서 **안 보여준다**. "안 보이는 데이터는 유실로 치지 않는다"가 일관성의 핵심이다.
 
+> 클라이언트 읽기는 기본적으로 **리더**가 처리한다 — 가까운 follower에서 읽는 fetch-from-follower는 rack-locality용 예외다. `[KIP-392]`
+
 > 단, 트랜잭션을 쓰는 경우 `read_committed` 소비자의 가시성 경계는 HW가 아니라 **LSO**까지다(LSO ≤ HW). 트랜잭션은 아직 안 배웠으니 여기선 HW로 단순화하고, 정확한 경계는 [7.5](./07-transactions.md)에서 다룬다.
 
 → **"커밋됐다 = HW에 도달했다 = consumer에게 보인다"**. 이 정의가 7장 트랜잭션의 LSO로 확장된다.
@@ -111,6 +117,7 @@ graph LR
 
 ★ **핵심 함정**: `acks`는 프로듀서 설정, `min.insync.replicas`는 토픽/브로커 설정이다. **둘이 만나야** 보장이 선다.
 
+- `acks=1`은 리더 write 직후 ACK한다 → 복제 전 리더가 죽으면 **3.1에서 말한 그 최악**(ACK된 데이터의 영구 소실)이 실제로 일어난다.
 - `acks=all` 인데 `min.insync.replicas=1` → ISR이 리더 1대로 줄어도 쓰기가 허용된다. 즉 **사실상 `acks=1`로 퇴화**한다. `[docs @3.9]`
 - 그래서 의미 있는 조합은 **RF=3 + min.insync.replicas=2 + acks=all**.
 
@@ -121,6 +128,10 @@ graph TB
 ```
 
 이 lab의 docker-compose 기본값이 `RF=3 / min.insync.replicas=2`인 이유가 이것이다.
+
+> ⚠️ **correctness 제약**(트레이드오프가 아니다): `min.insync.replicas`는 RF를 넘을 수 없다. `min.isr=RF`로 두면 단 1대 장애로 ISR이 `RF-1`로 떨어져 **쓰기가 즉시 막힌다**(가용성 절벽) — 보통 `min.isr = RF-1`로 둔다.
+>
+> 또한 이 무손실은 복제본이 **독립 장애 도메인**(AZ/랙)에 분산됐다는 전제 위에서 성립한다 — 셋이 같은 AZ에 몰리면 AZ 장애 한 번에 전손될 수 있다(배치 정책 → III권).
 
 > **경계**: 여기까지가 I권(원리 = 무엇을 보장하나). "내 SLO에서 min.isr를 2로 둘지 3으로 둘지"는 트레이드오프 판단이라 → III권 Operations. (correctness=I / 트레이드오프=III)
 
@@ -185,7 +196,7 @@ graph LR
 - **데이터 경로**(매 메시지)는 ISR primary-backup — Raft 같은 과반 투표를 안 쓴다.
 - **"누가 리더인가"** 같은 메타데이터만 KRaft(Raft 합의)로 정한다.
 
-왜 분리했나? 데이터 경로에까지 합의 다수결을 넣으면 처리량이 죽는다. **"리더가 누구인지"만 비싸게 합의하고, 데이터는 그 리더가 싸게 복제**한다 — 이 분리가 Kafka 고성능의 핵심 설계다. 합의 쪽은 다음 장에서 본다.
+왜 분리했나? 데이터 경로에까지 합의 다수결을 넣으면 처리량이 죽고, 같은 내구성에 복제본도 더 든다(과반 2f+1 vs ISR f+1). **"리더가 누구인지"만 비싸게 합의하고, 데이터는 그 리더가 싸게 복제**한다 — 이 분리가 Kafka 고성능의 핵심 설계다. 합의 쪽은 다음 장에서 본다.
 
 ---
 
