@@ -76,6 +76,17 @@ order-events-0/                         (토픽-파티션 디렉터리)
 - 가장 최근 세그먼트가 **active segment**이고, 쓰기는 여기에만 append된다.
 - `segment.bytes`(크기)나 `segment.ms`(시간)에 도달하면 **롤링** — 새 세그먼트를 연다.
 
+**왜 크기·시간 *둘 다* 트리거인가.** retention·compaction은 **닫힌(old) 세그먼트에만** 적용된다(active segment는 안 건드린다). 그래서 크기 트리거(`segment.bytes`)만 있으면 **저트래픽 토픽**은 세그먼트가 좀처럼 안 차 active가 무한정 열려 있고 → 오래된 데이터가 active에 갇혀 retention·compaction이 **굶는다**(예: retention이 1일인데 세그먼트가 일주일째 안 닫혀 삭제가 안 됨). `segment.ms`가 저트래픽에서도 **주기적 강제 롤링**을 보장해 이 구멍을 막는다. `[docs @3.9]`
+
+한 축만 보면 반대 상황에서 구멍이 나므로, 저장 계층의 임계는 **크기+시간 이중 트리거**로 짝지어진다:
+
+| 무엇 | 크기 축 | 시간 축 |
+|------|---------|---------|
+| 세그먼트 롤링 | `segment.bytes` | `segment.ms` |
+| retention 삭제 | `retention.bytes` | `retention.ms` |
+
+(프로듀서 배치도 같은 철학의 `batch.size`+`linger.ms` 짝이다 → [클라이언트 런타임](./09-client-runtime.md).)
+
 > `.index`/`.timeindex`는 **memory-mapped 파일(mmap)** 로 다뤄진다 — OS가 파일을 메모리에 매핑해 빠르게 접근한다. 대신 크래시 시 아직 디스크에 안 내려간 부분이 손상될 수 있어, 재시작 때 복구·재구성이 필요하다(→ 8.9). `[code @3.7]`
 
 ---
@@ -105,7 +116,8 @@ order-events-0/                         (토픽-파티션 디렉터리)
 2장에서 compaction의 *의미*(키별 최신 = 상태 스냅샷)를 봤다. 여기선 *메커니즘*이다:
 
 - **log cleaner 스레드**가 백그라운드로 세그먼트를 돌며, 같은 key의 옛 레코드를 제거하고 최신만 남긴다.
-- `key=null` 레코드(**tombstone**)는 "삭제"를 의미하고, 일정 시간 후 제거된다.
+- cleaner는 **즉시·완전 압축을 보장하지 않는다** — active segment는 제외되고, dirty(미압축) 비율이 임계(`min.cleanable.dirty.ratio`, 기본 0.5)를 넘어야 돌며, `min.compaction.lag.ms`가 지난 레코드만 대상이다. 그래서 같은 key가 한동안 중복으로 남을 수 있고, **소비 측은 offset 순서로 마지막 값을 취하는(last-write-wins) 식으로 읽어야 한다**(의미는 → [로그 추상](./02-log-abstraction.md)). `[docs @3.9]`
+- `value=null` 레코드(**tombstone**)는 "삭제"를 의미하고, 일정 시간 후 제거된다(key는 *어느* key를 지울지 식별하므로 살아 있어야 한다).
 - `cleanup.policy=compact`(또는 `compact,delete`)로 켠다.
 
 → `__consumer_offsets`·`__cluster_metadata`가 무한히 안 자라는 이유가 이것이다.
@@ -115,6 +127,17 @@ order-events-0/                         (토픽-파티션 디렉터리)
 ## 8.8 Retention — 세그먼트 단위 삭제
 
 `cleanup.policy=delete`(기본)에서는 `retention.ms`(시간)나 `retention.bytes`(크기)를 넘긴 데이터를 지운다. 단 **레코드 하나씩이 아니라 세그먼트 통째로** 삭제한다(그래서 active segment는 안 지워지고, 경계가 세그먼트 단위로 움직인다).
+
+**retention vs compaction — `cleanup.policy` 하나로 갈리는 두 전략.**
+
+| | retention (`delete`) | compaction (`compact`) |
+|---|---|---|
+| 자르는 기준 | 시간·크기(오래된 것) | key(key별 최신 1개) |
+| 무엇이 남나 | 최근 구간의 전체 이력 | 각 key의 최신값(시간 무관) |
+| 삭제 단위 | 세그먼트 통째 | 같은 key의 옛 레코드 |
+| 데이터 성격 | **이벤트**(흐름) | **상태**(현재 값) |
+
+결정 규칙은 단순하다: **데이터가 이벤트면 `delete`, 상태면 `compact`** — 데이터의 성격이 정책을 정한다. 둘을 함께 켜는 `compact,delete`는 *key별 최신값은 남기되, 그마저 너무 오래되면 삭제*한다. (replay 가능 범위 관점의 retention↔compaction 대비는 → [로그 추상](./02-log-abstraction.md). retention 기간 등 *어떤 값을 고를지*는 운영 판단 → [III권 운영](../3-operations/README.md).) `[docs @3.9]`
 
 ---
 
