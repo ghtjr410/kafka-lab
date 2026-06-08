@@ -64,7 +64,7 @@ graph LR
 
 ## 5.4 JoinGroup → SyncGroup
 
-리밸런싱은 2단계 프로토콜로 진행된다.
+리밸런싱은 2단계 프로토콜로 진행된다(classic 기준 — KIP-848은 이 2단계 자체를 없앤다, 5.6).
 
 ```mermaid
 sequenceDiagram
@@ -132,7 +132,7 @@ graph LR
 
 ## 5.8 Static Membership
 
-기본적으로 consumer가 재시작하면 새 멤버로 취급돼 리밸런싱이 일어난다. **static membership** `[KIP-345]`은 `group.instance.id`를 부여해, 같은 id로 재접속하면 **기존 배정을 유지**하고 리밸런싱을 건너뛴다. 롤링 배포 시 불필요한 리밸런싱을 줄이는 장치다.
+기본적으로 consumer가 재시작하면 새 멤버로 취급돼 리밸런싱이 일어난다. **static membership** `[KIP-345]`은 `group.instance.id`를 부여해, 같은 id로 **`session.timeout.ms` 안에** 재접속하면 **기존 배정을 유지**하고 리밸런싱을 건너뛴다(그 시간을 넘기면 코디네이터가 멤버를 만료시켜 결국 리밸런싱이 난다). 롤링 배포 시 불필요한 리밸런싱을 줄이는 장치다.
 
 ---
 
