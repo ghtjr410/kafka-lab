@@ -227,15 +227,15 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **5.1 배타 배정 불변식**
   - 그룹 안에서 한 파티션은 한 consumer에게만 배정되므로 파티션 수가 그룹 내 최대 병렬성이고, 멤버가 들고 날 때 이를 다시 맞추는 게 리밸런싱이다.
 - **5.2 왜 배정을 클라이언트에 위임했나**
-  - 브로커 부하 분산을 위해 배정 계산을 그룹 내 한 consumer(Group Leader)에 위임하고 브로커(코디네이터)는 멤버십·통신만 조율한다.
+  - 커스텀 assignor를 브로커 재배포 없이 꽂는 유연성과 얇은 브로커를 위해 배정을 Group Leader에 위임하며, 이 선택이 클라이언트를 두껍게 해 차세대(KIP-848)는 배정을 다시 서버로 가져간다.
 - **5.3 Group Coordinator — 컨트롤러와 다른 것**
   - `hash(groupId) % __consumer_offsets 파티션 수`로 정해지는 코디네이터는 그룹 레벨(멤버십·offset)을, 컨트롤러는 클러스터 레벨(리더·메타데이터)을 맡아 역할이 다르다.
 - **5.4 JoinGroup → SyncGroup**
   - `JoinGroup`에서 코디네이터가 Group Leader를 지정하고, `SyncGroup`에서 Group Leader가 계산한 배정을 코디네이터가 각 멤버에게 전달하는 2단계 프로토콜이다.
 - **5.5 배정 전략**
   - `partition.assignment.strategy`로 Range·RoundRobin(크게 뒤섞임)·Sticky(최소 이동)·CooperativeSticky(Sticky+협력적 리밸런싱) 중 알고리즘을 고른다.
-- **5.6 리밸런싱 세대 — eager → cooperative → KIP-848**
-  - eager는 전 파티션을 내려놓아 stop-the-world였고, cooperative `[KIP-429]`는 이동 필요분만 내려놓으며, `[KIP-848]`은 배정 계산을 다시 서버로 옮긴다.
+- **5.6 리밸런싱 — classic의 두 모드, 그리고 KIP-848**
+  - eager·cooperative는 별개 세대가 아니라 classic 프로토콜의 두 모드(assignor 선택으로 갈리고 기본 동작은 eager)이며, 진짜 프로토콜 단절인 `[KIP-848]`은 전역 동기화 장벽을 없애고 배정을 서버로 옮긴다.
 - **5.7 살아있음을 판정하는 타이밍 3박자**
   - `heartbeat.interval.ms` < `session.timeout.ms`로 죽음·단절을, `session.timeout.ms` ≪ `max.poll.interval.ms`로 처리 지연을 판정해 살아있음과 처리 진행을 분리한다.
 - **5.8 Static Membership**

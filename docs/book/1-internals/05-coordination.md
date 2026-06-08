@@ -47,7 +47,7 @@ graph LR
 
 순진하게는 브로커가 "누가 무슨 파티션"을 다 계산할 수 있다. 하지만 Kafka는 **배정 계산을 그룹 안의 한 consumer(Group Leader)에게 위임**한다. 브로커(코디네이터)는 멤버십과 통신만 조율한다.
 
-이유는 **브로커 부하 분산**이다 — 수많은 그룹의 배정 로직을 브로커가 다 떠안지 않게. (단 이 위임 구조는 차세대 프로토콜에서 다시 서버로 이동한다 — 5.6.)
+이유는 **유연성과 얇은 브로커**다 — 배정 알고리즘을 클라이언트에 두면 브로커 재배포 없이 커스텀 assignor를 꽂을 수 있고, 브로커는 그룹 의미론에서 분리돼 얇게 유지된다(단일 그룹의 배정 계산 자체는 무겁지 않다). 단 이 "얇은 브로커" 선택은 클라이언트를 두껍게 만들어, 차세대(KIP-848)는 그 운영 부담 때문에 배정을 다시 서버로 가져간다 — 5.6.
 
 ---
 
@@ -93,19 +93,23 @@ Group Leader가 쓰는 배정 알고리즘(`partition.assignment.strategy`):
 
 ---
 
-## 5.6 리밸런싱 세대 — eager → cooperative → KIP-848
+## 5.6 리밸런싱 — classic의 두 모드, 그리고 KIP-848
 
-> *진화 서사 원칙: 과거(eager)는 짧게, 현재 기준에 분량.*
+5.4의 JoinGroup/SyncGroup과 5.5의 클라이언트 assignor는 모두 **classic 프로토콜** 기준이다. 흔히 "eager → cooperative → KIP-848"을 한 줄 세대로 묶지만, **eager·cooperative는 별개 세대가 아니라 classic 안의 두 모드**(5.5의 assignor 선택으로 갈린다)이고, 진짜 프로토콜 단절은 **classic → KIP-848** 한 곳이다.
 
 ```mermaid
-graph LR
-    E["1세대 eager<br/>전 파티션 revoke<br/>(stop-the-world)"] --> C["2세대 cooperative<br/>이동 필요한 것만<br/>(KIP-429)"]
-    C --> N["차세대 KIP-848<br/>서버 주도 배정"]
+graph TB
+    subgraph CL["classic 프로토콜 (JoinGroup/SyncGroup)"]
+        E["eager 모드<br/>전 파티션 revoke<br/>(stop-the-world)"]
+        C["cooperative 모드<br/>이동분만 revoke<br/>(CooperativeSticky · KIP-429)"]
+    end
+    CL --> N["consumer 프로토콜<br/>(KIP-848 · 서버 주도)"]
 ```
 
-- **eager**(과거): 리밸런싱 때 *모든* consumer가 *모든* 파티션을 일단 내려놓고(revoke) 다시 받는다 → 그 사이 **전체 처리 정지(stop-the-world)**.
-- **cooperative**(현재 권장) `[KIP-429]`: 이동이 필요한 파티션만 내려놓는다. 2라운드로 진행되지만 멈춤이 작다. Kafka 3.x 기본 assignor 목록에 `CooperativeStickyAssignor`가 들어 있다.
-- **KIP-848**(차세대): 배정 계산을 다시 **서버(코디네이터)** 로 옮겨 클라이언트 프로토콜을 단순화한다. 3.7 시점에선 도입 진행 중.
+- **eager 모드**: 리밸런싱 때 *모든* consumer가 *모든* 파티션을 일단 내려놓고(revoke) 다시 받는다 → 그 사이 **전체 처리 정지(stop-the-world)**.
+- **cooperative 모드** `[KIP-429]`: 이동이 필요한 파티션만 내려놓는다. 2라운드지만 멈춤이 작다. 5.5의 `CooperativeStickyAssignor`를 고르면 이 모드가 켜진다.
+  - ⚠️ 기본값 `partition.assignment.strategy`는 `[RangeAssignor, CooperativeStickyAssignor]`지만, **공통 최우선이 Range라 실제 기본 동작은 eager**다. cooperative로 가려면 리스트에서 Range를 빼는 **단일 rolling bounce**가 필요하다(둘을 함께 둔 이유가 이 무중단 전환 — 섞여 돌면 한쪽이 파티션을 안 내놓아 배타성이 깨질 수 있다). 전환 *절차*는 → III권. `[code @3.7]`
+- **KIP-848**(consumer 프로토콜): classic의 JoinGroup/SyncGroup **전역 동기화 장벽**(한 멤버가 느리면 전원 정지)을 없애고, 배정을 **서버(코디네이터)** 가 계산해 멤버별로 **증분 reconciliation**한다 → 안정성·확장성↑(클라이언트가 얇아지는 건 부수 효과). 3.7 EA → **4.0 GA**, baseline 3.9에선 preview. `[KIP-848]`
 
 ---
 
