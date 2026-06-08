@@ -3,7 +3,12 @@ volume: I
 chapter: 8
 title: "저장 엔진 — 디스크인데 왜 빠른가"
 prose: done
-proof: { mode: self, executable: "8.12 증명(docker exec): .log 열기·kafka-dump-log는 [code @3.7], segment rolling·compaction은 [테스트로 결정]", note: "3-broker docker exec로 .log 세그먼트 파일·kafka-dump-log 배치 헤더 관측, segment rolling·compaction 단언" }
+proof:
+  mode: self
+  status: 부분
+  method: "3-broker docker exec — .log 세그먼트 · kafka-dump-log · segment rolling · compaction"
+  pending: ["segment rolling 관측", "compaction 키별 최신·tombstone"]
+  done: [".log 파일 열기 [code @3.7]", "kafka-dump-log [code @3.7]"]
 upstream: ["07-transactions.md"]
 forward: ["09-client-runtime.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -166,8 +171,8 @@ graph LR
 |------|----------|------|
 | 브로커 컨테이너의 `.log` 파일 열기 | 파티션 디렉터리·세그먼트 파일명(base offset) 확인 | `[code @3.7]` |
 | `kafka-dump-log --print-data-log` | 배치 헤더(producerId 등)·control record 덤프 | `[code @3.7]` |
-| `segment.bytes` 작게 + 다량 produce | 세그먼트 rolling(파일 여러 개) 관측 | `[테스트로 결정]` |
-| compaction 토픽 cleaner 후 | 키별 최신만, tombstone로 삭제 | `[테스트로 결정]` |
+| `segment.bytes` 작게 + 다량 produce | 세그먼트 rolling(파일 여러 개) 관측 | `[테스트 예정]` |
+| compaction 토픽 cleaner 후 | 키별 최신만, tombstone로 삭제 | `[테스트 예정]` |
 
 ---
 

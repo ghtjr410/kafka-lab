@@ -36,6 +36,21 @@
 
 > 사실 검증: 버전·기본값·KIP 번호는 추정 금지. KIP 원문 / 해당 버전 공식 docs / 소스(`*Config.java` DEFAULT)로 확인하고 라벨(`[KIP-xxx]`·`[docs @x.y]`)을 단다. (→ [SOURCES](./SOURCES.md))
 
+### 챕터 frontmatter 스키마
+
+각 `book/<권>/NN-*.md`는 상단에 YAML frontmatter로 AI·작업자용 메타를 둔다(학습자 본문과 분리). 증명 상태는 `proof`로 구조화한다 — 자유 텍스트 런온 금지:
+
+```yaml
+proof:
+  mode: self | delegated | mixed   # self=docker·CLI 자체증명 / delegated=II권 Step 위임
+  status: done | 부분 | 미구현 | 위임 | 해당없음
+  method: "관측 도구·방법 한 줄"
+  pending: [...]   # 미구현 항목 — 본문 표의 [테스트 예정]과 1:1 대응
+  done: [...]      # 검증 완료 항목([code/docs @ver])
+```
+
+나머지 키: `volume·chapter·title·prose` · `upstream/forward`(선형 선행/다음 장 파일명) · `baseline{broker,client,ref}` · `conventions`. 증명 라벨 정의는 → [SOURCES](./SOURCES.md)(`[테스트 예정]`=미구현 / `[테스트로 결정]`=문서 모호→실험).
+
 ### 권의 경계 (한눈에 — AI/작업자용)
 
 > **결정 규칙**: 설정을 바꿨을 때 **정확성/보장(correctness)** 이 변하면 → **I권** / **비용·성능·가용성 트레이드오프**만 변하면 → **III권 Operations**.

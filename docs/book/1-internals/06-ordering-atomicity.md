@@ -3,7 +3,12 @@ volume: I
 chapter: 6
 title: "멱등·순서 — 중복 없이, 순서대로"
 prose: done
-proof: { mode: self, executable: "미구현([테스트로 결정] 3개: 멱등 on 중복 거부 / 재시작 후 중복 / 멱등 off max.in.flight>1 순서 역전)", note: "6.6 executable 표: 멱등 on/off·강제 재시도·프로듀서 재시작으로 중복 append·순서 역전·세션 한계를 직접 관측·단언" }
+proof:
+  mode: self
+  status: 미구현
+  method: "멱등 on/off · 강제 재시도 · 프로듀서 재시작으로 중복·순서 관측"
+  pending: ["멱등 on 중복 거부(sequence)", "재시작 후 중복(세션 한계)", "멱등 off max.in.flight>1 순서 역전"]
+  done: []
 upstream: ["05-coordination.md"]
 forward: ["07-transactions.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -81,9 +86,9 @@ sequenceDiagram
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
-| 멱등 on, 강제 재시도 유발 | 중복 append 없음(sequence로 거부) | `[테스트로 결정]` |
-| 프로듀서 재시작 후 같은 메시지 | 중복 발생(세션 한계) | `[테스트로 결정]` |
-| 멱등 off, max.in.flight>1, 재시도 | 순서 역전 관측 | `[테스트로 결정]` |
+| 멱등 on, 강제 재시도 유발 | 중복 append 없음(sequence로 거부) | `[테스트 예정]` |
+| 프로듀서 재시작 후 같은 메시지 | 중복 발생(세션 한계) | `[테스트 예정]` |
+| 멱등 off, max.in.flight>1, 재시도 | 순서 역전 관측 | `[테스트 예정]` |
 
 ---
 

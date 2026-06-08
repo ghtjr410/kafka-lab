@@ -2,7 +2,7 @@
 volume: "I — Internals (원리와 내부)"
 role: index
 prose: done       # 들어가며·1~10장 산문 완료
-executable: "전 장 미구현([테스트로 결정]). 10장 share group은 4.2+ 브로커 별도 필요"
+executable: "전 장 미구현([테스트 예정]). 10장 share group은 4.2+ 브로커 별도 필요"
 proof_model: "혼합: 저장·프로토콜 장(복제·합의·트랜잭션·저장엔진·클라이언트런타임)=I권 자체 증명(docker/CLI/AdminClient) / 개념 장 런타임 동작(offset 이동·순서·pull)=II권 Spring Step에 위임"
 ssot: "교차요소 정의 위치 = 본문 SSOT 표(HW=3장·LSO=7장 등). 표↔산문 어긋나면 산문 기준으로 표를 고친다."
 invariant: "다른 장·권 참조는 named link only, 장/권 번호 본문 금지. LSO·권번호 드리프트가 이 위반에서 났다."
@@ -242,7 +242,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **5.9 offset은 어디에 — `__consumer_offsets`**
   - 커밋된 offset은 `key=(group, topic, partition)`·`value=offset`으로 내부 compacted 토픽 `__consumer_offsets`에 저장돼 재시작 시 마지막 위치를 복원한다.
 - **5.10 증명 (executable — 3-broker · 미구현)**
-  - eager vs cooperative revoke 범위, `group.instance.id` 재접속, `max.poll.interval` 초과 퇴출, 두 그룹의 독립 offset 소비를 `[테스트로 결정]`으로 단언한다.
+  - eager vs cooperative revoke 범위, `group.instance.id` 재접속, `max.poll.interval` 초과 퇴출, 두 그룹의 독립 offset 소비를 `[테스트 예정]`으로 단언한다.
 - **참조**
   - `[KIP-429]`·`[KIP-848]`·`[KIP-345]` `[Tier 1]`와 Consumer Group·`__consumer_offsets` 공식 문서 `[docs @3.9]`를 근거로 든다.
 

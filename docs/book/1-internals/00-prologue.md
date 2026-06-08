@@ -3,7 +3,12 @@ volume: I
 chapter: 0
 title: "Kafka는 무엇을 풀려고 태어났나"
 prose: done
-proof: { mode: delegated, executable: "미구현 (러프 초안, 이 장 자체 executable 테스트 없음)", note: "프롤로그/맥락 장 — 자체 관측 없음. \"읽고→의심하고→직접 돌려본다\" 증명 철학만 세우고 구체 증명은 이후 장에 위임" }
+proof:
+  mode: delegated
+  status: 해당없음
+  method: "프롤로그/맥락 장 — 자체 관측 없음, 증명 철학만 세우고 구체 증명은 이후 장에 위임"
+  pending: []
+  done: []
 upstream: []
 forward: ["01-what-is-kafka.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }

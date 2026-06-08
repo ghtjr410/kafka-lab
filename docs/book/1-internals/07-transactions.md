@@ -3,7 +3,12 @@ volume: I
 chapter: 7
 title: "트랜잭션·EOS — 전부 또는 전무"
 prose: done
-proof: { mode: mixed, executable: "7.8 증명 표 4개 실험 중 3개 [테스트로 결정](미구현), 1개는 [docs @3.9]로 확인", note: "3-broker docker로 abort+read_committed 미가시·isolation.level 기본값·read-process-write 롤백·transactional.id 좀비 펜싱을 직접 관측; 함정의 코드 처리와 멱등키 패턴은 II권 Step에 위임" }
+proof:
+  mode: mixed
+  status: 미구현
+  method: "3-broker docker — abort+read_committed · read-process-write 롤백 · 좀비 펜싱; 코드 처리·멱등키는 II권 Step 위임"
+  pending: ["abort+read_committed 미가시", "read-process-write 롤백", "transactional.id 좀비 펜싱"]
+  done: ["isolation.level 기본값 [docs @3.9]"]
 upstream: ["06-ordering-atomicity.md"]
 forward: ["08-storage-engine.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -126,10 +131,10 @@ graph LR
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
-| 트랜잭션 abort + `read_committed` | 해당 메시지 안 보임 | `[테스트로 결정]` |
+| 트랜잭션 abort + `read_committed` | 해당 메시지 안 보임 | `[테스트 예정]` |
 | `isolation.level` 기본값 확인 | `read_uncommitted`라 abort 메시지도 보임(함정) | `[docs @3.9]` |
-| read-process-write 중 실패 | 출력+offset이 함께 롤백 | `[테스트로 결정]` |
-| 같은 `transactional.id` 중복 프로듀서 | 옛 프로듀서 펜싱(epoch) | `[테스트로 결정]` |
+| read-process-write 중 실패 | 출력+offset이 함께 롤백 | `[테스트 예정]` |
+| 같은 `transactional.id` 중복 프로듀서 | 옛 프로듀서 펜싱(epoch) | `[테스트 예정]` |
 
 ---
 

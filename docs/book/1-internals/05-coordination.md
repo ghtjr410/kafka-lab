@@ -3,7 +3,12 @@ volume: I
 chapter: 5
 title: "조정 — Consumer Group은 어떻게 나눠 읽나"
 prose: done
-proof: { mode: self, executable: "5.10 증명 4개 실험 모두 [테스트로 결정] (미구현)", note: "3-broker docker로 eager vs cooperative revoke 범위, group.instance.id 재접속 유지, max.poll.interval 초과 퇴출, 두 그룹 독립 offset 관측" }
+proof:
+  mode: self
+  status: 미구현
+  method: "3-broker docker — eager/cooperative revoke · static membership · 퇴출 · 독립 offset"
+  pending: ["eager vs cooperative revoke 범위", "group.instance.id 재접속 유지", "max.poll.interval 초과 퇴출", "두 그룹 독립 offset"]
+  done: []
 upstream: ["04-consensus.md"]
 forward: ["06-ordering-atomicity.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -139,10 +144,10 @@ consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(co
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
-| consumer 추가 시 eager vs cooperative | revoke 범위 차이(전체 vs 일부) | `[테스트로 결정]` |
-| `group.instance.id` 부여 후 재접속 | 같은 파티션 유지(리밸런싱 없음) | `[테스트로 결정]` |
-| `max.poll.interval` 초과하는 느린 처리 | 강제 퇴출 + 리밸런싱 | `[테스트로 결정]` |
-| 두 그룹이 같은 토픽 구독 | 각자 독립 offset으로 전량 소비 | `[테스트로 결정]` |
+| consumer 추가 시 eager vs cooperative | revoke 범위 차이(전체 vs 일부) | `[테스트 예정]` |
+| `group.instance.id` 부여 후 재접속 | 같은 파티션 유지(리밸런싱 없음) | `[테스트 예정]` |
+| `max.poll.interval` 초과하는 느린 처리 | 강제 퇴출 + 리밸런싱 | `[테스트 예정]` |
+| 두 그룹이 같은 토픽 구독 | 각자 독립 offset으로 전량 소비 | `[테스트 예정]` |
 
 ---
 

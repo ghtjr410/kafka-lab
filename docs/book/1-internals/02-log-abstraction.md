@@ -3,7 +3,12 @@ volume: I
 chapter: 2
 title: "로그라는 추상"
 prose: done
-proof: { mode: self, executable: "미구현([테스트로 결정]) — 멀티브로커 executable로 compaction key별 최신만 남는지 확인 예정", note: "멀티브로커 executable: compaction 토픽에 같은 key 반복 쓰기 후 key별 최신만 남는지·tombstone(value=null)로 key 삭제·두 consumer group이 처음부터 읽어 동일 결과(결정성) 관측" }
+proof:
+  mode: self
+  status: 미구현
+  method: "멀티브로커 executable — compaction 토픽에 같은 key 반복 쓰기 후 cleaner 관측"
+  pending: ["key별 최신만 남는지", "tombstone(value=null) key 삭제", "두 consumer group 동일 결과(결정성)"]
+  done: []
 upstream: ["01-what-is-kafka.md"]
 forward: ["03-replication.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -159,7 +164,7 @@ Kafka 설계의 일관성을 보여주는 대목: **Kafka는 자기 자신의 �
 - 불변성의 대가: 수정·삭제가 1급 시민이 아니다. 삭제(GDPR 등)는 **해당 key 전체**를 tombstone(`value=null`)으로 표시해 compaction 시점에 지우는 식으로 우회한다 — *레코드 단위가 아니라 key 단위*이고 *즉시가 아니라 eventual*이다(토픽이 그 대상으로 keying돼 있어야 한다).
 
 **증명 (executable — 멀티브로커에서 · 미구현)**
-- compaction 토픽에 같은 key를 여러 번 쓰고 cleaner 후 **key별 최신만 남는지** 확인 `[테스트로 결정]`
+- compaction 토픽에 같은 key를 여러 번 쓰고 cleaner 후 **key별 최신만 남는지** 확인 `[테스트 예정]`
 - `value=null`(tombstone) 발행 후 해당 key가 사라지는지
 - 같은 로그를 두 consumer group이 각자 처음부터 읽어 **동일 결과**(결정성)를 내는지
 

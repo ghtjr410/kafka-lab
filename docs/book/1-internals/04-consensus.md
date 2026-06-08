@@ -3,7 +3,12 @@ volume: I
 chapter: 4
 title: "합의 — 누가 결정하나 (KRaft)"
 prose: done
-proof: { mode: self, executable: "executable(3-broker), describeCluster·controller kill·메타 전파는 [테스트로 결정], __cluster_metadata 덤프는 [code @3.7]", note: "3-broker docker로 describeCluster·active controller kill 승계·토픽 생성 후 메타 전파 관측, __cluster_metadata 덤프" }
+proof:
+  mode: self
+  status: 부분
+  method: "3-broker docker — describeCluster · active controller kill · 토픽 생성 후 메타 전파"
+  pending: ["describeCluster controller 확인", "controller kill 승계", "메타 전파"]
+  done: ["__cluster_metadata 덤프 [code @3.7]"]
 upstream: ["03-replication.md"]
 forward: ["05-coordination.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -131,9 +136,9 @@ KRaft는 이 의존을 **제거**하고 Kafka가 스스로 합의하게 했다 `
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
-| `describeCluster` | controller 노드·cluster id 확인 | `[테스트로 결정]` |
-| active controller 브로커 kill | 새 controller 승계, 클러스터 계속 동작 | `[테스트로 결정]` |
-| 토픽 생성 직후 | 모든 브로커가 동일 리더/ISR 인식(메타 전파) | `[테스트로 결정]` |
+| `describeCluster` | controller 노드·cluster id 확인 | `[테스트 예정]` |
+| active controller 브로커 kill | 새 controller 승계, 클러스터 계속 동작 | `[테스트 예정]` |
+| 토픽 생성 직후 | 모든 브로커가 동일 리더/ISR 인식(메타 전파) | `[테스트 예정]` |
 | (심화) `__cluster_metadata` 덤프 | 메타데이터가 로그임을 확인 | `[code @3.7]` |
 
 ---

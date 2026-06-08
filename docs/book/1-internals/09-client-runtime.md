@@ -3,7 +3,12 @@ volume: I
 chapter: 9
 title: "클라이언트 런타임 — Producer/Consumer는 내부에서 어떻게 도나"
 prose: done
-proof: { mode: self, executable: "9.9 증명 표 4개 실험 모두 [테스트로 결정]", note: "9.9 증명(executable) 표: 콜백 sleep으로 처리량 급락, buffer.memory 폭주로 max.block.ms TimeoutException, Sender 스레드 이름 확인, max.poll.records로 퇴출을 테스트로 관측" }
+proof:
+  mode: self
+  status: 미구현
+  method: "콜백 sleep · buffer.memory 폭주 · Sender 스레드명 · max.poll.records로 관측"
+  pending: ["콜백 sleep 처리량 급락", "buffer.memory→max.block.ms TimeoutException", "Sender 스레드명 확인", "max.poll.records 퇴출"]
+  done: []
 upstream: ["08-storage-engine.md"]
 forward: ["10-share-groups.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -149,10 +154,10 @@ Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기�
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
-| 콜백에서 `Thread.sleep` | produce 처리량 급락(Sender 막힘) | `[테스트로 결정]` |
-| `buffer.memory` 작게 + 폭주 produce | `send()` 블록 → `max.block.ms` 후 TimeoutException | `[테스트로 결정]` |
-| Sender 스레드 이름 확인 | 콜백이 `kafka-producer-network-thread`에서 실행됨 | `[테스트로 결정]` |
-| `max.poll.records` 크게 + 느린 처리 | `max.poll.interval` 초과 → 퇴출 | `[테스트로 결정]` |
+| 콜백에서 `Thread.sleep` | produce 처리량 급락(Sender 막힘) | `[테스트 예정]` |
+| `buffer.memory` 작게 + 폭주 produce | `send()` 블록 → `max.block.ms` 후 TimeoutException | `[테스트 예정]` |
+| Sender 스레드 이름 확인 | 콜백이 `kafka-producer-network-thread`에서 실행됨 | `[테스트 예정]` |
+| `max.poll.records` 크게 + 느린 처리 | `max.poll.interval` 초과 → 퇴출 | `[테스트 예정]` |
 
 ---
 

@@ -3,7 +3,12 @@ volume: I
 chapter: 1
 title: "Kafka란 무엇인가"
 prose: done
-proof: { mode: delegated, executable: "이 장 자체 테스트 없음 — 개념 증명을 II권 Spring Step(Consumer seek/AckMode, Partition 순서·병렬성)에 위임", note: "1장이 던진 개념(offset 이동·순서·pull)의 런타임 증명은 II권 Spring Step에 위임(1.6절)" }
+proof:
+  mode: delegated
+  status: 위임
+  method: "1장 개념(offset 이동·순서·pull)의 런타임 증명은 II권 Spring Step에 위임(1.6)"
+  pending: []
+  done: []
 upstream: ["00-prologue.md"]
 forward: ["02-log-abstraction.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }

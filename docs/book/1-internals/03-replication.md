@@ -3,7 +3,12 @@ volume: I
 chapter: 3
 title: "복제 — 데이터는 어떻게 살아남나"
 prose: done
-proof: { mode: self, executable: "증명 절(3.9)은 대부분 [테스트로 결정]로 미구현(ISR 축소·NotEnoughReplicasException·HW 가시성·리더 kill); unclean election 항목만 [docs @3.9]", note: "관측 방법(예정): 3-broker docker에서 follower/leader stop 후 AdminClient.describeTopics로 ISR 축소·새 리더 승격·HW 가시성·NotEnoughReplicasException을 관측한다" }
+proof:
+  mode: self
+  status: 미구현
+  method: "3-broker docker — follower/leader stop · describeTopics · listOffsets(HW/LEO)"
+  pending: ["ISR 축소", "NotEnoughReplicasException", "HW 가시성", "리더 kill 후 승격·보존"]
+  done: ["unclean.leader.election 동작 [docs @3.9]"]
 upstream: ["02-log-abstraction.md"]
 forward: ["04-consensus.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -204,10 +209,10 @@ graph LR
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
-| RF=3 토픽, follower 1대 정지 | `describeTopics`로 ISR이 [3]→[2]로 축소 | `[테스트로 결정]` |
-| `min.insync.replicas=2`, 브로커 2대 정지 | produce 시 `NotEnoughReplicasException` | `[테스트로 결정]` |
-| `acks=all`, 따라잡기 전 | consumer가 HW 이전 메시지를 못 봄 | `[테스트로 결정]` |
-| 리더 브로커 kill | 새 리더 승격, 데이터 보존, consumer 계속 | `[테스트로 결정]` |
+| RF=3 토픽, follower 1대 정지 | `describeTopics`로 ISR이 [3]→[2]로 축소 | `[테스트 예정]` |
+| `min.insync.replicas=2`, 브로커 2대 정지 | produce 시 `NotEnoughReplicasException` | `[테스트 예정]` |
+| `acks=all`, 따라잡기 전 | consumer가 HW 이전 메시지를 못 봄 | `[테스트 예정]` |
+| 리더 브로커 kill | 새 리더 승격, 데이터 보존, consumer 계속 | `[테스트 예정]` |
 | `unclean.leader.election` on/off 비교 | off=중단 / on=승격(+손실 가능) | `[docs @3.9]` |
 
 > 도구: `AdminClient.describeTopics/describeCluster`, `docker stop kafkaN`, `listOffsets`(HW/LEO).
