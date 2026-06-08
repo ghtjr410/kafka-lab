@@ -136,7 +136,7 @@ order-events-0/                         (토픽-파티션 디렉터리)
 
 `.timeindex`(8.3)는 이 timestamp로 "시각 T의 메시지는 어느 offset인가"를 인덱싱해 **시간 기반 seek**을 지원한다.
 
-★ 함정: **retention(시간 기반 삭제)도 이 timestamp를 본다.** 그래서 프로듀서가 잘못된 CreateTime(예: 과거 시각)을 넣으면 데이터가 의도보다 **너무 일찍 삭제**되거나, 미래 시각이면 안 지워질 수 있다. (어느 타입을 쓸지는 운영 판단 → III권.) `[docs @3.7]`
+★ 함정: **retention(시간 기반 삭제)도 이 timestamp를 본다.** 그래서 프로듀서가 잘못된 CreateTime(예: 과거 시각)을 넣으면 데이터가 의도보다 **너무 일찍 삭제**되거나, 미래 시각이면 안 지워질 수 있다. (어느 타입을 쓸지는 운영 판단 → III권.) `[docs @3.9]`
 
 ---
 
@@ -160,7 +160,7 @@ graph LR
 
 ---
 
-## 8.12 증명 (executable — docker exec)
+## 8.12 증명 (executable — docker exec · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
@@ -173,7 +173,7 @@ graph LR
 
 ## 참조
 
-- Kafka 공식 문서 — *Persistence*, *Efficiency*(zero-copy·page cache), *Log Compaction* `[docs @3.7]`
+- Kafka 공식 문서 — *Persistence*, *Efficiency*(zero-copy·page cache), *Log Compaction* `[docs @3.9]`
 - Linux `sendfile(2)` — zero-copy 근거 `[Tier 0]`
 - `[KIP-405]` Tiered Storage (보존 확장, 3.9 production-ready) — 운영 측면은 III권 `[Tier 1]`
 - *Designing Data-Intensive Applications* 3장(로그 구조 저장소·SSTable/LSM 대비) `[Tier 3]`

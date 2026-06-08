@@ -150,7 +150,7 @@ Kafka 설계의 일관성을 보여주는 대목: **Kafka는 자기 자신의 �
 - "매번 처음부터 fold"는 비싸다 → 스냅샷/compaction으로 완화.
 - 불변성의 대가: 수정·삭제가 1급 시민이 아니다. 삭제(GDPR 등)는 **해당 key 전체**를 tombstone(`value=null`)으로 표시해 compaction 시점에 지우는 식으로 우회한다 — *레코드 단위가 아니라 key 단위*이고 *즉시가 아니라 eventual*이다(토픽이 그 대상으로 keying돼 있어야 한다).
 
-**증명 (executable — 멀티브로커에서)**
+**증명 (executable — 멀티브로커에서 · 미구현)**
 - compaction 토픽에 같은 key를 여러 번 쓰고 cleaner 후 **key별 최신만 남는지** 확인 `[테스트로 결정]`
 - `value=null`(tombstone) 발행 후 해당 key가 사라지는지
 - 같은 로그를 두 consumer group이 각자 처음부터 읽어 **동일 결과**(결정성)를 내는지
@@ -161,6 +161,6 @@ Kafka 설계의 일관성을 보여주는 대목: **Kafka는 자기 자신의 �
 
 - Jay Kreps, *The Log: What every software engineer should know about real-time data's unifying abstraction* (2013) — 이 장의 사상적 출처 `[Tier 3]`
 - *Designing Data-Intensive Applications* (Kleppmann) 11장(스트림 처리)·3장(로그 구조 저장소) `[Tier 3]`
-- Kafka 공식 문서 — Log Compaction `[docs @3.7]`
+- Kafka 공식 문서 — Log Compaction `[docs @3.9]`
 
 ← [1장](./01-what-is-kafka.md) · [I권 목차](./README.md) · 다음: [3장 복제](./03-replication.md)

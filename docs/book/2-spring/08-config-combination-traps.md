@@ -152,7 +152,7 @@ spring.kafka:
 | 타이밍 3박자 | `heartbeat≥session` / `max.poll` 너무 짧음 | h < s ≪ m, `max.poll.records`↓ | [I권 조정](../1-internals/05-coordination.md) |
 | 트랜잭션 짝 | 프로듀서만 txn, 컨슈머 `read_uncommitted` | 컨슈머 `read_committed` | [I권 트랜잭션](../1-internals/07-transactions.md) |
 
-> 핵심: 이 네 가지는 **개별 설정 검증으로는 안 잡힌다.** 각 값이 문서상 valid라서, *조합* 단위로 봐야 보인다. `[docs @3.7]`
+> 핵심: 이 네 가지는 **개별 설정 검증으로는 안 잡힌다.** 각 값이 문서상 valid라서, *조합* 단위로 봐야 보인다. `[docs @3.9]`
 
 ---
 

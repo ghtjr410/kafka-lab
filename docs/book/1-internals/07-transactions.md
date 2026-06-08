@@ -3,7 +3,7 @@ volume: I
 chapter: 7
 title: "트랜잭션·EOS — 전부 또는 전무"
 prose: done
-proof: { mode: mixed, executable: "7.8 증명 표 4개 실험 중 3개 [테스트로 결정](미구현), 1개는 [docs @3.7]로 확인", note: "3-broker docker로 abort+read_committed 미가시·isolation.level 기본값·read-process-write 롤백·transactional.id 좀비 펜싱을 직접 관측; 함정의 코드 처리와 멱등키 패턴은 II권 Step에 위임" }
+proof: { mode: mixed, executable: "7.8 증명 표 4개 실험 중 3개 [테스트로 결정](미구현), 1개는 [docs @3.9]로 확인", note: "3-broker docker로 abort+read_committed 미가시·isolation.level 기본값·read-process-write 롤백·transactional.id 좀비 펜싱을 직접 관측; 함정의 코드 처리와 멱등키 패턴은 II권 Step에 위임" }
 upstream: ["06-ordering-atomicity.md"]
 forward: ["08-storage-engine.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -69,7 +69,7 @@ sequenceDiagram
 
 프로듀서가 `commit`하면 코디네이터가 관련된 **모든 파티션에 control record(마커)** 를 기록한다. 이 "전부에 마커를 박는" 단계가 원자성을 만든다 — 2단계 커밋(2PC)과 닮은 구조다.
 
-> 트랜잭션이 영원히 열린 채 방치되지 않도록, 코디네이터는 `transaction.timeout.ms`(프로듀서 설정, 기본 **60000ms=1분**)를 넘기면 그 트랜잭션을 **자동 abort**한다. (상한은 브로커 `transaction.max.timeout.ms`로 제한된다.) `[docs @3.7]`
+> 트랜잭션이 영원히 열린 채 방치되지 않도록, 코디네이터는 `transaction.timeout.ms`(프로듀서 설정, 기본 **60000ms=1분**)를 넘기면 그 트랜잭션을 **자동 abort**한다. (상한은 브로커 `transaction.max.timeout.ms`로 제한된다.) `[docs @3.9]`
 
 ---
 
@@ -122,12 +122,12 @@ graph LR
 
 ---
 
-## 7.8 증명 (executable — 3-broker)
+## 7.8 증명 (executable — 3-broker · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
 | 트랜잭션 abort + `read_committed` | 해당 메시지 안 보임 | `[테스트로 결정]` |
-| `isolation.level` 기본값 확인 | `read_uncommitted`라 abort 메시지도 보임(함정) | `[docs @3.7]` |
+| `isolation.level` 기본값 확인 | `read_uncommitted`라 abort 메시지도 보임(함정) | `[docs @3.9]` |
 | read-process-write 중 실패 | 출력+offset이 함께 롤백 | `[테스트로 결정]` |
 | 같은 `transactional.id` 중복 프로듀서 | 옛 프로듀서 펜싱(epoch) | `[테스트로 결정]` |
 

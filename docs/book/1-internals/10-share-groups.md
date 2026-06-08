@@ -114,7 +114,7 @@ share group은 큐를 얻는 대신 몇 가지를 포기한다:
 
 ---
 
-## 10.7 증명 (executable — 3-broker, Kafka 4.2+)
+## 10.7 증명 (executable — 3-broker, Kafka 4.2+ · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|

@@ -135,7 +135,7 @@ consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(co
 
 ---
 
-## 5.10 증명 (executable — 3-broker)
+## 5.10 증명 (executable — 3-broker · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
@@ -149,6 +149,6 @@ consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(co
 ## 참조
 
 - `[KIP-429]` Incremental Cooperative Rebalancing · `[KIP-848]` 차세대 consumer group 프로토콜 · `[KIP-345]` Static Membership `[Tier 1]`
-- Kafka 공식 문서 — Consumer Group, `__consumer_offsets` `[docs @3.7]`
+- Kafka 공식 문서 — Consumer Group, `__consumer_offsets` `[docs @3.9]`
 
 ← [4장 합의(KRaft)](./04-consensus.md) · [I권 목차](./README.md) · 다음: [6장 멱등·순서](./06-ordering-atomicity.md)

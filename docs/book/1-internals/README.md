@@ -185,10 +185,10 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - `HW` 기준 truncate만으론 리더 교체 시 로그가 영구히 분기하므로, 리더 교체마다 증가하는 leader epoch로 어느 리더 시대의 로그가 정당한지 펜싱한다
 - **3.8 복제는 합의(consensus)가 아니다**
   - 데이터 경로는 `ISR` primary-backup으로 과반 투표 없이 싸게 복제하고, "누가 리더인가" 같은 메타데이터만 KRaft 합의로 비싸게 정하는 분리가 고성능의 핵심이다
-- **3.9 증명 (executable — 3-broker)**
+- **3.9 증명 (executable — 3-broker · 미구현)**
   - follower 정지 시 `ISR` 축소, 브로커 2대 정지 시 `NotEnoughReplicasException`, `HW` 이전 미가시, 리더 kill 후 승격·보존 등을 3-broker로 단언한다
 - **참조**
-  - leader epoch는 `[KIP-101]`·`[KIP-279]`, 일반 이론은 DDIA 5·9장, `unclean.leader.election.enable` 기본값은 Kafka 공식 문서 `[docs @3.7]`에 근거한다
+  - leader epoch는 `[KIP-101]`·`[KIP-279]`, 일반 이론은 DDIA 5·9장, `unclean.leader.election.enable` 기본값은 Kafka 공식 문서 `[docs @3.9]`에 근거한다
 
 📄 [03-replication.md](./03-replication.md)
 
@@ -212,7 +212,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - ZooKeeper는 별도 운영 부담·컨트롤러 장애 시 전체 상태 재로딩·확장 한계의 비용이 있어, `KRaft`가 그 의존을 제거하고 Kafka가 스스로 합의하게 했다.
 - **4.8 메타데이터 로그도 무한히 안 자란다 — KRaft 스냅샷**
   - `__cluster_metadata`도 자라므로 KRaft 스냅샷이 어느 시점의 전체 상태를 통째로 저장하고 이전 로그를 잘라내어, key별 최신만 남기는 log compaction과 다르다.
-- **4.9 증명 (executable — 3-broker)**
+- **4.9 증명 (executable — 3-broker · 미구현)**
   - `describeCluster`로 컨트롤러 확인, active controller kill 시 승계, 토픽 생성 직후 메타 전파, `__cluster_metadata` 덤프로 메타데이터가 로그임을 실험으로 단언한다.
 - **참조**
   - Raft 논문(Ongaro & Ousterhout 2014), Paxos Made Simple, `[KIP-500]`·`[KIP-595]`·`[KIP-631]`, DDIA 9장 등 인용 출처를 모은다.
@@ -241,10 +241,10 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - `[KIP-345]`의 `group.instance.id`를 부여하면 같은 id로 재접속 시 기존 배정을 유지해 롤링 배포의 불필요한 리밸런싱을 줄인다.
 - **5.9 offset은 어디에 — `__consumer_offsets`**
   - 커밋된 offset은 `key=(group, topic, partition)`·`value=offset`으로 내부 compacted 토픽 `__consumer_offsets`에 저장돼 재시작 시 마지막 위치를 복원한다.
-- **5.10 증명 (executable — 3-broker)**
+- **5.10 증명 (executable — 3-broker · 미구현)**
   - eager vs cooperative revoke 범위, `group.instance.id` 재접속, `max.poll.interval` 초과 퇴출, 두 그룹의 독립 offset 소비를 `[테스트로 결정]`으로 단언한다.
 - **참조**
-  - `[KIP-429]`·`[KIP-848]`·`[KIP-345]` `[Tier 1]`와 Consumer Group·`__consumer_offsets` 공식 문서 `[docs @3.7]`를 근거로 든다.
+  - `[KIP-429]`·`[KIP-848]`·`[KIP-345]` `[Tier 1]`와 Consumer Group·`__consumer_offsets` 공식 문서 `[docs @3.9]`를 근거로 든다.
 
 📄 [05-coordination.md](./05-coordination.md)
 
@@ -258,12 +258,12 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - 리더가 저장했는데 ACK가 유실되면 프로듀서가 재시도해 같은 메시지를 두 번 쌓고, `max.in.flight=1`로 막으면 처리량이 죽는 딜레마를 멱등이 푼다.
 - **6.3 멱등 프로듀서 — PID + epoch + sequence**
   - `enable.idempotence=true`는 `PID`·`epoch`·`sequence`로 메시지에 신원을 붙여, 브로커가 같은 sequence는 버리고 건너뛴 sequence는 거부해 중복 제거와 순서를 보장한다.
-  - 요구 조합: `enable.idempotence=true`는 `acks=all`·`max.in.flight≤5`·`retries>0`을 전제하며, 3.0+ 기본 true라 `acks=1` 명시는 이 전제를 깬다 `[KIP-98/679 · docs @3.7]`
+  - 요구 조합: `enable.idempotence=true`는 `acks=all`·`max.in.flight≤5`·`retries>0`을 전제하며, 3.0+ 기본 true라 `acks=1` 명시는 이 전제를 깬다 `[KIP-98/679 · docs @3.9]`
 - **6.4 멱등의 한계 — 세션 경계**
   - 멱등성은 한 프로듀서 세션 안에서만 보장되어, 재시작하면 새 `PID`를 받아 이전 메시지를 다시 보내면 중복되고 이 한계는 트랜잭션의 `transactional.id`가 넘는다.
 - **6.5 순서와 `max.in.flight`**
   - 멱등 off에 `max.in.flight>1`과 재시도면 순서가 뒤바뀌지만, 멱등 on이면 `sequence`로 `max.in.flight≤5`까지 순서가 보장된다.
-- **6.6 증명 (executable)**
+- **6.6 증명 (executable · 미구현)**
   - 멱등 on의 강제 재시도는 중복 없음, 프로듀서 재시작 후 재전송은 중복 발생, 멱등 off에 `max.in.flight>1`+재시도는 순서 역전을 관측한다.
 - **참조**
   - `[KIP-98]`·Kafka 공식 문서의 `enable.idempotence` 기본값·DDIA 9장을 근거로 든다.
@@ -288,7 +288,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - consumer offset 커밋조차 `sendOffsetsToTransaction`으로 트랜잭션에 포함시켜 출력 쓰기와 입력 offset 전진을 한 단위로 묶는 것이 Kafka 내부 진짜 exactly-once다
 - **7.7 EOS의 경계 — 어디까지가 exactly-once인가**
   - EOS는 Kafka 토픽→처리→Kafka 토픽(+offset)까지만 보장하고 외부 DB·API는 롤백 불가라 멱등키로 방어해야 한다
-- **7.8 증명 (executable — 3-broker)**
+- **7.8 증명 (executable — 3-broker · 미구현)**
   - 트랜잭션 abort + `read_committed`, `isolation.level` 기본값(`read_uncommitted`), read-process-write 실패 롤백, 같은 `transactional.id` 중복 프로듀서 펜싱을 3-broker로 단언한다
 - **참조**
   - `[KIP-98]`·`[KIP-129]`·`[KIP-890]`과 Confluent EOS 설계 문서, DDIA 9·7장을 출처로 든다
@@ -321,7 +321,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - 레코드 timestamp는 `message.timestamp.type`의 CreateTime/LogAppendTime 중 하나이고, retention도 이 timestamp를 보기에 잘못된 CreateTime은 너무 일찍 삭제되거나 안 지워질 수 있다
 - **8.11 Tiered Storage — 무한 보존 (KIP-405)**
   - RemoteLogManager가 오래된 세그먼트를 원격 스토리지로 내리고 local/remote retention을 따로 설정해 보존을 로컬 디스크 용량에서 분리한다
-- **8.12 증명 (executable — docker exec)**
+- **8.12 증명 (executable — docker exec · 미구현)**
   - 브로커 컨테이너의 `.log` 열기·`kafka-dump-log`·`segment.bytes` 작게 produce·compaction cleaner로 세그먼트 파일명·배치 헤더·rolling·키별 최신을 관측
 - **참조**
   - Kafka 공식 문서(Persistence·Efficiency·Log Compaction)·`sendfile(2)`·KIP-405·DDIA 3장을 출처로 든다
@@ -348,7 +348,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - Consumer와 Replica는 둘 다 `Fetch` 요청으로 당기며(pull), long-poll(`fetch.max.wait.ms`/`fetch.min.bytes`)·incremental fetch session·fetch-from-follower가 모두 동일한 fetch 메커니즘이다.
 - **9.8 broker가 요청을 보류하는 법 — purgatory**
   - `acks=all` produce(`DelayedProduce`)와 long-poll fetch(`DelayedFetch`)처럼 즉시 응답할 수 없는 요청은 timer wheel과 watcher로 관리되는 동일한 purgatory 메커니즘으로 보류된다.
-- **9.9 증명 (executable)**
+- **9.9 증명 (executable · 미구현)**
   - 콜백 `Thread.sleep` 시 처리량 급락, 작은 `buffer.memory`+폭주 시 `TimeoutException`, 콜백이 `kafka-producer-network-thread`에서 실행됨, 큰 `max.poll.records`+느린 처리 시 `max.poll.interval` 초과 퇴출을 테스트로 단언한다.
 - **참조**
   - Producer/Consumer Configs 공식 문서, `KafkaProducer`/`KafkaConsumer` JavaDoc, Kafka 소스 `clients/`(RecordAccumulator·Sender)를 근거로 제시한다.
@@ -371,7 +371,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - share group은 일반 `Fetch` 대신 레코드를 락 걸어 가져오는 `ShareFetch`와 ack를 명시적으로 전달하는 `ShareAcknowledge`를 `(GroupId, MemberId)` 기반 share session으로 유지한다.
 - **10.6 한계 (지금은 못 하는 것)**
   - share group은 배치 간 순서 보장·Exactly-Once·fetch-from-follower를 포기하므로, 큐가 필요하되 엄격한 순서와 EOS는 필요 없을 때가 그 자리다.
-- **10.7 증명 (executable — 3-broker, Kafka 4.2+)**
+- **10.7 증명 (executable — 3-broker, Kafka 4.2+ · 미구현)**
   - 파티션 1개에 consumer 3대 동시 소비·락 타임아웃 재전달·ack 후 미재전달·delivery 한도 초과 후 Archived를 4.2+ 브로커로 단언하는 실험 표다.
 - **참조**
   - `KIP-932`·Kafka 4.2 GA 문서·`KafkaShareConsumer` JavaDoc과 1.2·5.1·2장·9.7 연결 링크를 모은 절이다.

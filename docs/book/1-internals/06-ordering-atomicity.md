@@ -54,7 +54,7 @@ sequenceDiagram
 
 브로커는 파티션별로 "마지막으로 받은 sequence"를 기억한다. 재시도로 **같은 sequence가 또 오면 버리고**, 건너뛴 sequence가 오면 순서 오류로 거부한다 → 중복 제거 + 순서 보장.
 
-> ★ 요구 조합(II권 함정의 원리): `enable.idempotence=true`는 `acks=all` · `max.in.flight.requests ≤ 5` · `retries>0`을 전제한다. Kafka **3.0+** 부터 `enable.idempotence`가 **기본 true**(→ `acks=all` 강제)라, `acks=1`로 명시하면 이 전제가 깨진다. `[KIP-98/679 · docs @3.7]`
+> ★ 요구 조합(II권 함정의 원리): `enable.idempotence=true`는 `acks=all` · `max.in.flight.requests ≤ 5` · `retries>0`을 전제한다. Kafka **3.0+** 부터 `enable.idempotence`가 **기본 true**(→ `acks=all` 강제)라, `acks=1`로 명시하면 이 전제가 깨진다. `[KIP-98/679 · docs @3.9]`
 
 ---
 
@@ -77,7 +77,7 @@ sequenceDiagram
 
 ---
 
-## 6.6 증명 (executable)
+## 6.6 증명 (executable · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
@@ -90,7 +90,7 @@ sequenceDiagram
 ## 참조
 
 - `[KIP-98]` Exactly Once Delivery and Transactional Messaging (멱등 프로듀서의 원전) `[Tier 1]`
-- Kafka 공식 문서 — Idempotent Producer, `enable.idempotence` 기본값 `[docs @3.7]`
+- Kafka 공식 문서 — Idempotent Producer, `enable.idempotence` 기본값 `[docs @3.9]`
 - *Designing Data-Intensive Applications* 9장 `[Tier 3]`
 
 ← [5장 조정](./05-coordination.md) · [I권 목차](./README.md) · 다음: [7장 트랜잭션·EOS](./07-transactions.md)

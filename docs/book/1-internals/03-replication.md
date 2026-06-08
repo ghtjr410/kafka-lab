@@ -3,7 +3,7 @@ volume: I
 chapter: 3
 title: "복제 — 데이터는 어떻게 살아남나"
 prose: done
-proof: { mode: self, executable: "증명 절(3.9)은 대부분 [테스트로 결정]로 미구현(ISR 축소·NotEnoughReplicasException·HW 가시성·리더 kill); unclean election 항목만 [docs @3.7]", note: "3-broker docker로 follower/leader stop 후 AdminClient.describeTopics로 ISR 축소·새 리더 승격·HW 가시성·NotEnoughReplicasException 직접 관측" }
+proof: { mode: self, executable: "증명 절(3.9)은 대부분 [테스트로 결정]로 미구현(ISR 축소·NotEnoughReplicasException·HW 가시성·리더 kill); unclean election 항목만 [docs @3.9]", note: "3-broker docker로 follower/leader stop 후 AdminClient.describeTopics로 ISR 축소·새 리더 승격·HW 가시성·NotEnoughReplicasException 직접 관측" }
 upstream: ["02-log-abstraction.md"]
 forward: ["04-consensus.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -111,7 +111,7 @@ graph LR
 
 ★ **핵심 함정**: `acks`는 프로듀서 설정, `min.insync.replicas`는 토픽/브로커 설정이다. **둘이 만나야** 보장이 선다.
 
-- `acks=all` 인데 `min.insync.replicas=1` → ISR이 리더 1대로 줄어도 쓰기가 허용된다. 즉 **사실상 `acks=1`로 퇴화**한다. `[docs @3.7]`
+- `acks=all` 인데 `min.insync.replicas=1` → ISR이 리더 1대로 줄어도 쓰기가 허용된다. 즉 **사실상 `acks=1`로 퇴화**한다. `[docs @3.9]`
 - 그래서 의미 있는 조합은 **RF=3 + min.insync.replicas=2 + acks=all**.
 
 ```mermaid
@@ -189,7 +189,7 @@ graph LR
 
 ---
 
-## 3.9 증명 (executable — 3-broker)
+## 3.9 증명 (executable — 3-broker · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
@@ -197,7 +197,7 @@ graph LR
 | `min.insync.replicas=2`, 브로커 2대 정지 | produce 시 `NotEnoughReplicasException` | `[테스트로 결정]` |
 | `acks=all`, 따라잡기 전 | consumer가 HW 이전 메시지를 못 봄 | `[테스트로 결정]` |
 | 리더 브로커 kill | 새 리더 승격, 데이터 보존, consumer 계속 | `[테스트로 결정]` |
-| `unclean.leader.election` on/off 비교 | off=중단 / on=승격(+손실 가능) | `[docs @3.7]` |
+| `unclean.leader.election` on/off 비교 | off=중단 / on=승격(+손실 가능) | `[docs @3.9]` |
 
 > 도구: `AdminClient.describeTopics/describeCluster`, `docker stop kafkaN`, `listOffsets`(HW/LEO).
 
@@ -207,6 +207,6 @@ graph LR
 
 - `[KIP-101]` Leader Epoch (truncation 안전), `[KIP-279]` 후속 수정 — 3.7 절의 근거 `[Tier 1]`
 - *Designing Data-Intensive Applications* 5장(복제)·9장(일관성과 합의) `[Tier 3]`
-- Kafka 공식 문서 — Replication, `unclean.leader.election.enable` 기본값 `[docs @3.7]`
+- Kafka 공식 문서 — Replication, `unclean.leader.election.enable` 기본값 `[docs @3.9]`
 
 ← [2장 로그라는 추상](./02-log-abstraction.md) · [I권 목차](./README.md) · 다음: [4장 합의(KRaft)](./04-consensus.md)

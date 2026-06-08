@@ -85,7 +85,7 @@ graph LR
 - 버퍼가 차면 `send()`는 **블록**된다(메타데이터 대기에도 블록). 즉 비동기인 `send()`가 이 순간엔 사용자 스레드를 멈춘다.
 - `max.block.ms` 안에 자리가 안 나면 `TimeoutException`. → 이게 **backpressure**(소비처가 못 따라갈 때 생산을 눌러주는 장치)다.
 
-> `max.block.ms`는 *버퍼에 들어가기까지*의 한도일 뿐이다. 그 뒤 **전송+재시도까지 포함한 전체 상한**은 별도로 `delivery.timeout.ms`(KIP-91, 기본 **120000ms=2분**)가 정한다 — `send()` 호출부터 성공/최종 실패까지의 총 시계다. `[KIP-91 · docs @3.7]`
+> `max.block.ms`는 *버퍼에 들어가기까지*의 한도일 뿐이다. 그 뒤 **전송+재시도까지 포함한 전체 상한**은 별도로 `delivery.timeout.ms`(KIP-91, 기본 **120000ms=2분**)가 정한다 — `send()` 호출부터 성공/최종 실패까지의 총 시계다. `[KIP-91 · docs @3.9]`
 
 ---
 
@@ -145,7 +145,7 @@ Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기�
 
 ---
 
-## 9.9 증명 (executable)
+## 9.9 증명 (executable · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
@@ -158,7 +158,7 @@ Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기�
 
 ## 참조
 
-- Kafka 공식 문서 — Producer/Consumer Configs (`buffer.memory`·`max.block.ms`·`linger.ms`·`max.poll.interval.ms`) `[docs @3.7]`
+- Kafka 공식 문서 — Producer/Consumer Configs (`buffer.memory`·`max.block.ms`·`linger.ms`·`max.poll.interval.ms`) `[docs @3.9]`
 - `KafkaProducer` / `KafkaConsumer` JavaDoc — `send()`·`poll()`의 정확한 계약 `[Tier 2]`
 - Kafka 소스 `clients/` — RecordAccumulator·Sender 구현 `[Tier 0]`
 
