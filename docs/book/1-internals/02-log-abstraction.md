@@ -3,7 +3,7 @@ volume: I
 chapter: 2
 title: "로그라는 추상"
 prose: done
-proof: { mode: self, executable: "증명(executable, 멀티브로커) — compaction key별 최신만 남는지 확인은 [테스트로 결정]", note: "멀티브로커 executable: compaction 토픽에 같은 key 반복 쓰기 후 key별 최신만 남는지·tombstone(value=null)로 key 삭제·두 consumer group이 처음부터 읽어 동일 결과(결정성) 관측" }
+proof: { mode: self, executable: "미구현([테스트로 결정]) — 멀티브로커 executable로 compaction key별 최신만 남는지 확인 예정", note: "멀티브로커 executable: compaction 토픽에 같은 key 반복 쓰기 후 key별 최신만 남는지·tombstone(value=null)로 key 삭제·두 consumer group이 처음부터 읽어 동일 결과(결정성) 관측" }
 upstream: ["01-what-is-kafka.md"]
 forward: ["03-replication.md"]
 baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../CHARTER.md" }
@@ -14,7 +14,9 @@ conventions: ../README.md
 
 > 앞 장: [1장 Kafka란 무엇인가](./01-what-is-kafka.md) · 다음 장: [3장 복제](./03-replication.md)
 >
-> **이 장의 보장(한 문장)**: *Kafka에서 상태는 로그의 파생물이다 — append-only 로그가 진실의 원천(source of truth)이고, 모든 뷰는 그 로그를 재생(replay)해 만든다.* (단 이는 retention이 충분하거나 compacted로 전체 상태를 보존할 때 성립하는 **설계 선택**이지 무조건의 보장은 아니다 — 2.3.)
+> **이 장의 보장(한 문장)**: *Kafka에서 상태는 로그의 파생물이다 — append-only 로그가 진실의 원천(source of truth)이고, 모든 뷰는 그 로그를 재생(replay)해 만든다.*
+>
+> (정확히는 retention에 기댄 **설계 선택**이다 — 2.3.)
 
 1장에서 우리는 Kafka를 "큐가 아니라 로그"라고 불렀다. 이 장은 그 한 문장을 끝까지 밀어붙인다. **왜 하필 로그라는 자료구조였나**, 그리고 그 선택이 어떻게 Kafka의 거의 모든 동작을 결정하는가.
 
@@ -89,6 +91,12 @@ graph TB
 - 같은 로그를 같은 (순수) 함수로 **같은 순서로** 접으면 **항상 같은 상태**가 나온다(결정성). 그 순서를 보장하는 게 파티션 내 offset이다(파티션을 가로지르면 전역 순서가 없어 fold 순서를 따로 정해야 한다).
 - 그래서 새 소비자가 "처음부터 다시 읽어" 자기만의 뷰(검색 인덱스·캐시·집계 테이블)를 만들 수 있다. → 이게 1장에서 본 **N×M 통합을 N+M으로** 바꾼 힘의 정체다.
 
+> 단 "모든 뷰를 replay"는 **retention이 전제**다.
+> - retention이 충분하면 — 전체 이력이 남아 *임의 시점 뷰*("3일차 잔고는?")까지 재구성된다.
+> - compaction만 걸리면 — key별 최신값만 남아 *현재-상태 뷰*만 재구성된다(중간 이벤트는 버려진다).
+>
+> "로그가 진실의 원천"이라는 건 이만큼을 전제한 **설계 선택**이다.
+
 이 사고방식은 event sourcing, materialized view, CQRS의 뿌리이기도 하다. 다만 **이벤트 설계·Outbox 같은 애플리케이션 패턴은 이 책의 범위가 아니다**(→ messaging-lab). 여기서는 "Kafka의 로그가 그런 구조를 *물리적으로 가능하게 한다*"는 점까지만 짚는다.
 
 ---
@@ -102,10 +110,10 @@ graph TB
 ```mermaid
 graph LR
     subgraph "compaction 전"
-        A1["k=user1<br/>v=A"] --> A2["k=user2<br/>v=X"] --> A3["k=user1<br/>v=B"] --> A4["k=user1<br/>v=C"]
+        A1["k=user1 v=A<br/>@0"] --> A2["k=user2 v=X<br/>@1"] --> A3["k=user1 v=B<br/>@2"] --> A4["k=user1 v=C<br/>@3"]
     end
-    subgraph "compaction 후"
-        B1["k=user2<br/>v=X"] --> B2["k=user1<br/>v=C"]
+    subgraph "compaction 후 (offset 보존 → gap)"
+        B1["k=user2 v=X<br/>@1"] --> B2["k=user1 v=C<br/>@3"]
     end
 ```
 
@@ -136,7 +144,7 @@ Kafka 설계의 일관성을 보여주는 대목: **Kafka는 자기 자신의 �
 |------|--------|----------|
 | consumer 커밋 offset | `__consumer_offsets` (compacted) | 5장 |
 | 클러스터 메타데이터(토픽·리더·ISR) | `__cluster_metadata` (KRaft) | 4장 |
-| 트랜잭션 상태 | `__transaction_state` | 7장 |
+| 트랜잭션 상태 | `__transaction_state` (compacted) | 7장 |
 | commit/abort 경계 | control record (데이터 로그 안에) | 7장 |
 
 "데이터를 로그로 다루자"는 발상을 메타데이터에까지 밀어붙인 것 — 이게 KRaft가 우아한 이유의 핵심이고, 4장에서 본격적으로 다룬다.
