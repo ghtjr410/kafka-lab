@@ -37,7 +37,9 @@ conventions: ../README.md
 
 ## 4.2 분산 합의라는 문제
 
-여러 노드가 하나의 값에 동의하는 것 — 이게 분산 합의(consensus)다. 이론적으로 까다롭다(비동기 네트워크에서 한 노드라도 죽으면 완벽한 합의가 불가능하다는 FLP 불가능성). 현실의 합의 알고리즘은 **과반(quorum)** 으로 이 문제를 우회한다: *과반이 동의하면 확정*. 과반끼리는 반드시 겹치므로 두 개의 모순된 결정이 동시에 확정될 수 없다.
+여러 노드가 하나의 값에 동의하는 것 — 이게 분산 합의(consensus)다. 이론적으로 까다롭다 — 비동기 네트워크에서 한 노드라도 죽으면 *결정적(deterministic)* 알고리즘이 "언젠가 반드시 끝난다"를 보장할 수 없다(FLP 불가능성 — **활성/종료성** 문제).
+
+합의 알고리즘은 이 활성 문제를 **타임아웃 기반 리더 선출**로 우회한다(Raft의 randomized election timeout). 한편 **과반(quorum)** 은 별개로 *안전성*을 책임진다: 과반이 동의해야 확정하고, 두 과반은 반드시 겹치므로 모순된 두 결정이 동시에 확정될 수 없다(split-brain 방지).
 
 → 그래서 3-노드면 2개, 5-노드면 3개가 살아 있어야 진행된다.
 
@@ -48,9 +50,9 @@ conventions: ../README.md
 합의 알고리즘의 고전은 Paxos지만, *이해하기 어렵고 구현이 제각각*이라는 악명이 있다. **Raft**는 같은 안전성을 제공하면서 **이해가능성(understandability)** 을 명시적 설계 목표로 삼았다 `[Ongaro & Ousterhout 2014, Tier 3]`. 핵심은:
 
 - **강한 리더(strong leader)**: 한 리더가 로그를 주도하고, 팔로워는 복사만 한다.
-- **term(임기)**: 리더가 바뀔 때마다 증가하는 번호로 "시대"를 구분한다.
+- **term(임기)**: 선거가 일어날 때마다 증가하는 번호로 "시대"를 구분한다(당선자 없이 선거만 실패해도 올라간다).
 
-이 두 가지가 Kafka에 그대로 들어온다. 특히 **term은 3장의 leader epoch과 같은 발상** — 옛 리더의 유령을 번호로 펜싱한다.
+이 두 가지가 Kafka에 그대로 들어온다. 특히 **term은 3장의 leader epoch과 같은 메커니즘**이다 — 번호로 옛 리더의 유령을 펜싱한다. 단 *계층이 다르다*: leader epoch은 파티션별 데이터 리더, term은 메타데이터 로그(컨트롤러) 단위다.
 
 ---
 
@@ -118,7 +120,7 @@ KRaft 이전엔 메타데이터·리더 선출을 **외부 시스템 ZooKeeper**
 - 컨트롤러 장애 시 ZK에서 전체 상태를 다시 로딩 → 대규모에서 느렸다.
 - 메타데이터 규모 확장에 한계가 있었다.
 
-KRaft는 이 의존을 **제거**하고 Kafka가 스스로 합의하게 했다 `[KIP-500]`. 3.3에서 production-ready, 이 lab의 3.7은 KRaft로 동작하며, 4.0에서 ZooKeeper는 완전히 제거된다. → 우리는 KRaft를 기준으로 다루고, ZK는 여기까지만(역사적 맥락).
+KRaft는 이 의존을 **제거**하고 Kafka가 스스로 합의하게 했다 `[KIP-500]`. 3.3에서 production-ready, 이 lab의 브로커도 KRaft로 동작하며, 4.0에서 ZooKeeper는 완전히 제거된다. → 우리는 KRaft를 기준으로 다루고, ZK는 여기까지만(역사적 맥락).
 
 ---
 
@@ -128,11 +130,11 @@ KRaft는 이 의존을 **제거**하고 Kafka가 스스로 합의하게 했다 `
 
 해결은 **KRaft 스냅샷**(KIP-630): 어느 시점의 **전체 메타데이터 상태를 스냅샷으로 저장**하고, 그 이전 로그를 잘라낸다. 새 노드는 스냅샷을 먼저 로드한 뒤 그 이후 로그만 따라잡으면 된다.
 
-> 2장의 키별 log compaction(메커니즘은 8장)과는 다르다 — compaction은 "key별 최신 레코드"를 남기지만, 스냅샷은 "한 시점의 상태 전체"를 통째로 저장하고 로그를 절단한다. (Raft 로그 압축의 표준 기법이다.) `[KIP-630]`
+> 2장의 키별 log compaction(메커니즘은 8장)과는 다르다 — compaction은 "key별 최신 레코드"를 남기지만, 스냅샷은 "한 시점의 상태 전체"를 통째로 저장하고 로그를 절단한다 — Raft 로그 압축의 표준 기법이다. `[KIP-630]`
 
 ---
 
-## 4.9 증명 (executable — 3-broker · 미구현)
+## 4.9 증명 (executable — 3-broker · 부분)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
@@ -148,6 +150,7 @@ KRaft는 이 의존을 **제거**하고 Kafka가 스스로 합의하게 했다 `
 - `[Ongaro & Ousterhout 2014]` *In Search of an Understandable Consensus Algorithm (Raft)* `[Tier 3]`
 - Lamport, *Paxos Made Simple* (대비용) `[Tier 3]`
 - `[KIP-500]` ZooKeeper 제거 · `[KIP-595]` Raft metadata quorum · `[KIP-631]` controller `[Tier 1]`
+- `[Fischer, Lynch, Paterson 1985]` *Impossibility of Distributed Consensus with One Faulty Process* (FLP) `[Tier 3]`
 - *Designing Data-Intensive Applications* 9장(일관성과 합의) `[Tier 3]`
 
 ← [3장 복제](./03-replication.md) · [I권 목차](./README.md) · 다음: [5장 조정](./05-coordination.md)
