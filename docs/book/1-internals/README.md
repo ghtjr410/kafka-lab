@@ -200,9 +200,9 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **4.1 문제: 메타데이터의 단일 진실과 split-brain**
   - 데이터보다 먼저 합의돼야 할 메타데이터(누가 리더인가)가 노드마다 다르면 `split-brain`으로 로그가 갈라지므로 모든 노드가 하나의 진실로 봐야 한다.
 - **4.2 분산 합의라는 문제**
-  - FLP 불가능성 때문에 완벽한 합의는 어렵지만 현실 알고리즘은 과반(quorum)으로 우회한다 — 과반끼리는 반드시 겹쳐 모순된 결정이 동시에 확정될 수 없다.
+  - FLP 불가능성(비동기에서 결정적 종료 불가)은 **타임아웃 선출**로 우회하고, **과반(quorum)**은 별개로 안전성을 책임진다 — 과반끼리 겹쳐 모순된 결정이 동시 확정될 수 없다(split-brain 방지).
 - **4.3 왜 Raft인가 — Paxos와의 대비**
-  - Paxos는 이해가 어려워, Raft는 같은 안전성에 이해가능성을 설계 목표로 삼았고 강한 리더와 term을 도입했다 — term은 3장 leader epoch과 같은 발상이다.
+  - Paxos는 이해가 어려워, Raft는 같은 안전성에 이해가능성을 설계 목표로 삼았고 강한 리더와 term(선거마다 증가)을 도입했다 — term은 3장 leader epoch과 같은 메커니즘이되 계층이 다르다(파티션 vs 메타데이터).
 - **4.4 KRaft — "메타데이터도 로그로"**
   - `KRaft`는 모든 메타데이터 변경을 `__cluster_metadata` 로그에 append하고 active controller가 그 리더이며, 정통 Raft의 push와 달리 voter·observer가 `Fetch`로 당겨가는 pull 모델이다.
 - **4.5 Controller Quorum · active controller · term**
