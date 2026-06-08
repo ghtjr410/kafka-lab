@@ -7,7 +7,7 @@ proof:
   mode: self
   status: 미구현
   method: "멱등 on/off · 강제 재시도 · 프로듀서 재시작으로 중복·순서 관측"
-  pending: ["멱등 on 중복 거부(sequence)", "재시작 후 중복(세션 한계)", "멱등 off max.in.flight>1 순서 역전"]
+  pending: ["멱등 on 중복 거부(sequence)", "재시작 후 중복(세션 한계)", "멱등 off max.in.flight>1 순서 역전", "두 프로듀서 동시 전송 offset 인터리빙"]
   done: []
 upstream: ["05-coordination.md"]
 forward: ["07-transactions.md"]
@@ -25,9 +25,35 @@ conventions: ../README.md
 
 ---
 
-## 6.1 파티션 내 순서, 그 한계
+## 6.1 파티션 내 순서 — 그 순서는 누구 기준인가
 
-Kafka의 순서 보장은 **파티션 안에서만**이다(1장). 같은 key는 같은 파티션으로 가니 *key 단위 순서*는 보장되지만, 토픽 전체 순서는 보장되지 않는다. 전체 순서가 필요하면 파티션 1개를 쓰거나(처리량 포기) key 설계로 풀어야 한다.
+Kafka의 순서 보장은 **파티션 안에서만**이다([1장](./01-what-is-kafka.md)). 같은 key는 같은 파티션으로 가니 *key 단위 순서*는 보장되지만, 토픽 전체 순서는 보장되지 않는다. 전체 순서가 필요하면 파티션 1개를 쓰거나(처리량 포기) key 설계로 풀어야 한다.
+
+그런데 그 "보낸 순서"가 **누구 기준**인가를 먼저 갈라야 한다.
+
+- **단일 프로듀서** — 내가 보낸 순서가 (조건부로) 보존된다(멱등·`max.in.flight`, §6.3·§6.5).
+- **여러 프로듀서** — 동시 전송엔 **절대 요청 순서가 없다.** 네트워크 지연도 스케줄링도 제각각이라, "누가 먼저 보냈나"를 비교할 원본 자체가 없다.
+
+그래서 Kafka는 **브로커가 받아 append한 순서를 사실상의 순서로 못 박는다.** 순서를 *지키는* 게 아니라 *정의*하는 것이다.
+
+```mermaid
+graph LR
+    PA["Producer A — send: m1, m3"] --> L
+    PB["Producer B — send: m2, m4"] --> L
+    L["Partition Leader<br/>(도착·append 순서대로 붙임)"] --> LOG["off0:m1 · off1:m2 · off2:m4 · off3:m3"]
+```
+
+> A가 m3을 m4보다 *먼저 보내도*, 브로커에 m4가 *먼저 닿으면* m4가 앞 offset이다 — **"먼저 send"가 아니라 "먼저 append"가 앞 offset**이다.
+
+이 "요청 기준 vs 저장 기준"의 갈림은 offset·순서·timestamp 세 곳에 똑같이 나타난다:
+
+| 무엇 | 요청 기준 (send) | 저장 기준 (브로커 append) |
+|------|------------------|---------------------------|
+| **offset** | 프로듀서가 못 정한다 | append 시 단조 부여 → [1장](./01-what-is-kafka.md) |
+| **순서**(여러 프로듀서) | 절대 순서가 없다 | **append 순서가 정의**한다 |
+| **timestamp** | `CreateTime`(기본) | `LogAppendTime` → [8장](./08-storage-engine.md) |
+
+offset은 **항상 저장 기준**이고, timestamp만 `message.timestamp.type`로 둘 중 택한다. offset 부여·timestamp 타입의 상세는 각각 [1장](./01-what-is-kafka.md)·[8장](./08-storage-engine.md)이 SSOT다.
 
 ---
 
@@ -89,6 +115,7 @@ sequenceDiagram
 | 멱등 on, 강제 재시도 유발 | 중복 append 없음(sequence로 거부) | `[테스트 예정]` |
 | 프로듀서 재시작 후 같은 메시지 | 중복 발생(세션 한계) | `[테스트 예정]` |
 | 멱등 off, max.in.flight>1, 재시도 | 순서 역전 관측 | `[테스트 예정]` |
+| 두 프로듀서 동시 전송(같은 파티션) | offset 인터리빙이 send 순서와 무관 | `[테스트 예정]` |
 
 ---
 
