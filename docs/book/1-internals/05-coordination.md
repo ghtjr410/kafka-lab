@@ -27,7 +27,7 @@ conventions: ../README.md
 
 ## 5.1 배타 배정 불변식
 
-Consumer Group의 핵심 규칙: **그룹 안에서 한 파티션은 한 consumer에게만 배정된다.**
+Consumer Group의 핵심 규칙: **그룹 안에서 각 파티션은 정확히 한 consumer에게 배정된다.** 한 파티션을 둘이 나눠 갖지도(no overlap), 구독된 파티션이 아무에게도 안 맡겨져 노는 일도(no gap) 없다 — 배타성과 완전성을 함께 만족하는 **배타적 완전 피복**이다(리밸런싱이 도는 동안은 일시적으로 깨졌다가 곧 재정합되는 *안정 상태 불변식*이다).
 
 ```mermaid
 graph LR
@@ -38,6 +38,15 @@ graph LR
 ```
 
 여기서 1장의 결론이 다시 나온다 — **파티션 수 = 그룹 내 최대 병렬성**. consumer가 파티션보다 많으면 남는 consumer는 놀고(idle), 적으면 한 consumer가 여러 파티션을 맡는다. 그리고 멤버가 들고 날 때 이 배타성을 다시 맞추는 게 **리밸런싱**이다.
+
+**리밸런싱은 언제 도는가.** 멤버 집합 M과 구독 파티션 집합 P는 **둘 다 동적**이다 — 어느 쪽이 바뀌어 기존 배정이 위 불변식을 더는 만족하지 못하면(stale) 다시 맞춘다. 즉 **리밸런싱 트리거 = 배타·완전 배정을 무효화하는 사건**이다. 그래서 리밸런싱은 **장애 복구가 아니다** — consumer 추가(scale-out)·롤링 배포·구독 파티션 증설도 전부 트리거이고, 장애(멤버 사망)는 그중 한 경우일 뿐이다. 트리거는 네 갈래다:
+
+- **ⓐ 멤버 변화(M)** — 합류·이탈·강제 제거.
+- **ⓑ 생존 판정(liveness)** — heartbeat 실패나 `max.poll.interval` 초과로 죽었다고 보는 경우(§5.7).
+- **ⓒ 토폴로지(P)** — 구독 파티션 증가·패턴 구독에 새 토픽 매칭.
+- **ⓓ 코디네이터 이동** — 그룹의 코디네이터 브로커가 바뀌어 재합류.
+
+각 트리거의 **전수 경우의 수와 운영 대응**(억제·회피·비용)은 → [III권 운영](../3-operations/README.md).
 
 > ⚠️ (경계) 이 배타성과 "파티션 수 = 병렬성 상한"은 **consumer group 한정**이다. **share group**(10장)에선 한 파티션을 여러 consumer가 **공유** 소비해, consumer 수 > 파티션 수도 가능하다. `[KIP-932 · docs @4.2]`
 
@@ -109,7 +118,7 @@ graph TB
 - **eager 모드**: 리밸런싱 때 *모든* consumer가 *모든* 파티션을 일단 내려놓고(revoke) 다시 받는다 → 그 사이 **전체 처리 정지(stop-the-world)**.
 - **cooperative 모드** `[KIP-429]`: 이동이 필요한 파티션만 내려놓는다. 2라운드지만 멈춤이 작다. 5.5의 `CooperativeStickyAssignor`를 고르면 이 모드가 켜진다.
   - ⚠️ 기본값 `partition.assignment.strategy`는 `[RangeAssignor, CooperativeStickyAssignor]`지만, **공통 최우선이 Range라 실제 기본 동작은 eager**다. cooperative로 가려면 리스트에서 Range를 빼는 **단일 rolling bounce**가 필요하다(둘을 함께 둔 이유가 이 무중단 전환 — 섞여 돌면 한쪽이 파티션을 안 내놓아 배타성이 깨질 수 있다). 전환 *절차*는 → III권. `[code @3.7]`
-- **KIP-848**(consumer 프로토콜): classic의 JoinGroup/SyncGroup **전역 동기화 장벽**(한 멤버가 느리면 전원 정지)을 없애고, 배정을 **서버(코디네이터)** 가 계산해 멤버별로 **증분 reconciliation**한다 → 안정성·확장성↑(클라이언트가 얇아지는 건 부수 효과). 3.7 EA → **4.0 GA**, baseline 3.9에선 preview. `[KIP-848]`
+- **KIP-848**(consumer 프로토콜): classic의 JoinGroup/SyncGroup **전역 동기화 장벽**(한 멤버가 느리면 전원 정지)을 없애고, 배정을 **서버(코디네이터)** 가 계산해(**target assignment**) 멤버별로 **증분 reconciliation**하며 **group epoch**로 세대를 매긴다 → 안정성·확장성↑(클라이언트가 얇아지는 건 부수 효과). 3.7 EA → **4.0 GA**, baseline 3.9에선 preview. `[KIP-848]`
 
 ---
 

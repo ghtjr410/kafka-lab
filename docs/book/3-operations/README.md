@@ -31,21 +31,35 @@ I권이 "왜"라면, III권은 "그래서 운영에서 **어떤 숫자로, 어�
 
 ## 리밸런싱은 "흔한 케이스"가 아니라 전수로 다룬다
 
-가장 흔한 "consumer 한 대 추가" 말고도, 리밸런싱을 일으키는 트리거는 여럿이다. 운영자는 **이 전체 경우의 수**를 알아야 한다.
+가장 흔한 "consumer 한 대 추가" 말고도, 리밸런싱을 일으키는 트리거는 여럿이다. 본질은 **배타·완전 배정을 무효화하는 사건**(→ [I권 조정](../1-internals/05-coordination.md)에서 정의)이고, 운영자는 그 **전수 경우의 수**와 **경우별 대처**를 알아야 한다.
+
+**트리거 4범주 × 전수** (장애 복구만이 아니다 — scale-out·배포·증설도 포함):
 
 ```mermaid
 graph TB
-    RB(("⟳ 리밸런싱<br/>발생"))
-    M1["consumer 합류"] --> RB
-    M2["consumer 이탈/크래시<br/>(session.timeout 초과)"] --> RB
-    M3["처리 지연으로 퇴출<br/>(max.poll.interval 초과)"] --> RB
-    T1["구독 토픽 파티션 수 증가"] --> RB
-    T2["패턴 구독에 새 토픽 매칭"] --> RB
-    C1["코디네이터 브로커 장애<br/>→ 새 코디네이터로 이동"] --> RB
-    D1["롤링 배포 → 연쇄 리밸런싱"] --> RB
+    RB(("⟳ 리밸런싱"))
+    A["ⓐ 멤버 M<br/>합류·정상이탈·강제제거<br/>static 재기동(억제)·영구변화·instance.id 충돌"] --> RB
+    B["ⓑ 생존 판정<br/>heartbeat 실패·max.poll.interval 초과(자진 이탈)"] --> RB
+    C["ⓒ 토폴로지·전략 P<br/>파티션 증가·패턴 새 토픽·subscribe·assignor 변경·enforceRebalance"] --> RB
+    D["ⓓ 코디네이터 이동<br/>__consumer_offsets 리더 다운 → 재합류"] --> RB
 ```
 
-→ 이건 **권 횡단의 대표 주제**다: [I권](../1-internals/README.md)(Coordinator 원리) / **III권(트리거 전수 + 운영 대응, 여기)** / [II권](../2-spring/README.md)(Spring cooperative·static membership 설정).
+**경우별 1:N 대처 — 세 직교 축** (A·B는 직교 → 병행이 정석):
+
+```mermaid
+graph LR
+    P["비싸거나 불필요한 리밸런싱"]
+    P --> AX["축 A · 횟수 ↓<br/>static membership·타임아웃 튜닝·운영창"]
+    P --> BX["축 B · 한 번의 비용 ↓<br/>cooperative(KIP-429)·KIP-848"]
+    P --> CX["축 C · 재처리 안전화<br/>idempotency(크래시 재처리는 0이 못 됨)"]
+    AX -.->|"직교 → 병행"| BX
+```
+
+- **축 A/B/C**: 횟수↓(static·타임아웃) · 비용↓(cooperative·KIP-848) · 안전화(멱등). 설정 *코드*는 → [II권](../2-spring/README.md), *원리*는 → [I권 조정](../1-internals/05-coordination.md).
+- **경우별 옵션·트레이드오프**: 불필요 억제 / scale-out STW / 롤링 배포 연쇄 / 비정상 사망 회수 / `max.poll.interval` 초과 / 토폴로지 변화 / 코디네이터 이동 — 각 1:N 옵션과 비용을 4장(📋 예정) 본문에서 표로.
+- **KIP-848 마이그레이션**: `group.protocol=consumer`(4.0 GA·기본 classic) 전환 기준 — 4장(📋 예정).
+
+→ **권 횡단 대표 주제**: [I권](../1-internals/05-coordination.md)(본질·트리거 분류·프로토콜) / **III권(전수+대처·숫자, 여기)** / [II권](../2-spring/README.md)(cooperative·static 설정).
 
 ---
 
@@ -63,7 +77,7 @@ graph TB
 | 1장 | 클러스터 사이징 | 브로커 수 · 파티션 수 결정 기준 · rack awareness | 신규 | 📋 예정 |
 | 2장 | **토픽 설계 베스트 프랙티스** | 파티션 수 결정(늘리기만 가능, 줄이기 불가) · 네이밍 · RF/retention/compaction 정책 | 신규 | 📋 예정 |
 | 3장 | **파티셔닝 전략** | sticky partitioning(2.4+ 기본, 3.3 변경) · key 설계 · rekey 위험 | Step 3 운영 각도 | 📋 예정 |
-| 4장 | **리밸런싱 운영** | 위 트리거 전수 · 운영 영향 · 회피(cooperative·static·`group.initial.rebalance.delay.ms`) | Step 4 운영 각도 | 📋 예정 |
+| 4장 | **리밸런싱 운영** | 트리거 4범주×전수 · 세 직교 축(횟수↓·비용↓·안전화) · 경우별 1:N 대처+트레이드오프 · `group.initial.rebalance.delay.ms` · KIP-848 마이그레이션 | Step 4 운영 각도 | 📋 예정 |
 | 5장 | 모니터링 & 관측 | **Consumer Lag** · under-replicated · JMX → Prometheus/Grafana | Step 9 재료 | 🚧 일부 |
 | 6장 | 토픽/브로커 설정 운영 | retention · `incrementalAlterConfigs` 동적 변경 · compaction 운영 | Step 10 재료 | 🚧 일부 |
 | 7장 | 내구성 운영 기준 | RF / `min.insync.replicas` / `acks` 조합 · unclean leader election | [I권 복제](../1-internals/03-replication.md) 기반 | 📋 예정 |
