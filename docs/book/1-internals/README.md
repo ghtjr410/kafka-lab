@@ -283,7 +283,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **7.3 Transaction Coordinator와 `__transaction_state`**
   - 트랜잭션 상태는 Transaction Coordinator가 관리하고 `__transaction_state` 내부 로그에 저장돼 코디네이터가 죽어도 복구된다
 - **7.4 2단계 흐름**
-  - `commitTransaction` 시 코디네이터가 관련 모든 파티션에 `control record`(마커)를 박는 2PC 닮은 구조로 원자성을 만들고, `transaction.timeout.ms`(기본 60000ms) 초과 시 자동 abort한다
+  - 원자적 결정은 코디네이터가 `__transaction_state`에 commit을 기록하는 순간 확정되고(2PC), 파티션 `control record`(마커)는 그 결정을 가시화하는 phase-2이며, `transaction.timeout.ms`(기본 60000ms) 초과 시 자동 abort한다
 - **7.5 핵심: control record + LSO + `read_committed`**
   - `control record`로 트랜잭션 경계를 긋고 `LSO`(Last Stable Offset = min(`HW`, 가장 오래된 열린 트랜잭션 시작))로 가시성을 막아, `read_committed`는 `LSO`까지만 읽고 abort 배치를 스킵한다
 - **7.6 read-process-write — offset도 트랜잭션에**

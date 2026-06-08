@@ -47,7 +47,7 @@ graph LR
 
 프로듀서가 죽었다 살아나거나 중복 실행되면(좀비), 같은 `transactional.id`에 대해 **epoch를 올려** 옛 인스턴스의 쓰기를 거부한다. → 3장 leader epoch, 4장 Raft term과 같은 **"번호로 유령 펜싱"** 패턴이다.
 
-> **서버측 방어 강화 (KIP-890)**: 위 펜싱은 원래 *프로듀서 수명당* epoch였다. KIP-890은 이를 **매 트랜잭션마다**로 강화한다 — commit/abort marker 직후 epoch를 bump해 각 트랜잭션을 `(producer id, epoch)`로 유일 식별한다. 그러면 이전 트랜잭션의 지연 메시지가 옛 epoch이라 펜싱되어 **hanging transaction**(LSO가 안 풀리는 문제)을 막는다. `[KIP-890 · 4.x]`
+> **서버측 방어 강화 (KIP-890)**: 위 펜싱은 원래 *프로듀서 수명당* epoch였다. KIP-890은 이를 **매 트랜잭션마다**로 강화한다 — 매 트랜잭션의 commit/abort marker에 **새 epoch**를 실어 각 트랜잭션을 `(producer id, epoch)`로 유일 식별한다. 그러면 이전 트랜잭션의 지연 메시지가 옛 epoch이라 펜싱되어 **hanging transaction**(LSO가 안 풀리는 문제)을 막는다. (4.0+에서 기본 활성 — baseline 3.9에선 아직 *프로듀서 수명당* epoch다.) `[KIP-890 · 4.x]`
 
 ---
 
@@ -63,16 +63,20 @@ graph LR
 sequenceDiagram
     participant P as Txn Producer
     participant TC as Transaction Coordinator
+    participant TS as __transaction_state
     participant Part as 데이터 파티션들
-    P->>TC: beginTransaction
-    P->>TC: AddPartitionsToTxn (이 트랜잭션이 건드릴 파티션 등록)
+    P->>TC: initTransactions (InitProducerId)
+    Note over TC: 같은 transactional.id 이전 인스턴스 펜싱(epoch↑)
+    Note over P: beginTransaction — 로컬 상태 전환(RPC 없음)
+    P->>TC: AddPartitionsToTxn (트랜잭션 첫 코디네이터 RPC)
     P->>Part: send (여러 파티션에 produce)
     P->>TC: commitTransaction
-    TC->>Part: 각 파티션에 commit marker(control record) 기록
+    TC->>TS: commit 결정 기록 (★ 원자적 결정 지점 · 복제)
+    TC->>Part: 각 파티션에 marker(control record) 전파
     Note over Part: abort면 abort marker
 ```
 
-프로듀서가 `commit`하면 코디네이터가 관련된 **모든 파티션에 control record(마커)** 를 기록한다. 이 "전부에 마커를 박는" 단계가 원자성을 만든다 — 2단계 커밋(2PC)과 닮은 구조다.
+원자적 결정은 **코디네이터가 `__transaction_state`에 commit을 기록(복제)하는 순간** 확정된다 — 2PC의 prepare/commit에 해당한다. 그 뒤 모든 파티션에 **control record(마커)** 를 전파하는 건 그 결정을 데이터 로그에 *가시화*(LSO 전진)하는 phase-2다. 코디네이터가 마커 도중 죽어도 결정은 로그에 남아 있어, 복구가 그것을 읽어 **남은 마커를 멱등하게 완성**한다 — 그래서 "일부 파티션만 마커가 있는 비원자 구간"은 없다.
 
 > 트랜잭션이 영원히 열린 채 방치되지 않도록, 코디네이터는 `transaction.timeout.ms`(프로듀서 설정, 기본 **60000ms=1분**)를 넘기면 그 트랜잭션을 **자동 abort**한다. (상한은 브로커 `transaction.max.timeout.ms`로 제한된다.) `[docs @3.9]`
 
@@ -83,7 +87,7 @@ sequenceDiagram
 여기가 **low↔high 연결의 정점**이다. II권에서 *"`read_committed` consumer는 abort된 메시지를 못 본다"* 를 배운다. 그게 **어떻게** 구현되나?
 
 - **control record**: commit/abort 마커가 데이터 로그 안에 일반 레코드처럼 박힌다(단, consumer에겐 데이터로 안 보인다).
-- **LSO (Last Stable Offset)**: 아직 끝나지 않은(진행 중) 트랜잭션의 시작 직전 offset — 정확히는 **min(HW, 가장 오래된 열린 트랜잭션의 시작)**. 3장의 HW 위에 트랜잭션 경계를 더한 것이다(LSO는 여기 7장에서 처음 정의된다). ※ 8장의 *log start offset*과 약어가 겹치지 않게, LSO는 항상 Last Stable Offset을 뜻한다.
+- **LSO (Last Stable Offset)**: **min(HW, 가장 오래된 열린 트랜잭션의 첫 offset)**. 3장의 HW 위에 트랜잭션 경계를 더한 것으로, LSO부터가 "아직 확정 안 된" 구간이다. (7장에서 처음 정의 — 8장의 *log start offset*과 약어가 겹치니, 이 책에서 LSO는 항상 Last Stable Offset.)
 
 ```mermaid
 graph LR
@@ -95,7 +99,9 @@ graph LR
 ```
 
 - `read_uncommitted`(**기본값!**): LSO 무시, 진행 중·abort 메시지까지 다 본다.
-- `read_committed`: **LSO까지만** 읽고, **abort 마커가 붙은 트랜잭션의 배치는 스킵**한다.
+- `read_committed`: **LSO 미만**까지만 읽고(LSO부터는 미확정이라 안 보임), **abort 마커가 붙은 트랜잭션의 배치는 스킵**한다.
+
+**head-of-line 비용**: LSO는 *가장 오래된* 열린 트랜잭션에 묶인다. 위 로그 그림에서 txnA가 commit돼도, 먼저 시작해 아직 열린 txnB가 LSO를 잡고 있으면 **txnA의 뒤쪽 메시지(M3)까지 `read_committed`에 안 보인다** — 무관한 열린 트랜잭션 하나가 이미 커밋된 데이터의 가시성을 지연시킨다. 트랜잭션은 공짜가 아니다(마커·코디네이터 왕복 비용 + 이 지연) — 운영 트레이드오프는 → [III권 운영](../3-operations/README.md).
 
 → 그래서 "abort된 메시지를 거른다"는 **control record로 경계를 긋고 LSO로 가시성을 막는** 로그 레벨 메커니즘이다. II권의 현상이 여기서 원리로 설명된다.
 
@@ -121,7 +127,7 @@ graph LR
     PROC -.->|"❌ 보장 밖"| DB["외부 DB / 외부 API"]
 ```
 
-처리 중 **외부 시스템(DB·결제 API 등)에 쓰는 것은 트랜잭션 밖**이다. 그건 Kafka가 롤백할 수 없다. → 외부 시스템까지의 정확성은 **멱등키(idempotency key)** 로 방어해야 한다. (이 패턴은 → II권, 그리고 분산 트랜잭션 설계는 → messaging-lab/saga-lab.)
+처리 중 **외부 시스템(DB·결제 API 등)에 쓰는 것은 트랜잭션 밖**이다. 그건 Kafka가 롤백할 수 없다. → 외부 시스템까지의 정확성은 **멱등키(idempotency key)** 로 방어하거나, DB 쓰기와 이벤트 발행을 한 DB 트랜잭션에 묶는 **transactional outbox 패턴**으로 푼다. 멱등키 *코드*는 → [II권](../2-spring/README.md), outbox·분산 트랜잭션 *설계*는 → messaging-lab/saga-lab.
 
 "Kafka가 EOS 지원하니 중복 걱정 없다"는 가장 흔한 오해의 정체가 이 경계다.
 
