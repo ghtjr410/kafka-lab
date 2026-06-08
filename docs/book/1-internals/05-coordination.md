@@ -88,7 +88,7 @@ sequenceDiagram
 Group Leader가 쓰는 배정 알고리즘(`partition.assignment.strategy`):
 
 - **Range** / **RoundRobin**: 고전적. 멤버 변동 시 배정이 크게 뒤섞인다.
-- **Sticky**: 기존 배정을 최대한 유지하며 최소 이동.
+- **Sticky**: 기존 배정을 최대한 유지해 **순(net) 재배정량**을 줄인다. 단 리밸런싱은 여전히 **eager**(전 파티션 revoke 후 재배정)라 stop-the-world는 남는다 — 무중단은 다음 절의 `CooperativeSticky`뿐이다.
 - **CooperativeSticky**: Sticky + 협력적 리밸런싱(다음 절).
 
 ---
