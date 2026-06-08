@@ -112,6 +112,8 @@ graph TB
 
 핵심 아이디어: **같은 key의 오래된 레코드를 버리고, key별로 최신 값만 남긴다.**
 
+이때 "최신 값"은 fold(2.3)의 *누적 계산* 결과가 아니다 — cleaner는 그 key로 **마지막에 쓰인 레코드를 그대로 보존**할 뿐, value를 더하거나 재계산하지 않는다(계산 0). fold는 앱이 모든 이벤트를 누적 적용해 상태를 *만들고*, compaction은 브로커가 key별 마지막 레코드만 *남긴다* — 결과가 둘 다 "key→값"이라 헷갈리지만 동작은 다르다.
+
 ```mermaid
 graph LR
     subgraph "compaction 전"
@@ -124,9 +126,20 @@ graph LR
 
 그 결과 compaction된 토픽은 (cleaner가 돌고 나면 *결국*) **"key→최신값"의 스냅샷**, 즉 *로그로 표현된 테이블*이 된다(active segment는 미압축이라 근사적이다). `value=null`로 쓰는 **tombstone**은 "이 key를 삭제하라"는 표식이다 — key는 *어느* key를 지울지 식별하므로 반드시 있어야 한다.
 
+compaction은 이렇게 **eventual**이다 — active segment는 미압축이고 cleaner가 도는 타이밍도 즉각적이지 않아, 같은 key가 물리적으로 여러 번 남아 있을 수 있다. 그래서 읽는 쪽은 "key당 레코드 하나"를 가정하면 안 되고, offset 순서로 **마지막 값으로 덮어쓰며**(last-write-wins) 자기 로컬 테이블을 만든다.
+
+**★ 함정 — 레코드는 델타가 아니라 전체 상태여야 한다.** compaction은 계산하지 않고 마지막 레코드만 남기므로, 그 한 레코드가 key의 현재 상태를 **통째로 담고 있어야**(full snapshot) 안전하다.
+
+- ❌ 델타(증분)형: `v="+1000"` → `v="-300"` — 마지막(`-300`)만 남아 `+1000`이 소실 → 잔고가 깨진다.
+- ✅ 전체 상태형: `v={잔고:1000}` → `v={잔고:700}` — 마지막(`{잔고:700}`)이 곧 현재 상태라 온전하다.
+
+그래서 compaction은 "마지막 한 방으로 현재 상태가 완성되는" 데이터에만 맞는다 — `__consumer_offsets`(마지막 커밋 offset), KTable changelog, DB 행 스냅샷(CDC 구현은 → [IV권](../4-beyond-core/README.md)) 같은.
+
 > 여기서는 compaction의 **의미**(상태 스냅샷)만 다룬다. cleaner 스레드가 *어떻게* 세그먼트를 청소하는지의 **메커니즘**은 → [저장 엔진](./08-storage-engine.md). (의미와 메커니즘을 두 장으로 나누는 건 SSOT 원칙이다.)
 
 이 "로그=테이블" 성질은 Kafka 자신도 적극 활용한다. consumer offset을 저장하는 `__consumer_offsets`가 compacted 로그이고(5장), 클러스터 메타데이터 `__cluster_metadata`도 같은 "로그→테이블" 발상이되 메커니즘은 key 기반 compaction이 아니라 **KRaft snapshot**이다(4장).
+
+이처럼 compaction의 실제 쓰임새는 **상태를 여러 소비자에게 배포**하는 것이다. 단 Kafka는 임의 쿼리·JOIN·random access가 되는 **범용 DB가 아니다** — compacted 토픽은 "조회하는 DB"가 아니라 상태의 **배포 매체**이고, 조회는 각 소비자가 그 로그를 읽어 **로컬에 materialize**해서 한다. (외부 DB의 변경 행을 이렇게 배포하는 CDC는 → [IV권 Connect/CDC](../4-beyond-core/README.md).)
 
 ---
 
