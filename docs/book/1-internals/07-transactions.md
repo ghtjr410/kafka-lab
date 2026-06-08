@@ -87,7 +87,7 @@ sequenceDiagram
 여기가 **low↔high 연결의 정점**이다. II권에서 *"`read_committed` consumer는 abort된 메시지를 못 본다"* 를 배운다. 그게 **어떻게** 구현되나?
 
 - **control record**: commit/abort 마커가 데이터 로그 안에 일반 레코드처럼 박힌다(단, consumer에겐 데이터로 안 보인다).
-- **LSO (Last Stable Offset)**: **min(HW, 가장 오래된 열린 트랜잭션의 첫 offset)**. 3장의 HW 위에 트랜잭션 경계를 더한 것으로, LSO부터가 "아직 확정 안 된" 구간이다. (7장에서 처음 정의 — 8장의 *log start offset*과 약어가 겹치니, 이 책에서 LSO는 항상 Last Stable Offset.)
+- **LSO (Last Stable Offset)**: **min(HW, 가장 오래된 열린 트랜잭션의 첫 offset)**. 3장의 HW 위에 트랜잭션 경계를 더한 것으로, **LSO 미만은 결정(commit/abort)이 끝난 '안정' 구간**이고 **LSO 이상은 아직 열린 트랜잭션이 끼어 있어 — 그 위에 이미 commit된 메시지가 있더라도 — 통째로 보류되는 구간**이다. (7장에서 처음 정의 — 8장의 *log start offset*과 약어가 겹치니, 이 책에서 LSO는 항상 Last Stable Offset.)
 
 ```mermaid
 graph LR
@@ -99,7 +99,7 @@ graph LR
 ```
 
 - `read_uncommitted`(**기본값!**): LSO 무시, 진행 중·abort 메시지까지 다 본다.
-- `read_committed`: **LSO 미만**까지만 읽고(LSO부터는 미확정이라 안 보임), **abort 마커가 붙은 트랜잭션의 배치는 스킵**한다.
+- `read_committed`: **LSO 미만**까지만 읽고, **abort 마커가 붙은 트랜잭션의 배치는 스킵**한다.
 
 **head-of-line 비용**: LSO는 *가장 오래된* 열린 트랜잭션에 묶인다. 위 로그 그림에서 txnA가 commit돼도, 먼저 시작해 아직 열린 txnB가 LSO를 잡고 있으면 **txnA의 뒤쪽 메시지(M3)까지 `read_committed`에 안 보인다** — 무관한 열린 트랜잭션 하나가 이미 커밋된 데이터의 가시성을 지연시킨다. 트랜잭션은 공짜가 아니다(마커·코디네이터 왕복 비용 + 이 지연) — 운영 트레이드오프는 → [III권 운영](../3-operations/README.md).
 
