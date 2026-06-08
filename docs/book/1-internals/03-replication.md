@@ -134,7 +134,10 @@ graph TB
 
 이 lab의 docker-compose 기본값이 `RF=3 / min.insync.replicas=2`인 이유가 이것이다.
 
-> ⚠️ **correctness 제약**(트레이드오프가 아니다): `min.insync.replicas`는 RF를 넘을 수 없다. `min.isr=RF`로 두면 단 1대 장애로 ISR이 `RF-1`로 떨어져 **쓰기가 즉시 막힌다**(가용성 절벽) — 보통 `min.isr = RF-1`로 둔다.
+> ⚠️ **correctness 제약**(트레이드오프가 아니다):
+> - `min.insync.replicas`를 RF보다 크게 두면 — **Kafka가 막지 않는다** — `acks=all` 쓰기가 영구히 실패한다(ISR이 그 값에 도달 불가 → `NotEnoughReplicasException`).
+> - `min.isr=RF`로 두면 단 1대 장애로 ISR이 `RF-1`로 떨어져 쓰기가 즉시 막힌다(가용성 절벽).
+> - 그래서 실질적으로 RF 이하여야 하며, 보통 `min.isr = RF-1`.
 >
 > 또한 이 무손실은 복제본이 **독립 장애 도메인**(AZ/랙)에 분산됐다는 전제 위에서 성립한다 — 셋이 같은 AZ에 몰리면 AZ 장애 한 번에 전손될 수 있다(배치 정책 → III권).
 
