@@ -27,7 +27,7 @@ conventions: ../README.md
 
 ## 6.1 파티션 내 순서 — 그 순서는 누구 기준인가
 
-Kafka의 순서 보장은 **파티션 안에서만**이다([1장](./01-what-is-kafka.md)). 같은 key는 같은 파티션으로 가니 *key 단위 순서*는 보장되지만, 토픽 전체 순서는 보장되지 않는다. 전체 순서가 필요하면 파티션 1개를 쓰거나(처리량 포기) key 설계로 풀어야 한다.
+Kafka의 순서 보장은 **파티션 안에서만**이다([1장](./01-what-is-kafka.md)). 같은 key는 같은 파티션으로 가니 *key 단위 순서*는 보장되지만(단, 파티션 수를 늘리면 `key→파티션` 매핑이 바뀌어 전환기엔 깨질 수 있다 → [II권 파티션·동시성](../2-spring/03-partition-concurrency.md)), 토픽 전체 순서는 보장되지 않는다. 대개 정말 필요한 건 *key 단위 순서*다 — 진짜 토픽 전체 순서가 필요하면 **파티션 1개**(처리량 포기)뿐이다(모든 메시지를 한 key로 몰아도 결국 한 파티션과 같다).
 
 그런데 그 "보낸 순서"가 **누구 기준**인가를 먼저 갈라야 한다.
 
@@ -43,7 +43,7 @@ graph LR
     L["Partition Leader<br/>(도착·append 순서대로 붙임)"] --> LOG["off0:m1 · off1:m2 · off2:m4 · off3:m3"]
 ```
 
-> A가 m3을 m4보다 *먼저 보내도*, 브로커에 m4가 *먼저 닿으면* m4가 앞 offset이다 — **"먼저 send"가 아니라 "먼저 append"가 앞 offset**이다.
+> A의 m3과 B의 m4 중 **누가 먼저 send했든**, 브로커에 m4가 *먼저 닿으면* m4가 앞 offset이다 — **"먼저 send"가 아니라 "먼저 append"가 앞 offset**이다.
 
 이 "요청 기준 vs 저장 기준"의 갈림은 offset·순서·timestamp 세 곳에 똑같이 나타난다:
 
@@ -71,7 +71,7 @@ sequenceDiagram
     L->>L: 또 append ✗ (중복!)
 ```
 
-리더는 정상 저장했는데 ACK가 유실되면, 프로듀서는 실패로 알고 재시도한다 → **같은 메시지가 두 번 로그에 쌓인다.** 순서를 지키려고 `max.in.flight=1`로 두면 처리량이 죽는다. 멱등 프로듀서가 이 딜레마를 푼다.
+리더는 정상 저장했는데 ACK가 유실되면, 프로듀서는 실패로 알고 재시도한다 → **같은 메시지가 두 번 로그에 쌓인다.** 순서를 지키려고 `max.in.flight=1`로 두면 처리량이 크게 떨어진다(특히 RTT가 큰 링크에서). 멱등 프로듀서가 이 딜레마를 푼다.
 
 ---
 
@@ -83,9 +83,9 @@ sequenceDiagram
 - **epoch**: 같은 PID의 세대 번호(좀비 차단용 — 7장)
 - **sequence number**: 파티션별로 0,1,2,… 증가하는 일련번호
 
-브로커는 파티션별로 "마지막으로 받은 sequence"를 기억한다. 재시도로 **같은 sequence가 또 오면 버리고**, 건너뛴 sequence가 오면 순서 오류로 거부한다 → 중복 제거 + 순서 보장.
+브로커는 파티션별로 **직전 sequence 상태**를 들고 있다가, 재시도로 **같은 sequence가 또 오면 버리고**(중복 제거), 건너뛴 sequence가 오면 순서 오류로 거부한다. 단 이 보장은 **프로듀서→브로커 한 구간** 한정이다 — 컨슈머의 중복 *소비*는 별개이고, 종단(end-to-end) exactly-once는 트랜잭션이 필요하다(7장).
 
-> ★ 요구 조합(II권 함정의 원리): `enable.idempotence=true`는 `acks=all` · `max.in.flight.requests ≤ 5` · `retries>0`을 전제한다. Kafka **3.0+** 부터 `enable.idempotence`가 **기본 true**(→ `acks=all` 강제)라, `acks=1`로 명시하면 이 전제가 깨진다. `[KIP-98/679 · docs @3.9]`
+> ★ 요구 조합(II권 함정의 원리): `enable.idempotence=true`는 `acks=all` · `max.in.flight.requests.per.connection ≤ 5` · `retries>0`을 전제한다. Kafka **3.0+** 부터 `enable.idempotence`가 **기본 true**(→ `acks=all` 강제)라, 멱등을 명시하지 않은 채 `acks=1`을 주면 멱등이 **에러 없이 조용히 꺼져**(INFO 로그뿐) 중복을 허용한다(멱등을 `true`로 명시했다면 `ConfigException`으로 fail-fast). 이 조합 분기(silent disable vs 예외)는 → [II권 설정 조합 함정](../2-spring/08-config-combination-traps.md). `[KIP-98/679 · docs @3.9]`
 
 ---
 
@@ -102,7 +102,7 @@ sequenceDiagram
 `max.in.flight.requests.per.connection`은 ACK를 기다리지 않고 동시에 날리는 요청 수다.
 
 - 멱등 **off** + `max.in.flight>1` + 재시도: 앞 요청이 실패해 재전송되는 사이 뒤 요청이 먼저 저장되면 **순서가 뒤바뀐다.**
-- 멱등 **on**: sequence number 덕에 `max.in.flight≤5`까지는 순서가 보장된다(브로커가 sequence로 재정렬·거부).
+- 멱등 **on**: sequence number 덕에 `max.in.flight.requests.per.connection ≤ 5`까지는 순서가 보장된다 — **브로커는 어긋난 sequence를 거부**(중복은 버림)하고, 순서를 맞춰 **재정렬하는 건 프로듀서**(재시도 시 in-flight 배치를 sequence 순서로)다(§6.3).
 
 → 그래서 멱등은 "중복 제거"뿐 아니라 "처리량을 지키면서 순서 보장"의 열쇠이기도 하다.
 
