@@ -85,7 +85,7 @@ sequenceDiagram
 
 브로커는 파티션별로 **직전 sequence 상태**를 들고 있다가, 재시도로 **같은 sequence가 또 오면 버리고**(중복 제거), 건너뛴 sequence가 오면 순서 오류로 거부한다. 단 이 보장은 **프로듀서→브로커 한 구간** 한정이다 — 컨슈머의 중복 *소비*는 별개이고, 종단(end-to-end) exactly-once는 트랜잭션이 필요하다(7장).
 
-> ★ 요구 조합(II권 함정의 원리): `enable.idempotence=true`는 `acks=all` · `max.in.flight.requests.per.connection ≤ 5` · `retries>0`을 전제한다. Kafka **3.0+** 부터 `enable.idempotence`가 **기본 true**(→ `acks=all` 강제)라, 멱등을 명시하지 않은 채 `acks=1`을 주면 멱등이 **에러 없이 조용히 꺼져**(INFO 로그뿐) 중복을 허용한다(멱등을 `true`로 명시했다면 `ConfigException`으로 fail-fast). 이 조합 분기(silent disable vs 예외)는 → [II권 설정 조합 함정](../2-spring/08-config-combination-traps.md). `[KIP-98/679 · docs @3.9]`
+> ★ 요구 조합(II권 함정의 원리): `enable.idempotence=true`는 `acks=all` · `max.in.flight.requests.per.connection ≤ 5` · `retries>0`을 전제한다. Kafka **3.0+** 부터 `enable.idempotence`가 **기본 true**라(그래서 `acks`도 기본값이 `all`이다), 멱등을 명시하지 않은 채 `acks=1`을 주면 멱등이 **에러 없이 조용히 꺼져**(INFO 로그뿐) 중복을 허용한다. 멱등을 `true`로 *명시*했다면 같은 충돌이 `ConfigException`으로 fail-fast한다. 이 조합 분기(silent disable vs 예외)는 → [II권 설정 조합 함정](../2-spring/08-config-combination-traps.md). `[KIP-98/679 · docs @3.9]`
 
 ---
 
