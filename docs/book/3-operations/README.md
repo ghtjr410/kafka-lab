@@ -63,6 +63,39 @@ graph LR
 
 ---
 
+## KRaft 컨트롤러 — combined vs dedicated, 그리고 노드 스펙
+
+원리(쿼럼·합의·pull fetch)는 → [I권 합의](../1-internals/04-consensus.md). 여기선 **어떻게 배치하고 어떤 스펙으로 잡나**.
+
+```mermaid
+graph TB
+    subgraph CB["combined (이 lab · process.roles=broker,controller)"]
+        X["한 노드 = controller + broker<br/>메타로그 ↔ 데이터로그 자원 경합"]
+    end
+    subgraph ISO["dedicated/isolated (운영 권장)"]
+        C["controller 전용 3·5대"]
+        B["broker N대"]
+        B -.metadata fetch.-> C
+    end
+```
+
+- **combined 트레이드오프**: 컨트롤러는 데이터 핫패스 밖(→ [I권 복제](../1-internals/03-replication.md))이라 produce/consume 처리량엔 영향이 없지만, 같은 노드 브로커의 과부하(GC·디스크 포화)가 **메타데이터 작업(리더 선출·ISR·reassignment) 응답성**을 떨군다. 컨트롤러만 따로 rolling/scale 불가 + blast radius도 넓다.
+- **언제 분리하나**: 노드 수·파티션/토픽 총개수가 크고 가용성이 중요하면 **dedicated**.
+
+**컨트롤러 노드 스펙** (브로커와 자원 프로파일이 정반대 — 그래서 분리가 이득):
+
+| 자원 | 브로커(데이터 평면) | 컨트롤러(메타데이터 평면) |
+|---|---|---|
+| RAM | 큼(페이지캐시) | **4–8GB**(시작점) · 큰 페이지캐시 불필요 |
+| 디스크 | 용량·처리량 | 용량 작음(메타로그 ~GB) · **저지연 fsync(SSD/NVMe)·전용 볼륨**이 관건 |
+| CPU·네트워크 | 큼 | 작게 |
+
+- **스케일 동인**: 처리량이 아니라 **파티션·토픽·ACL 총개수**(= 메타데이터 양).
+
+→ 정식 산문·숫자는 **클러스터 사이징 장(📋 예정)**. 원리는 → [I권 합의](../1-internals/04-consensus.md).
+
+---
+
 ## 증명 모델 · 상태
 
 - **🧪 증명 모델**: III권의 증명은 **멀티브로커 docker로 장애를 주입·관측**(브로커 kill → ISR 축소·리더 선출)하고 **`AdminClient`·메트릭으로 운영 신호를 확인**한다. I권과 도구(docker/CLI)는 겹치지만 관점이 다르다 — I권은 *원리가 성립함*을, III권은 *운영에서 어떤 숫자·어떤 대응*을 본다.
@@ -74,7 +107,7 @@ graph LR
 
 | 장 | 제목 | 다루는 핵심 | 재료 | 상태 |
 |----|------|------------|------|------|
-| 1장 | 클러스터 사이징 | 브로커 수 · 파티션 수 결정 기준 · rack awareness | 신규 | 📋 예정 |
+| 1장 | 클러스터 사이징 | 브로커 수 · **KRaft 컨트롤러 쿼럼(3/5)·combined vs dedicated·노드 스펙** · 파티션 수 결정 기준 · rack awareness | 신규 | 📋 예정 |
 | 2장 | **토픽 설계 베스트 프랙티스** | 파티션 수 결정(늘리기만 가능, 줄이기 불가) · 네이밍 · RF/retention/compaction 정책 | 신규 | 📋 예정 |
 | 3장 | **파티셔닝 전략** | sticky partitioning(2.4+ 기본, 3.3 변경) · key 설계 · rekey 위험 | Step 3 운영 각도 | 📋 예정 |
 | 4장 | **리밸런싱 운영** | 트리거 4범주×전수 · 세 직교 축(횟수↓·비용↓·안전화) · 경우별 1:N 대처+트레이드오프 · `group.initial.rebalance.delay.ms` · KIP-848 마이그레이션 | Step 4 운영 각도 | 📋 예정 |

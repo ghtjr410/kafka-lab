@@ -86,7 +86,7 @@ graph TB
 
 ## 4.5 Controller Quorum · active controller · term
 
-- **Controller Quorum**: 메타데이터 로그를 복제하는 voter 노드들. 이 lab은 3-노드가 모두 broker+controller를 겸한다(combined 모드). 대규모에선 controller 전용 노드(isolated)로 분리한다.
+- **Controller Quorum**: 메타데이터 로그를 복제하는 voter 노드들 — `controller.quorum.voters`로 지정하고, 홀수(3·5)로 둬 과반을 유지한다(4.2). 노드 역할은 `process.roles`로 정한다 — `broker`(데이터만) / `controller`(메타데이터만) / `broker,controller`(겸임). 이 lab은 3-노드 모두 `broker,controller`인 **combined 모드**이고, 겸임이어도 컨트롤러 통신은 **별도 리스너(CONTROLLER)** 로 분리된다. 대규모 운영에선 controller 전용 노드(**isolated**)로 떼어내 자원 경합을 없앤다 — 그 트레이드오프·노드 스펙은 → [III권 운영](../3-operations/README.md).
 - **active controller 선출**: voter들이 Raft로 과반 투표해 active를 뽑는다. active가 죽으면 남은 voter가 새 active를 선출한다.
 - **빠른 승계**: standby는 이미 메타데이터 로그를 따라 읽고 있었으므로, active가 죽어도 거의 즉시 이어받는다. (ZooKeeper 시절엔 새 컨트롤러가 외부 저장소에서 전체 상태를 로딩해야 해서 느렸다 — 4.7.)
 
