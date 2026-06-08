@@ -95,7 +95,7 @@ graph LR
         direction LR
         M1["msg(txnA)"] --> M2["msg(txnB)"] --> M3["msg(txnA)"] --> CM["commit(txnA)"] --> O["진행중 txnB..."]
     end
-    LSO["read_committed는 LSO까지만,<br/>그리고 abort된 txn의 배치는 건너뛴다"]
+    LSO["read_committed는 LSO 미만까지,<br/>그리고 abort된 txn의 배치는 건너뛴다"]
 ```
 
 - `read_uncommitted`(**기본값!**): LSO 무시, 진행 중·abort 메시지까지 다 본다.
