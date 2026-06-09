@@ -27,11 +27,11 @@ conventions: ../README.md
 
 ## 8.1 통념 깨기 — "디스크 = 느리다"가 틀리는 지점
 
-디스크가 느린 건 **랜덤 접근**일 때다. **순차 접근**은 디스크도 충분히 빠르다(때로 메모리 랜덤 접근과 비슷). Kafka는 로그가 append-only(2장)라 **항상 순차 쓰기/읽기**만 한다 — 이게 첫 번째 비결이다.
+디스크가 느린 건 **랜덤 접근**일 때다. **순차 접근**은 디스크도 충분히 빠르다(때로 메모리 랜덤 접근과 비슷). Kafka는 로그가 append-only(2장)라 **쓰기는 항상 순차**이고, 읽기도 대부분 순차다(sparse index로 근처까지 점프한 뒤 짧게 순차 스캔 — 8.5) — 이게 첫 번째 비결이다.
 
 ```mermaid
 graph LR
-    RAND["랜덤 I/O<br/>(전통 DB의 약점)"] -.느림.-> X[" "]
+    RAND["랜덤 I/O<br/>(전통 DB의 약점)"] -.느림.-> SLOW["높은 지연·낮은 처리량"]
     SEQ["순차 I/O<br/>(append-only 로그)"] -->|빠름| FAST["고처리량"]
 ```
 
@@ -42,6 +42,7 @@ graph LR
 두 번째·세 번째 비결은 OS를 적극 활용하는 것이다.
 
 - **OS page cache**: Kafka는 데이터를 JVM 힙에 캐싱하지 않고 **OS 페이지 캐시**에 맡긴다. → GC 압력이 없고, 브로커가 재시작해도 캐시(페이지)가 살아 있으며, 쓰기는 캐시에 했다가 OS가 디스크로 flush한다.
+  - 즉 Kafka는 **매 쓰기마다 fsync를 강제하지 않는다**(그래서 page cache 위임이 빠르다). 아직 flush 안 된 데이터의 내구성은 디스크 fsync가 아니라 **복제**로 보장한다 — 여러 브로커의 page cache + `acks=all`·`min.insync.replicas`(3장). 한 브로커의 디스크 손실은 복구(8.9)+복제로 메운다.
 - **zero-copy (`sendfile`)**: consumer에게 보낼 때, 디스크→커널→유저공간→커널→소켓의 복사를 거치지 않고 **커널 안에서 디스크→소켓으로 바로** 보낸다(`sendfile` 시스템콜). 유저공간 복사가 사라져 CPU·메모리 대역폭을 아낀다.
   - 단, **TLS 암호화** · **브로커측 재압축** · **구버전 클라이언트용 다운컨버전(메시지 포맷 변환)** 이 끼면 데이터가 user-space를 거쳐야 해서 `sendfile` 경로를 **우회**한다 — zero-copy는 평문·무변환 전송에서만 성립하는 원리다.
 
@@ -68,7 +69,10 @@ order-events-0/                         (토픽-파티션 디렉터리)
 ├── 00000000000000000000.log            (레코드 배치 — 실제 데이터)
 ├── 00000000000000000000.index          (offset → 파일 물리위치, sparse)
 ├── 00000000000000000000.timeindex      (timestamp → offset)
+├── 00000000000000000000.snapshot       (프로듀서 상태 PID→seq — 재시작 복원, 8.4)
 ├── 00000000000000170245.log            (다음 세그먼트, base offset=170245)
+├── leader-epoch-checkpoint             (리더 epoch — 3장·8.9 truncation)
+├── partition.metadata                  (파티션 메타: topic id 등)
 └── ...
 ```
 
@@ -117,10 +121,10 @@ order-events-0/                         (토픽-파티션 디렉터리)
 
 - **log cleaner 스레드**가 백그라운드로 세그먼트를 돌며, 같은 key의 옛 레코드를 제거하고 최신만 남긴다.
 - cleaner는 **즉시·완전 압축을 보장하지 않는다** — active segment는 제외되고, dirty(미압축) 비율이 임계(`min.cleanable.dirty.ratio`, 기본 0.5)를 넘어야 돌며, `min.compaction.lag.ms`가 지난 레코드만 대상이다. 그래서 같은 key가 한동안 중복으로 남을 수 있고, **소비 측은 offset 순서로 마지막 값을 취하는(last-write-wins) 식으로 읽어야 한다**(의미는 → [로그 추상](./02-log-abstraction.md)). `[docs @3.9]`
-- `value=null` 레코드(**tombstone**)는 "삭제"를 의미하고, 일정 시간 후 제거된다(key는 *어느* key를 지울지 식별하므로 살아 있어야 한다).
+- `value=null` 레코드(**tombstone**)는 "이 key를 삭제하라"는 표식이다(key는 살아 있어 *어느* key를 지울지 가리킨다). tombstone **레코드 자체**는 `delete.retention.ms`(기본 1일) 동안 보존됐다가 제거된다 — 소비자가 삭제를 놓치지 않게 한 grace period다. `[docs @3.9]`
 - `cleanup.policy=compact`(또는 `compact,delete`)로 켠다.
 
-→ `__consumer_offsets`·`__cluster_metadata`가 무한히 안 자라는 이유가 이것이다.
+→ `__consumer_offsets`가 무한히 안 자라는 이유가 이것(compaction)이다. (`__cluster_metadata`는 compaction이 아니라 **KRaft 스냅샷**으로 잘라낸다 — 메커니즘이 다르다, 4장.)
 
 ---
 
@@ -143,11 +147,13 @@ order-events-0/                         (토픽-파티션 디렉터리)
 
 ## 8.9 로그 복구 — 재시작 시 어디부터 믿나
 
-브로커가 재시작하면 **마지막으로 안전하게 디스크에 내려간 지점**을 알아야 한다. 그래서 파티션마다 체크포인트 파일을 둔다:
+브로커가 재시작하면 **마지막으로 안전하게 디스크에 내려간 지점**을 알아야 한다. 그래서 **로그 디렉터리(`log.dir`)마다** 체크포인트 파일을 두고, 한 파일 안에 **파티션별 행**으로 적는다:
 
 - `recovery-point-offset-checkpoint` — 어디까지 디스크로 flush됐나
 - `replication-offset-checkpoint` — HW(3장)
 - `log-start-offset-checkpoint` — 로그 시작 offset
+
+(이 셋은 `log.dir` 단위 파일이고, `leader-epoch-checkpoint`는 파티션 디렉터리마다 따로 둔다 — 8.3.)
 
 **clean shutdown**이면 이 체크포인트를 믿고 즉시 시작한다. **unclean shutdown**(크래시·`kill -9`)이면 마지막 세그먼트가 온전하다는 보장이 없으므로, **마지막 세그먼트를 스캔·재검증해 반쯤 쓰인 손상 배치를 잘라낸다.** mmap 인덱스(8.3)도 이때 재구성된다.
 
@@ -164,7 +170,7 @@ order-events-0/                         (토픽-파티션 디렉터리)
 
 `.timeindex`(8.3)는 이 timestamp로 "시각 T의 메시지는 어느 offset인가"를 인덱싱해 **시간 기반 seek**을 지원한다.
 
-★ 함정: **retention(시간 기반 삭제)도 이 timestamp를 본다.** 그래서 프로듀서가 잘못된 CreateTime(예: 과거 시각)을 넣으면 데이터가 의도보다 **너무 일찍 삭제**되거나, 미래 시각이면 안 지워질 수 있다. (어느 타입을 쓸지는 운영 판단 → III권.) `[docs @3.9]`
+★ 함정: **retention(시간 기반 삭제)도 이 timestamp를 본다** — 정확히는 한 세그먼트의 **최대 timestamp**가 기준이라 세그먼트 단위로 판정한다(과거 레코드 하나로 즉시 삭제되진 않는다). 그래서 프로듀서가 잘못된 CreateTime(예: 과거 시각)을 넣으면 데이터가 의도보다 **너무 일찍 삭제**되거나, 미래 시각이면 안 지워질 수 있다. (어느 타입을 쓸지는 운영 판단 → III권.) `[docs @3.9]`
 
 ---
 
@@ -188,7 +194,7 @@ graph LR
 
 ---
 
-## 8.12 증명 (executable — docker exec · 미구현)
+## 8.12 증명 (executable — docker exec · 부분 2/4)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|

@@ -154,7 +154,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **2.3 상태 = fold(로그)**
   - 어떤 상태든 로그를 처음부터 fold하면 결정적으로 재현되며, 이것이 N×M 통합을 N+M으로 바꾼 힘의 정체다
 - **2.4 Log Compaction의 "의미" — 로그를 상태 스냅샷으로**
-  - 같은 key의 옛 레코드를 버리고 key별 최신값만 남겨 로그를 "key→최신값" 테이블 스냅샷으로 만들며, tombstone(`key=null`)으로 삭제를 표식한다
+  - 같은 key의 옛 레코드를 버리고 key별 최신값만 남겨 로그를 "key→최신값" 테이블 스냅샷으로 만들며, tombstone(`value=null`)으로 삭제를 표식한다
 - **2.5 Stream–Table Duality**
   - fold하면 로그(스트림)가 테이블이 되고 changelog로 흘리면 테이블이 로그가 되는 stream–table duality가 Kafka Streams `KStream`/`KTable`의 토대다
 - **2.6 메타데이터도 로그다**
@@ -314,7 +314,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **8.6 압축(compression)**
   - 프로듀서가 배치 단위로 압축하면 브로커는 그대로 저장·전송하고 consumer가 풀어 압축률·CPU를 아낀다
 - **8.7 Log Compaction의 "메커니즘"**
-  - log cleaner 스레드가 같은 key의 옛 레코드를 제거하고 최신만 남기며, tombstone(`key=null`)은 삭제를 의미하고 `cleanup.policy=compact`로 켠다
+  - log cleaner 스레드가 같은 key의 옛 레코드를 제거하고 최신만 남기며, tombstone(`value=null`)은 삭제를 의미하고 `cleanup.policy=compact`로 켠다
 - **8.8 Retention — 세그먼트 단위 삭제**
   - `cleanup.policy=delete`에서 `retention.ms`/`retention.bytes`를 넘긴 데이터를 레코드가 아니라 세그먼트 통째로 삭제한다
 - **8.9 로그 복구 — 재시작 시 어디부터 믿나**
