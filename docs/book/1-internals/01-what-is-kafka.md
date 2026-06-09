@@ -165,4 +165,4 @@ graph LR
 → [로그라는 추상](./02-log-abstraction.md) — 왜 하필 append-only 로그인가, "현재 상태는 로그의 파생물"이라는 발상.
 → 이어서 [복제](./03-replication.md) — 이 로그가 어떻게 죽지 않고 살아남는가 (ISR·HW·leader epoch).
 
-← [들어가며](./00-prologue.md) · [I권 목차](./README.md) · [용어집](../../GLOSSARY.md)
+← [들어가며](./00-prologue.md) · [I권 목차](./README.md) · [용어집](../GLOSSARY.md)

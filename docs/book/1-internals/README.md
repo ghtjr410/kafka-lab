@@ -382,4 +382,4 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 
 ---
 
-← [전체 표지](../README.md) · [CHARTER](../../CHARTER.md) · [용어집](../../GLOSSARY.md)
+← [전체 표지](../README.md) · [CHARTER](../../CHARTER.md) · [용어집](../GLOSSARY.md)

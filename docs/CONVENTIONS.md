@@ -85,7 +85,7 @@ props.put(ProducerConfig.ACKS_CONFIG, "all");
 
 > 착각 질문: "<~하면 안전한/되는 거 아닌가?>"
 > 한 줄 명제: <무엇이 깨지고, 무엇으로 해결되는가>
-> 선행: [Step X](../sXX_xxx/README.md) · 관련 용어: [GLOSSARY](../../../../../../../docs/GLOSSARY.md)
+> 선행: [Step X](../sXX_xxx/README.md) · 관련 용어: [GLOSSARY](../../../../../../../docs/book/GLOSSARY.md)
 
 ## 직접 답해보자
 - (학습자가 테스트를 보기 전에 먼저 답해볼 질문 2~4개)

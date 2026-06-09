@@ -266,4 +266,4 @@ DB의 변경분(binlog/WAL)도 결국 append-only 로그라는 관점에서, 그
 
 ---
 
-← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [II권](../2-spring/README.md) · [III권](../3-operations/README.md) · [용어집](../../GLOSSARY.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)
+← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [II권](../2-spring/README.md) · [III권](../3-operations/README.md) · [용어집](../GLOSSARY.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)

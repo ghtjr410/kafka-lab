@@ -318,4 +318,4 @@ EOS가 보장하는 건 Kafka 내부의 원자성뿐 — 멱등·트랜잭셔널
 
 ---
 
-← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [III권](../3-operations/README.md) · [IV권](../4-beyond-core/README.md) · [용어집](../../GLOSSARY.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)
+← [전체 표지](../README.md) · [I권](../1-internals/README.md) · [III권](../3-operations/README.md) · [IV권](../4-beyond-core/README.md) · [용어집](../GLOSSARY.md) · 버전 SSOT: [CHARTER](../../CHARTER.md)

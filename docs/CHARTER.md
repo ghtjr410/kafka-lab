@@ -167,7 +167,9 @@ docs/
   ROADMAP.md         [지도]   Step 전체 흐름 + 의존 그래프 + 상태.
   CONVENTIONS.md     [규약]   Step README 템플릿, 네이밍, 커밋 규칙.
   KAFKA-ARCHITECTURE.md       분산 시스템/브로커 내부 개념.
-  GLOSSARY.md                 용어 사전.
+  book/                       [책]   4권 executable book (README=표지).
+    SOURCES.md                인용 규율(tier·라벨).
+    GLOSSARY.md               용어 사전.
 src/test/.../sNN_*/README.md  [로컬 명세]  상위 문서를 참조, 재정의 금지.
 ```
 
