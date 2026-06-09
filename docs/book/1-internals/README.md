@@ -2,7 +2,7 @@
 volume: "I — Internals (원리와 내부)"
 role: index
 prose: done       # 들어가며·1~10장 산문 완료
-executable: "전 장 미구현([테스트 예정]). 10장 share group은 4.2+ 브로커 별도 필요"
+executable: "대부분 미구현([테스트 예정]) · 4·8장 일부 done([code @3.7]). 10장 share group은 4.2+ 브로커 별도 필요"
 proof_model: "혼합: 저장·프로토콜 장(복제·합의·트랜잭션·저장엔진·클라이언트런타임)=I권 자체 증명(docker/CLI/AdminClient) / 개념 장 런타임 동작(offset 이동·순서·pull)=II권 Spring Step에 위임"
 ssot: "교차요소 정의 위치 = 본문 SSOT 표(HW=3장·LSO=7장 등). 표↔산문 어긋나면 산문 기준으로 표를 고친다."
 invariant: "다른 장·권 참조는 named link only, 장/권 번호 본문 금지. LSO·권번호 드리프트가 이 위반에서 났다."
@@ -213,7 +213,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - ZooKeeper는 별도 운영 부담·컨트롤러 장애 시 전체 상태 재로딩·확장 한계의 비용이 있어, `KRaft`가 그 의존을 제거하고 Kafka가 스스로 합의하게 했다.
 - **4.8 메타데이터 로그도 무한히 안 자란다 — KRaft 스냅샷**
   - `__cluster_metadata`도 자라므로 KRaft 스냅샷이 어느 시점의 전체 상태를 통째로 저장하고 이전 로그를 잘라내어, key별 최신만 남기는 log compaction과 다르다.
-- **4.9 증명 (executable — 3-broker · 미구현)**
+- **4.9 증명 (executable — 3-broker · 부분)**
   - `describeCluster`로 컨트롤러 확인, active controller kill 시 승계, 토픽 생성 직후 메타 전파, `__cluster_metadata` 덤프로 메타데이터가 로그임을 실험으로 단언한다.
 - **참조**
   - Raft 논문(Ongaro & Ousterhout 2014), Paxos Made Simple, `[KIP-500]`·`[KIP-595]`·`[KIP-631]`, DDIA 9장 등 인용 출처를 모은다.
@@ -266,7 +266,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **6.5 순서와 `max.in.flight`**
   - 멱등 off에 `max.in.flight>1`과 재시도면 순서가 뒤바뀌지만, 멱등 on이면 `sequence`로 `max.in.flight≤5`까지 순서가 보장된다.
 - **6.6 증명 (executable · 미구현)**
-  - 멱등 on의 강제 재시도는 중복 없음, 프로듀서 재시작 후 재전송은 중복 발생, 멱등 off에 `max.in.flight>1`+재시도는 순서 역전을 관측한다.
+  - 멱등 on의 강제 재시도는 중복 없음, 프로듀서 재시작 후 재전송은 중복 발생, 멱등 off에 `max.in.flight>1`+재시도는 순서 역전, 두 프로듀서 동시 전송은 offset 인터리빙이 send 순서와 무관함을 관측한다.
 - **참조**
   - `[KIP-98]`·Kafka 공식 문서의 `enable.idempotence` 기본값·DDIA 9장을 근거로 든다.
 
@@ -312,18 +312,18 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **8.5 조회 — sparse index**
   - `.index`는 `index.interval.bytes` 간격으로 드문드문만 기록해 근처까지 점프한 뒤 `.log`를 순차 스캔한다
 - **8.6 압축(compression)**
-  - 프로듀서가 배치 단위로 압축하면 브로커는 그대로 저장·전송하고 consumer가 풀어 압축률·CPU를 아낀다
+  - 프로듀서가 배치 단위로 압축하면 기본값(`compression.type=producer`)에선 브로커가 그대로 저장·전송하고 consumer가 풀어 CPU를 아끼지만, 토픽에 코덱을 지정하면 브로커가 재압축한다(이땐 zero-copy 우회)
 - **8.7 Log Compaction의 "메커니즘"**
   - log cleaner 스레드가 같은 key의 옛 레코드를 제거하고 최신만 남기며, tombstone(`value=null`)은 삭제를 의미하고 `cleanup.policy=compact`로 켠다
 - **8.8 Retention — 세그먼트 단위 삭제**
-  - `cleanup.policy=delete`에서 `retention.ms`/`retention.bytes`를 넘긴 데이터를 레코드가 아니라 세그먼트 통째로 삭제한다
+  - `cleanup.policy=delete`에서 `retention.ms`/`retention.bytes`를 넘긴 데이터를 레코드가 아니라 세그먼트 통째로 삭제하며, `compact,delete`는 key별 최신을 남기되 너무 오래되면 지운다
 - **8.9 로그 복구 — 재시작 시 어디부터 믿나**
   - 체크포인트 파일(`recovery-point-offset-checkpoint`·`replication-offset-checkpoint`·`log-start-offset-checkpoint`)을 두어, clean shutdown이면 즉시 시작하고 unclean이면 마지막 세그먼트를 스캔·재검증해 손상 배치를 잘라낸다
 - **8.10 시간의 의미 — timestamp.type과 retention**
-  - 레코드 timestamp는 `message.timestamp.type`의 CreateTime/LogAppendTime 중 하나이고, retention도 이 timestamp를 보기에 잘못된 CreateTime은 너무 일찍 삭제되거나 안 지워질 수 있다
+  - 레코드 timestamp는 `message.timestamp.type`의 CreateTime/LogAppendTime 중 하나이고, retention도 세그먼트의 최대 timestamp를 보고 세그먼트 단위로 판정하기에 잘못된 CreateTime은 너무 일찍 삭제되거나 안 지워질 수 있다
 - **8.11 Tiered Storage — 무한 보존 (KIP-405)**
   - RemoteLogManager가 오래된 세그먼트를 원격 스토리지로 내리고 local/remote retention을 따로 설정해 보존을 로컬 디스크 용량에서 분리한다
-- **8.12 증명 (executable — docker exec · 미구현)**
+- **8.12 증명 (executable — docker exec · 부분 2/4)**
   - 브로커 컨테이너의 `.log` 열기·`kafka-dump-log`·`segment.bytes` 작게 produce·compaction cleaner로 세그먼트 파일명·배치 헤더·rolling·키별 최신을 관측
 - **참조**
   - Kafka 공식 문서(Persistence·Efficiency·Log Compaction)·`sendfile(2)`·KIP-405·DDIA 3장을 출처로 든다
@@ -376,7 +376,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **10.7 증명 (executable — 3-broker, Kafka 4.2+ · 미구현)**
   - 파티션 1개에 consumer 3대 동시 소비·락 타임아웃 재전달·ack 후 미재전달·delivery 한도 초과 후 Archived를 4.2+ 브로커로 단언하는 실험 표이며, share group은 `share.version` feature로 켜야 한다.
 - **참조**
-  - `KIP-932`·Kafka 4.2 GA 문서·`KafkaShareConsumer` JavaDoc과 1.2·5.1·2장·9.7 연결 링크를 모은 절이다.
+  - `KIP-932`·`KIP-1191`(DLQ 로드맵)·`KIP-1222`(RENEW)·Kafka 4.2 GA 문서·`KafkaShareConsumer` JavaDoc과 1.2·5.1·2장·9.7 연결 링크를 모은 절이다.
 
 📄 [10-share-groups.md](./10-share-groups.md)
 
