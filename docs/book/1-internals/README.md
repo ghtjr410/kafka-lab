@@ -364,17 +364,17 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **10.1 왜 별도 모델인가 — consumer group으로는 안 됐던 것**
   - 큐가 원하는 작업 분배·개별 ack는 consumer group의 배타 배정(consumer ≤ 파티션)과 offset 진행과 정면 충돌해서, 같은 로그를 쓰되 소비 모델만 큐로 바꾼 새 group type(share group)으로 분리했다.
 - **10.2 consumer group과의 대조**
-  - Share Group은 파티션을 공유 배정해 consumer를 파티션 수보다 늘리고, offset 대신 레코드별 상태로 진행을 추적하며 레코드 단위 재전달과 `at-least-once`만 제공한다.
+  - Share Group은 파티션을 공유 배정해 consumer를 파티션 수보다 늘리고, 단일 offset 대신 SPSO + 레코드별 상태로 진행을 추적하며 레코드 단위 재전달과 `at-least-once`만 제공한다.
 - **10.3 in-flight 레코드 상태 머신**
-  - 레코드마다 상태가 있어 `poll` 시 시간제한 락(Acquired)이 걸리고, `group.share.record.lock.duration.ms`(기본 30초) 타임아웃이나 `group.share.delivery.count.limit`(기본 5) 초과에 따라 재전달·Acknowledged·Archived로 전이한다.
+  - 레코드마다 상태가 있어 `poll` 시 시간제한 락(Acquired)이 걸리고 락 타임아웃·delivery 한도(기본 5) 초과로 재전달·Acknowledged·Archived(재전달 영구 중단)로 전이하며, 진행은 단일 offset이 아니라 SPSO(완료 prefix 경계) + 그 위 레코드별 상태로 추적한다.
 - **10.4 Share Coordinator와 `__share_group_state`**
   - 레코드별 상태는 Group·Transaction에 이은 셋째 coordinator인 Share Coordinator가 내부 토픽 `__share_group_state`에 durable하게 보관하며, compaction이 아니라 delete + `retention.ms=-1` + 주기적 prune으로 정리한다.
 - **10.5 새 프로토콜 — ShareFetch / ShareAcknowledge**
-  - share group은 일반 `Fetch` 대신 레코드를 락 걸어 가져오는 `ShareFetch`와 ack를 명시적으로 전달하는 `ShareAcknowledge`를 `(GroupId, MemberId)` 기반 share session으로 유지한다.
+  - share group은 일반 `Fetch` 대신 레코드를 락 걸어 가져오는 `ShareFetch`와 ack를 전달하는 `ShareAcknowledge`를 `(GroupId, MemberId)` 기반 share session으로 유지하고, ack는 implicit(일괄)·explicit(레코드별 `acknowledge`) 모드가 있으며 멤버십은 `ShareGroupHeartbeat`로 조율한다.
 - **10.6 한계 (지금은 못 하는 것)**
   - share group은 배치 간 순서 보장·Exactly-Once·fetch-from-follower를 포기하므로, 큐가 필요하되 엄격한 순서와 EOS는 필요 없을 때가 그 자리다.
 - **10.7 증명 (executable — 3-broker, Kafka 4.2+ · 미구현)**
-  - 파티션 1개에 consumer 3대 동시 소비·락 타임아웃 재전달·ack 후 미재전달·delivery 한도 초과 후 Archived를 4.2+ 브로커로 단언하는 실험 표다.
+  - 파티션 1개에 consumer 3대 동시 소비·락 타임아웃 재전달·ack 후 미재전달·delivery 한도 초과 후 Archived를 4.2+ 브로커로 단언하는 실험 표이며, share group은 `share.version` feature로 켜야 한다.
 - **참조**
   - `KIP-932`·Kafka 4.2 GA 문서·`KafkaShareConsumer` JavaDoc과 1.2·5.1·2장·9.7 연결 링크를 모은 절이다.
 
