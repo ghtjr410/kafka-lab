@@ -111,7 +111,7 @@ order-events-0/                         (토픽-파티션 디렉터리)
 
 ## 8.6 압축(compression)
 
-프로듀서가 **배치 단위로 압축**(lz4/zstd/snappy/gzip)해서 보내면, 브로커는 그대로 저장·전송하고 consumer가 푼다. 배치 단위라 압축률이 좋고, 브로커가 풀었다 다시 압축하지 않아 CPU도 아낀다. (압축 알고리즘 선택은 CPU↔대역폭 트레이드오프 → III권.)
+프로듀서가 **배치 단위로 압축**(lz4/zstd/snappy/gzip)해서 보내면, **기본값(`compression.type=producer`)에서는** 브로커가 그대로 저장·전송하고 consumer가 푼다. 배치 단위라 압축률이 좋고, 브로커가 풀었다 다시 압축하지 않아 CPU도 아낀다(그래서 zero-copy도 성립 — 8.2). 단 토픽 `compression.type`을 특정 코덱으로 지정하면 브로커가 **재압축**하고, compaction(8.7)·다운컨버전에서도 재인코딩이 일어난다 — 이때는 8.2의 zero-copy 우회 케이스다. (압축 알고리즘 선택은 CPU↔대역폭 트레이드오프 → III권.)
 
 ---
 
