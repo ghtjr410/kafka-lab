@@ -339,7 +339,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **9.2 `send()`의 여정**
   - `send()`는 직렬화·파티션 결정·`RecordAccumulator` 적재까지만 사용자 스레드가 하고, 배치 모음(`batch.size`/`linger.ms`)·전송·ACK·콜백은 `Sender` 스레드의 일이며, key 없는 메시지는 sticky partitioner가 배치를 키운다.
 - **9.3 콜백은 누가 실행하나 — 그리고 그게 왜 위험한가**
-  - `send()`가 돌려주는 Future의 콜백(`whenComplete`/`Callback`)은 `Sender`(IO) 스레드에서 실행되므로, 콜백에서 blocking 작업을 하면 보통 1개뿐인 그 스레드가 막혀 전체 produce가 정지한다.
+  - kafka-clients `Callback`(과 그 위에 얹힌 Spring `whenComplete`)은 `Sender`(IO) 스레드에서 실행되므로, 콜백에서 blocking 작업을 하면 보통 1개뿐인 그 스레드가 막혀 전체 produce가 정지한다.
 - **9.4 Backpressure — `buffer.memory`와 `max.block.ms`**
   - `buffer.memory`가 차면 `send()`가 블록되고 `max.block.ms` 안에 자리가 안 나면 `TimeoutException`이 나며, 전송·재시도까지의 전체 상한은 별도로 `delivery.timeout.ms`가 정한다.
 - **9.5 설정 조합 — 처리량·지연·역압의 삼각형**

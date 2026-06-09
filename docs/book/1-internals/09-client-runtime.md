@@ -38,6 +38,7 @@ graph LR
 
 - **사용자 스레드**: `send()`를 호출한 너의 스레드. 직렬화·파티셔닝을 하고 레코드를 버퍼(RecordAccumulator)에 넣은 뒤 **곧바로 반환**한다(비동기).
 - **Sender(IO) 스레드**: `kafka-producer-network-thread`. 버퍼에서 배치를 꺼내 브로커로 보내고, **응답(ACK)을 받아 콜백/Future를 완료**시킨다. 프로듀서당 보통 1개.
+- 3.7 기본 프로듀서는 **idempotent**(`enable.idempotence=true`)라, Sender가 파티션별 **sequence 번호**를 붙여 보내 재시도 중복·순서 역전을 막는다(`max.in.flight≤5`와 맞물림). 그 원리는 → [멱등·순서](./06-ordering-atomicity.md).
 
 ---
 
@@ -51,13 +52,13 @@ send() → 직렬화 → 파티션 결정 → RecordAccumulator에 적재 → (�
 
 `linger.ms`/`batch.size`(II권에서 튜닝)는 Sender가 "얼마나 모아서 한 번에 보낼지"를 정한다. 즉 **배치는 Sender 스레드의 일**이지 사용자 스레드의 일이 아니다.
 
-> **key 없는 메시지는 어느 파티션으로?** key가 있으면 해시로 정해지지만, key가 없으면 **sticky partitioner**(KIP-480)가 한 파티션에 "달라붙어" 배치가 찰 때까지(또는 `linger.ms`까지) 거기로 모은 뒤 다음 파티션으로 옮긴다 → 배치가 커져 처리량이 오른다(9.5와 연결). 이후 **uniform sticky**(KIP-794)로 파티션 간 균형이 개선됐다. `[KIP-480, KIP-794]`
+> **key 없는 메시지는 어느 파티션으로?** key가 있으면 해시로 정해지지만, key가 없으면 **sticky** 방식이 한 파티션에 "달라붙어" **`batch.size` 바이트가 찰 때까지**(또는 `linger.ms` 만료 시) 거기로 모은 뒤 다음 파티션으로 옮긴다 → 배치가 커져 처리량이 오른다(9.5). baseline 3.7 기본은 **strictly-uniform sticky**(KIP-794, 3.3+ — 옛 `DefaultPartitioner`/`UniformStickyPartitioner`는 deprecated)이고, KIP-480이 그 원조다. `[KIP-480, KIP-794]`
 
 ---
 
 ## 9.3 콜백은 누가 실행하나 — 그리고 그게 왜 위험한가
 
-★ 이 장의 핵심. **`send()`가 돌려주는 Future의 콜백(`whenComplete`/`Callback`)은 Sender(IO) 스레드에서 실행된다.**
+★ 이 장의 핵심. **`send(record, callback)`에 넘긴 kafka-clients `Callback`은 Sender(IO) 스레드에서 실행된다.** (raw `send()`는 `Future`만 돌려줘 `whenComplete`가 없다 — `whenComplete`는 II권 Spring `KafkaTemplate`의 `CompletableFuture` 것이고, 그 future도 이 `Callback` 안에서 완료되므로 같은 Sender 스레드에서 돈다. → 어느 경로든 위험은 동일.)
 
 ```mermaid
 sequenceDiagram
@@ -65,7 +66,7 @@ sequenceDiagram
     participant S as Sender(IO) 스레드
     U->>S: send() → 버퍼 적재 후 반환
     S->>S: 배치 전송 → ACK 수신
-    S->>S: whenComplete 콜백 실행 ← 바로 여기!
+    S->>S: Callback 실행(Spring whenComplete도 이 안에서) ← 바로 여기!
     Note over S: 콜백에서 DB 호출·sleep 등 blocking하면<br/>이 스레드가 막혀 다음 배치 전송 불가 → 전체 produce 정지
 ```
 
@@ -88,7 +89,7 @@ graph LR
 ```
 
 - 버퍼가 차면 `send()`는 **블록**된다(메타데이터 대기에도 블록). 즉 비동기인 `send()`가 이 순간엔 사용자 스레드를 멈춘다.
-- `max.block.ms` 안에 자리가 안 나면 `TimeoutException`. → 이게 **backpressure**(소비처가 못 따라갈 때 생산을 눌러주는 장치)다.
+- `max.block.ms` 안에 자리가 안 나면 `TimeoutException`. → 이게 **backpressure**다 — **브로커/네트워크가 버퍼를 못 비워**(Sender가 못 따라가) 생산 측을 눌러주는 것이지, 다운스트림 컨슈머 lag와는 무관하다.
 
 > `max.block.ms`는 *버퍼에 들어가기까지*의 한도일 뿐이다. 그 뒤 **전송+재시도까지 포함한 전체 상한**은 별도로 `delivery.timeout.ms`(KIP-91, 기본 **120000ms=2분**)가 정한다 — `send()` 호출부터 성공/최종 실패까지의 총 시계다. `[KIP-91 · docs @3.9]`
 
@@ -109,7 +110,7 @@ graph LR
 
 ## 9.6 Consumer 런타임
 
-Consumer는 Producer와 다르게 **단일 스레드 poll 루프**가 기본이다.
+Consumer는 Producer와 다르게 **단일 스레드 poll 루프**가 기본이다(**classic 프로토콜** 기준). KIP-848 새 consumer 프로토콜은 코디네이터·하트비트를 백그라운드 스레드로 옮겨 이 그림을 바꾼다 → [조정](./05-coordination.md).
 
 ```mermaid
 graph LR
@@ -127,9 +128,12 @@ graph LR
 
 ## 9.7 Consumer/Replica는 어떻게 읽나 — fetch 프로토콜
 
+(9.7~9.8은 클라이언트 요청이 **broker에서 어떻게 다뤄지나**를 보려 잠깐 broker 쪽으로 넘어간다.)
+
 Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기기)** 이다 — `Fetch` 요청으로 브로커에서 데이터를 가져온다.
 
-- **long-poll**: 데이터가 아직 없으면 브로커가 즉시 빈 응답을 주지 않고, `fetch.max.wait.ms`까지 기다렸다 `fetch.min.bytes`만큼 모이면 응답한다 → 빈 폴링을 줄이고 배치 효율을 높인다.
+- **long-poll**: 데이터가 아직 없으면 브로커가 즉시 빈 응답을 주지 않고, **`fetch.min.bytes`가 모이거나 `fetch.max.wait.ms`가 지나면(둘 중 먼저)** 응답한다 → 빈 폴링을 줄이고 배치 효율을 높인다.
+- **응답 크기 상한**: `fetch.max.bytes`(응답 전체)·`max.partition.fetch.bytes`(파티션당)로 제한한다(둘 다 consumer 설정).
 - **incremental fetch session**(KIP-227): 파티션이 많을 때 매번 전체 목록을 주고받지 않고 **변한 것만** 주고받는다(세션으로 상태 유지).
 - **복제도 같은 fetch 프로토콜**: 3장에서 follower가 leader를 "fetch로 당겨간다"고 했는데, 그게 바로 이 프로토콜이다 — consumer fetch와 replica fetch는 동일 메커니즘이다.
 - **fetch-from-follower**(KIP-392): 기본은 leader에서 읽지만, 가까운(같은 rack) follower에서 읽도록 허용할 수 있다(지연·비용 최적화). 설정·운영은 → III권이나, 동작 자체는 fetch 프로토콜의 일부다.
