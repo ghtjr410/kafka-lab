@@ -64,17 +64,18 @@ stateDiagram-v2
     Available --> Acquired: poll (락 획득)
     Acquired --> Acknowledged: ack (처리 완료)
     Acquired --> Available: release / 락 타임아웃 (재전달)
+    Acquired --> Acquired: RENEW (락 갱신, explicit)
     Acquired --> Archived: reject / delivery 한도 초과
     Acknowledged --> [*]
     Archived --> [*]
 ```
 
 - **Available**: 전달 대기.
-- **Acquired**: consumer에 배정 + **시간제한 락**. 락은 `group.share.record.lock.duration.ms`(기본 **30초**) 동안 유효하고, 그 안에 ack가 없으면 자동으로 Available로 되돌아가 **다른 consumer에게 재전달**된다.
+- **Acquired**: consumer에 배정 + **시간제한 락**. 락은 `group.share.record.lock.duration.ms`(기본 **30초**) 동안 유효하고, 그 안에 ack가 없으면 자동으로 Available로 되돌아가 **다른 consumer에게 재전달**된다. 긴 처리가 필요하면 explicit 모드에서 **RENEW**로 락을 갱신해 타임아웃을 미룰 수 있다(4.2~). `[KIP-1222]`
 - **Acknowledged**: 처리 완료(더는 전달 안 됨).
 - **release**(명시적 반환) 또는 **락 타임아웃** → Available로 (재시도).
 - **reject**(consumer가 처리 불가 판정 → 즉시) 또는 **delivery 횟수 한도 초과** → **Archived**. delivery 횟수는 전달마다 +1 되고, `group.share.delivery.count.limit`(기본 **5**)에 도달하면 재전달이 영구 중단된다.
-  - archived 레코드는 **원본 로그에 그대로 남는다**. 그것만 골라내거나 다른 토픽으로 자동 이송하는 경로는 **GA에 없다**(DLQ는 별도 `[KIP-1191]`, 4.4 목표).
+  - archived 레코드는 **원본 로그에 그대로 남는다**. 그것만 골라내거나 다른 토픽으로 자동 이송하는 경로는 **GA에 없다**(DLQ는 별도 `[KIP-1191]` — GA 이후 로드맵).
 - **in-flight 상한**: 한 share-partition가 동시에 Acquired로 잠그는 레코드 수에는 상한이 있다(`group.share.partition.max.record.locks`). 상한에 닿으면 ack로 락이 풀릴 때까지 **새 레코드를 더 획득하지 못한다**(backpressure).
 
 → 즉 진행을 **commit offset 한 점**으로 누르지 않는다. share-partition은 **SPSO**(Share-Partition Start Offset)부터 **SPEO**(End Offset)까지를 **in-flight 윈도우**로 잡는다. 그 안의 레코드마다 위 상태(락·delivery count)를 따로 매긴다.
@@ -111,7 +112,7 @@ consumer group이 9.7의 일반 `Fetch`를 쓴다면, share group은 두 개의 
 
 **ack 모드** — ack 자체는 모두 ShareAcknowledge(또는 ShareFetch piggyback)로 가지만, **언제·얼마나 잘게** 보낼지는 `share.acknowledgement.mode`로 정한다 `[docs @4.2]`:
 - **implicit**(기본): 다음 `poll()` 때 직전 배치를 **일괄 ACCEPT**. 가장 단순한 at-least-once.
-- **explicit**: poll로 받은 레코드를 **다음 poll 전에 하나씩** `acknowledge`로 결과를 단다 — **ACCEPT**(완료)·**RELEASE**(재전달 대기)·**REJECT**(Archived).
+- **explicit**: poll로 받은 레코드를 **다음 poll 전에 하나씩** `acknowledge`로 결과를 단다 — **ACCEPT**(완료)·**RELEASE**(재전달 대기)·**REJECT**(Archived)·**RENEW**(락 연장). `[KIP-1222]`
 
 **멤버십** — share group도 **`ShareGroupHeartbeat` RPC**로 가입·이탈·하트비트를 처리한다. KIP-848 계열의 **서버 주도 멤버십**(5.6)을 share group에 맞춰 가져온 것이다.
 
@@ -149,7 +150,8 @@ share group은 큐를 얻는 대신 몇 가지를 포기한다:
 - `[KIP-932]` Queues for Kafka (share group의 원전) `[Tier 1]`
 - Apache Kafka 4.2 — Queues for Kafka GA (4.0 Early Access → 4.1 Preview → **4.2 GA**) `[docs @4.2]`
 - `KafkaShareConsumer` JavaDoc `[Tier 2]`
-- `[KIP-1191]` Dead-letter queues for share groups (GA 이후 — 4.4 목표) `[Tier 1]`
+- `[KIP-1191]` Dead-letter queues for share groups (GA 이후 로드맵) `[Tier 1]`
+- `[KIP-1222]` Acquisition lock timeout renewal — explicit 모드 RENEW (4.2~) `[Tier 1]`
 - 연결: 1.2(로그 위에 큐 시맨틱) · 5.1(배타 배정의 경계) · 2장(메타데이터도 로그) · 9.7(fetch 대비)
 
 ← [9장 클라이언트 런타임](./09-client-runtime.md) · [I권 목차](./README.md)
