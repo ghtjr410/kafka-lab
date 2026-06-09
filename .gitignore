@@ -30,5 +30,8 @@ CLAUDE.md
 # 작업 메모 (개인용)
 context/
 
+# 책 디벨롭 HANDOFF (대화 캡처 — 반영은 별도 세션)
+handoff/
+
 # Kafka Connect 데이터 (테스트 산출물)
 connect-data/
