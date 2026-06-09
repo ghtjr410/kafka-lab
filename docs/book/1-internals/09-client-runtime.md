@@ -52,7 +52,7 @@ send() → 직렬화 → 파티션 결정 → RecordAccumulator에 적재 → (�
 
 `linger.ms`/`batch.size`(II권에서 튜닝)는 Sender가 "얼마나 모아서 한 번에 보낼지"를 정한다. 즉 **배치는 Sender 스레드의 일**이지 사용자 스레드의 일이 아니다.
 
-> **key 없는 메시지는 어느 파티션으로?** key가 있으면 해시로 정해지지만, key가 없으면 **sticky** 방식이 한 파티션에 "달라붙어" **`batch.size` 바이트가 찰 때까지**(또는 `linger.ms` 만료 시) 거기로 모은 뒤 다음 파티션으로 옮긴다 → 배치가 커져 처리량이 오른다(9.5). baseline 3.7 기본은 **strictly-uniform sticky**(KIP-794, 3.3+ — 옛 `DefaultPartitioner`/`UniformStickyPartitioner`는 deprecated)이고, KIP-480이 그 원조다. `[KIP-480, KIP-794]`
+> **key 없는 메시지는 어느 파티션으로?** key가 있으면 해시로 정해지지만, key가 없으면 **sticky** 방식이 한 파티션에 "달라붙어" **`batch.size` 바이트가 쌓이면** 다음 파티션으로 옮긴다(전환 기준은 바이트 양 — `linger.ms`는 전송 시점이지 전환 트리거가 아니다). 3.7 기본은 다음 파티션을 브로커 부하 반영해 고른다(adaptive) → 배치가 커져 처리량이 오른다(9.5). baseline 3.7 기본은 **strictly-uniform sticky**(KIP-794, 3.3+ — 옛 `DefaultPartitioner`/`UniformStickyPartitioner`는 deprecated)이고, KIP-480이 그 원조다. `[KIP-480, KIP-794]`
 
 ---
 
@@ -110,7 +110,7 @@ graph LR
 
 ## 9.6 Consumer 런타임
 
-Consumer는 Producer와 다르게 **단일 스레드 poll 루프**가 기본이다(**classic 프로토콜** 기준). KIP-848 새 consumer 프로토콜은 코디네이터·하트비트를 백그라운드 스레드로 옮겨 이 그림을 바꾼다 → [조정](./05-coordination.md).
+Consumer는 Producer와 다르게 **단일 스레드 poll 루프**가 기본이다(**classic 프로토콜** 기준 — 아래 heartbeat 스레드 포함). KIP-848 새 consumer 프로토콜은 **멤버십·할당 계산을 서버(코디네이터) 주도**로 옮기고, JoinGroup/SyncGroup 대신 **하트비트가 할당까지 나르는 control plane**이 되어 이 그림을 바꾼다 → [조정](./05-coordination.md).
 
 ```mermaid
 graph LR
