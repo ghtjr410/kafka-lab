@@ -55,6 +55,10 @@ graph LR
 
 offset은 **항상 저장 기준**이고, timestamp만 `message.timestamp.type`로 둘 중 택한다. offset 부여·timestamp 타입의 상세는 각각 [1장](./01-what-is-kafka.md)·[8장](./08-storage-engine.md)이 SSOT다.
 
+offset은 파티션 단위라 **key별 offset 같은 건 없다** — key는 레코드가 *어느 파티션*에 들어갈지만 정하고, 그 안의 위치 번호가 offset이다.
+
+> **순서 보장은 어디서 끝나나.** Kafka가 보장하는 건 **브로커 저장·전달(읽기) 순서까지**다. consumer가 받은 뒤 *처리를 끝낸 순서*나 *외부 DB·API에 반영한 순서*는 별개 — 그건 애플리케이션 몫이다(같은 파티션을 여러 스레드로 처리하면 처리 순서가 깨진다 → [II권 파티션·동시성](../2-spring/03-partition-concurrency.md)). 이는 [7장](./07-transactions.md) EOS가 외부 시스템까지는 원자성을 보장하지 않는 것과 **같은 결의 경계**다.
+
 ---
 
 ## 6.2 "그냥 재시도"의 함정 — 중복 append
