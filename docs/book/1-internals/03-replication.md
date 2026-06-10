@@ -134,6 +134,10 @@ graph TB
 
 이 lab의 docker-compose 기본값이 `RF=3 / min.insync.replicas=2`인 이유가 이것이다.
 
+> **acks = 무손실을 *어디까지* 통제하나.** `acks=all` + `min.insync.replicas=2`는 "broker가 ack한 순간부터 무손실"을 보장한다 — 즉 **신뢰의 선을 broker에 긋는** 것이다. 단 acks는 **producer→broker 구간만** 통제한다. producer를 *먹이는 쪽*(클라 앱·다른 서비스·CDC 등 무엇이든)은 acks 밖 = **best-effort**라 거기서 새는 건 acks로 못 막는다. 그래서 장애 분석도 "Kafka 안에서 샜나 / 들어오기 전에 샜나"로 갈린다.
+>
+> (이 "보장엔 *경계*가 있고 바깥은 별도 책임"은 순서 → [6장](./06-ordering-atomicity.md) · offset → [5장](./05-coordination.md)에서도 똑같이 나온다.)
+
 > ⚠️ **correctness 제약**(트레이드오프가 아니다):
 > - `min.insync.replicas`를 RF보다 크게 두면 — **Kafka가 막지 않는다** — `acks=all` 쓰기가 영구히 실패한다(ISR이 그 값에 도달 불가 → `NotEnoughReplicasException`).
 > - `min.isr=RF`로 두면 단 1대 장애로 ISR이 `RF-1`로 떨어져 쓰기가 즉시 막힌다(가용성 절벽).
