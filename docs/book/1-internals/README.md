@@ -242,6 +242,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - `[KIP-345]`의 `group.instance.id`를 부여하면 같은 id로 재접속 시 기존 배정을 유지해 롤링 배포의 불필요한 리밸런싱을 줄인다.
 - **5.9 offset은 어디에 — `__consumer_offsets`**
   - 커밋된 offset은 `key=(group, topic, partition)`·`value=offset`으로 내부 compacted 토픽 `__consumer_offsets`에 저장돼 재시작 시 마지막 위치를 복원한다.
+  - 진행 위치는 3종(broker log·consumer 메모리(재시작 시 사라짐)·committed)이고, committed도 RF 낮음·`offsets.retention.ms` 만료·retention 추월(`OffsetOutOfRange`→`auto.offset.reset`)로 사라질 수 있으며, committed는 '읽음'만 알 뿐 앱 처리·외부 반영은 모른다(→ 멱등, II권).
 - **5.10 증명 (executable — 3-broker · 미구현)**
   - eager vs cooperative revoke 범위, `group.instance.id` 재접속, `max.poll.interval` 초과 퇴출, 두 그룹의 독립 offset 소비를 `[테스트 예정]`으로 단언한다.
 - **참조**

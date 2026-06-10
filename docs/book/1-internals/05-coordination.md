@@ -149,6 +149,22 @@ graph LR
 
 consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(compacted)** 에 저장된다(2장의 "메타데이터도 로그"). `key=(group, topic, partition)`, `value=offset`. 코디네이터가 이 토픽을 관리하고, consumer 재시작 시 여기서 마지막 커밋 위치를 읽어 "어디부터 읽을지"를 안다.
 
+그 "진행 위치"는 사실 **세 곳에 따로** 있고, **consumer가 재시작하면** 무엇이 남는지가 다르다:
+
+| 위치 | 누가 들고 있나 | consumer 재시작 후 |
+|------|---------------|-------|
+| broker log offset | 파티션 로그(브로커) | 남음 — 레코드의 물리 위치(단 데이터는 retention으로 삭제 가능 → [8장](./08-storage-engine.md)) |
+| **consumer 진행 위치** | consumer **메모리** | **사라짐** — 미커밋분은 유실된다 |
+| committed offset | `__consumer_offsets`(브로커) | 남음 — 그래서 재시작 시 메모리가 아니라 *이것*을 읽는다 |
+
+그런데 그 committed offset도 **사라지거나 무효가 될 수 있다** `[docs @3.9]`:
+
+1. **`__consumer_offsets` 복제 계수(RF)가 낮음** — 이 내부 토픽의 RF가 낮으면(예: 1) 브로커 장애 때 커밋이 통째로 유실된다(복제 원리가 메타 토픽에도 그대로 → [3장](./03-replication.md)).
+2. **offset 만료** — 비활성 그룹(멤버 0)의 커밋은 `offsets.retention.ms`(기본 7일)가 지나면 브로커가 지운다 → 재접속 시 "커밋 없음"으로 본다.
+3. **retention이 데이터를 추월** — 토픽 retention(→ [8장](./08-storage-engine.md))이 메시지를 지워 committed가 **로그 시작 offset(log start)** 보다 앞서면 `OffsetOutOfRange` → `auto.offset.reset`(earliest/latest, 미설정 시 예외)로 점프한다.
+
+또 committed offset이 말해주는 건 **"어디까지 *읽었나*"뿐**이다 — 그 데이터를 앱이 *처리 완료*했는지, *외부 DB·API에 반영*했는지는 모른다. 커밋 직전 죽으면 같은 데이터가 재전달되므로, 종단 정합은 consumer의 **멱등 처리**가 맡는다(구현 → II권).
+
 → offset 커밋의 *코드/AckMode 함정*은 II권, 이게 트랜잭션과 묶이는 read-process-write는 7장.
 
 ---
