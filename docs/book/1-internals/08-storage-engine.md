@@ -60,6 +60,34 @@ graph LR
 
 → "위치 찾는 비용"은 HDD에서 가장 직관적이고, SSD에선 *I/O 모양·write amp*로 형태만 바뀐다. 더 깊은 물리(FTL·NCQ)는 → 『데이터 중심 애플리케이션 설계』(DDIA) 3장. `[docs @3.9 Persistence · DDIA 3장 Tier 3]`
 
+<details>
+<summary>↳ 더 깊이: seek을 자주 헷갈리는 5가지 + 논리/물리 층위</summary>
+
+대화에서 실제로 막힌 지점들이다:
+
+1. **seek = 논리 커서 ≠ 물리 이동** — `lseek()`/`file.seek()`의 seek은 메모리 속 *논리* 포인터(파일 offset)를 옮긴다. *디스크 헤드* seek은 모터가 arm을 **물리로** 움직인다. 같은 단어, 다른 층.
+2. **seek = 주소로 직행 ≠ 탐색(search)** — 컨트롤러가 **LBA**(선형 블록 주소)를 트랙/헤드/섹터로 변환해 헤드를 *그 트랙으로 바로* 보낸다. "있나? 옆 트랙?" 뒤지는 게 아니라 *이동*이다(도서관 청구기호처럼).
+3. **트랙 ≠ 페이지** — 트랙=물리 동심원(섹터 수백) / 페이지=OS 가상메모리 논리 단위(4KB). 섹터(4KB)가 페이지와 크기 비슷해 헷갈린다 — 잇는 다리가 page cache(8.2).
+4. **seek ≠ rotational latency** — seek=어느 *트랙*이냐(arm 반지름 이동) / rotational latency=그 트랙의 어느 *섹터*냐(스핀들 회전, 평균 ½). 위치=(트랙,섹터) 2축이라 따로 맞춘다.
+5. **물리 seek ≠ 논리 index 점프** — sparse index 점프는 *논리*(offset→.log byte, 8.5) 1회. 물리 seek은 그 byte가 **page cache에 없을 때만** 일어난다 — tail 읽기는 보통 캐시 hit라 seek ≈0, 과거를 거슬러 읽을 때 디스크 seek.
+
+**층위로 보면**(위=논리, 아래=물리): 앱(파일 offset=논리 커서) → OS·page cache(파일↔LBA, 4KB 페이지) → 블록 레이어(LBA 선형 번호) → 펌웨어(LBA→트랙/헤드/섹터) → 물리 HW(arm 이동=seek + 회전=rotational latency).
+
+```
+[head]헤드 ─ arm ─● pivot      seek ↕ = arm이 헤드를 안/밖 트랙으로
+╭─────────────╮
+│ ╭─────────╮ │ ← track(동심원)
+│ │  ╭───╮  │ │
+│ │  │ ⊙ │  │ │   ⊙ = 스핀들(회전축)
+│ │  ╰───╯  │ │
+│ ╰─────────╯ │
+╰─────────────╯  ↻ 회전 → 섹터가 헤드 밑으로 = rotational latency
+```
+
+→ 여기까지가 Kafka "왜 빠른가"의 바닥. 그 아래(펌웨어 내부·NAND)는 → DDIA 3장.
+
+</details>
+
 </details>
 
 ---
@@ -132,7 +160,7 @@ order-events-0/                         (토픽-파티션 디렉터리)
 
 ## 8.5 조회 — sparse index
 
-`.index`는 모든 offset이 아니라 **드문드문(sparse)** 만 기록한다(`index.interval.bytes` 간격). offset을 찾을 때 index로 **근처 위치까지 점프**한 뒤 `.log`를 순차 스캔한다. → 인덱스 메모리를 아끼면서 조회도 빠르다(순차 스캔은 짧으니까).
+`.index`는 모든 offset이 아니라 **드문드문(sparse)** 만 기록한다(`index.interval.bytes` 간격). offset을 찾을 때 index로 **근처 위치까지 점프**한 뒤 `.log`를 순차 스캔한다 — 즉 **논리 offset**('몇 번째 레코드')을 **`.log` 안의 물리 byte 위치**('파일 몇 바이트')로 바꾸는 게 `.index`의 일이다(둘은 다르다). → 인덱스 메모리를 아끼면서 조회도 빠르다(순차 스캔은 짧으니까).
 
 ---
 
