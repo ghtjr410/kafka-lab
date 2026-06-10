@@ -339,6 +339,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - 사용자 스레드는 직렬화·파티셔닝 후 `RecordAccumulator`에 적재하고 곧바로 반환하며, 별도의 `Sender`(IO) 스레드 `kafka-producer-network-thread`가 배치를 꺼내 브로커로 보내고 응답을 처리한다.
 - **9.2 `send()`의 여정**
   - `send()`는 직렬화·파티션 결정·`RecordAccumulator` 적재까지만 사용자 스레드가 하고, 배치 모음(`batch.size`/`linger.ms`)·전송·ACK·콜백은 `Sender` 스레드의 일이며, key 없는 메시지는 sticky partitioner가 배치를 키운다.
+  - 배치는 TopicPartition 단위로 쌓이고 Sender가 leader 브로커별로 묶어 `ProduceRequest`를 보내(요청 수=broker 수, 비용 3층), partition↑은 병렬성↑↔배치 효율↓ 트레이드오프이며, sticky는 순서 장치가 아니다(순서는 멱등·`max.in.flight` → 6장).
 - **9.3 콜백은 누가 실행하나 — 그리고 그게 왜 위험한가**
   - kafka-clients `Callback`(과 그 위에 얹힌 Spring `whenComplete`)은 `Sender`(IO) 스레드에서 실행되므로, 콜백에서 blocking 작업을 하면 보통 1개뿐인 그 스레드가 막혀 전체 produce가 정지한다.
 - **9.4 Backpressure — `buffer.memory`와 `max.block.ms`**
