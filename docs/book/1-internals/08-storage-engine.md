@@ -30,10 +30,37 @@ conventions: ../README.md
 디스크가 느린 건 **랜덤 접근**일 때다. **순차 접근**은 디스크도 충분히 빠르다(때로 메모리 랜덤 접근과 비슷). Kafka는 로그가 append-only(2장)라 **쓰기는 항상 순차**이고, 읽기도 대부분 순차다(sparse index로 근처까지 점프한 뒤 짧게 순차 스캔 — 8.5) — 이게 첫 번째 비결이다.
 
 ```mermaid
-graph LR
-    RAND["랜덤 I/O<br/>(전통 DB의 약점)"] -.느림.-> SLOW["높은 지연·낮은 처리량"]
-    SEQ["순차 I/O<br/>(append-only 로그)"] -->|빠름| FAST["고처리량"]
+graph TB
+    subgraph WRITE["쓰기 — 위치 찾기 0 (100% 순차)"]
+        direction LR
+        W["새 레코드"] --> WT["active segment 끝에 append"]
+    end
+    subgraph READ["읽기 — 점프 1회 + 순차 (분할상환)"]
+        direction LR
+        R["offset N부터"] --> RI["sparse index로 근처 점프<br/>(랜덤 1회)"] --> RS[".log 짧게 순차 스캔"] --> RC["이후 계속 순차"]
+    end
 ```
+
+> 쓰기는 끝에만 붙이니 100% 순차, 읽기는 offset을 찾을 때 index로 점프(랜덤 1회) + 그 뒤 순차다 — 이어 읽으면 그 점프가 *분할상환*되어, 이게 위 문단의 "읽기도 **대부분** 순차"의 뜻이다(점프 메커니즘 → 8.5).
+
+<details>
+<summary><b>왜 순차는 빠르고 랜덤은 느린가? — 한 층 아래 (HDD·SSD)</b></summary>
+
+"순차라서 빠르다"는 결론만으론 동어반복이다. 한 층 아래 *왜*를 보면:
+
+**HDD** — 데이터 위치는 (트랙, 섹터) 2차원이다. 한 위치를 잡으려면 헤드를 그 트랙으로 옮기고([seek](../GLOSSARY.md#seek-time)) 그 섹터가 헤드 밑으로 돌아올 때까지 기다려야 한다([rotational latency](../GLOSSARY.md#rotational-latency)). [랜덤 I/O](../GLOSSARY.md#random-sequential-io)는 흩어진 위치라 접근마다 이 둘을 물고, [순차 I/O](../GLOSSARY.md#random-sequential-io)는 이어진 섹터라 **첫 1회**만 내고 그 뒤는 옆 칸이라 ≈0으로 **분할상환**된다.
+
+```mermaid
+graph LR
+    H["헤드 시작"] -. "매번 seek+회전" .-> A["섹터 800"] -. .-> B["섹터 12"] -. .-> C["섹터 450"]
+    S0["순차: 첫 seek 1회"] --> S1["섹터 N"] --> S2["N+1"] --> S3["N+2"]
+```
+
+**SSD** — 회전 플래터가 없어 *기계적* seek는 ≈0인데도 순차가 빠르다: (읽기) OS readahead가 요청을 크게·깊게 만들어 디바이스 병렬성을 끌어올리고, (쓰기) 작은 랜덤 쓰기는 [write amplification](../GLOSSARY.md#write-amplification)으로 실제 쓰는 양이 부풀려진다.
+
+→ "위치 찾는 비용"은 HDD에서 가장 직관적이고, SSD에선 *I/O 모양·write amp*로 형태만 바뀐다. 더 깊은 물리(FTL·NCQ)는 → 『데이터 중심 애플리케이션 설계』(DDIA) 3장. `[docs @3.9 Persistence · DDIA 3장 Tier 3]`
+
+</details>
 
 ---
 
@@ -112,6 +139,8 @@ order-events-0/                         (토픽-파티션 디렉터리)
 ## 8.6 압축(compression)
 
 프로듀서가 **배치 단위로 압축**(lz4/zstd/snappy/gzip)해서 보내면, **기본값(`compression.type=producer`)에서는** 브로커가 그대로 저장·전송하고 consumer가 푼다. 배치 단위라 압축률이 좋고, 브로커가 풀었다 다시 압축하지 않아 CPU도 아낀다(그래서 zero-copy도 성립 — 8.2). 단 토픽 `compression.type`을 특정 코덱으로 지정하면 브로커가 **재압축**하고, compaction(8.7)·다운컨버전에서도 재인코딩이 일어난다 — 이때는 8.2의 zero-copy 우회 케이스다. (압축 알고리즘 선택은 CPU↔대역폭 트레이드오프 → III권.)
+
+consumer는 코덱 설정이 따로 필요 없다 — 배치 헤더(8.4)의 **압축 타입 필드**로 어떤 코덱인지 읽어 **스스로 해제**한다(self-describing). 브로커가 재압축하면 그 헤더의 코덱 표시도 함께 갱신된다.
 
 ---
 

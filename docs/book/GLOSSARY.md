@@ -188,6 +188,17 @@ sequenceDiagram
 | **Retention** | 메시지 보존 정책. retention.ms(시간 기반) 또는 retention.bytes(크기 기반). 이미 삭제된 데이터는 retention을 늘려도 복구 불가 | Topic/Broker 설정 | Step 10 |
 | **Log Compaction** | 같은 key의 마지막 값만 유지하는 정리 정책. cleanup.policy=compact | Topic 설정 | KAFKA-ARCHITECTURE.md |
 
+### Storage — 디스크·성능 기초 (8장 §8.1)
+
+> 디스크가 왜 순차에 빠른지(8장 §8.1)의 토대 용어. 더 깊은 물리는 → 『데이터 중심 애플리케이션 설계』(DDIA) 3장.
+
+| 용어 | 정의 |
+|------|------|
+| <a id="seek-time"></a>**seek time** | HDD 헤드 arm을 목표 트랙으로 옮기는 시간(반지름 이동). 영어 "찾다"(`lseek`/`fseek`과 같은 어원) — 헤드가 트랙을 *찾아* 이동하는 것. |
+| <a id="rotational-latency"></a>**rotational latency** | 원하는 섹터가 헤드 밑으로 회전해 올 때까지의 대기. 평균 ≈ ½회전(7200 RPM ≈ 4.17 ms). |
+| <a id="random-sequential-io"></a>**랜덤 / 순차 I/O** | 랜덤=흩어진 위치 접근(접근마다 위치잡기 = seek+회전). 순차=이어진 위치 연속 접근(첫 1회 뒤 ≈0으로 분할상환). |
+| <a id="write-amplification"></a>**write amplification** | SSD에서 호스트가 쓴 양보다 실제 NAND에 쓰이는 양이 부푸는 비율(GC가 valid page를 복사하는 탓; 작은 랜덤 쓰기가 트리거). |
+
 ### Serialization & Schema
 
 | 용어 | 의미 | 위치 | 관련 Step |
