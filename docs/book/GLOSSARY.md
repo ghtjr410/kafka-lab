@@ -145,10 +145,20 @@ sequenceDiagram
 | 용어 | 의미 | 위치 | 관련 Step |
 |------|------|------|-----------|
 | **Replication Factor** | 각 Partition의 복제본 수. 3이면 Leader 1 + Follower 2 | Topic 설정 | Step 1, 10 |
-| **ISR (In-Sync Replica)** | Leader와 동기화가 유지되고 있는 Replica 집합. Leader 장애 시 ISR 중에서 새 Leader 선출 | Partition 단위로 관리 | Step 1, 9 |
-| **OSR (Out-of-Sync Replica)** | Leader와 동기화가 뒤쳐진 Replica. Leader로 선출 불가 (unclean election 제외) | Partition 단위로 관리 | KAFKA-ARCHITECTURE.md |
+| **ISR (In-Sync Replica)** | Leader와 동기화가 유지되고 있는 Replica 집합. **Leader 자신도 항상 ISR의 일원**(리더 뺀 팔로워들이 아님). RF 복제본의 동적 부분집합이라 따라잡으면 들고 뒤처지면 OSR로 빠진다. Leader 장애 시 ISR 중에서 새 Leader 선출 | Partition 단위로 관리 | Step 1, 9 |
+| **OSR (Out-of-Sync Replica)** | Leader와 동기화가 뒤쳐진 Replica. 따로 둔 복제본이 아니라 ISR에서 빠진(원래 RF의) 멤버. Leader로 선출 불가 (unclean election 제외) | Partition 단위로 관리 | KAFKA-ARCHITECTURE.md |
 | **min.insync.replicas** | "ISR이 이 수 미만이면 쓰기를 거부하라"는 하한선. acks=all + min.insync.replicas=1이면 ISR 축소 시 acks=1로 퇴화할 수 있다 | **Broker/Topic 설정** (Producer 설정 아님) | Step 1 |
 | **Unclean Leader Election** | ISR이 없을 때 OSR에서도 Leader를 선출할지 여부. 데이터 유실 가능하지만 가용성 확보 | Broker 설정 | KAFKA-ARCHITECTURE.md |
+
+### Replication & HA — epoch · fencing · zombie (3장 §3.7)
+
+> "시대를 번호로 구분해 옛 리더의 유령을 차단하는" 패턴의 핵심어. leader epoch(데이터 리더 §3.7) · KRaft term(메타데이터 리더 4장) · producer epoch(프로듀서 세대 6·7장)이 **모두 같은 패턴**이다.
+
+| 용어 | 정의 |
+|------|------|
+| **epoch (에포크)** | 시대·시기. 리더/프로듀서가 바뀔 때마다 +1 되는 "세대 번호"(= fencing token). 이 번호로 옛 세대를 식별한다. |
+| **fencing (펜싱)** | 울타리 쳐 막기(fence off). 좀비를 그 epoch 번호로 식별해 차단·격리하는 *행위*. epoch=번호, fencing=그 번호로 막는 동작. |
+| **zombie (좀비)** | 죽은 줄 알았는데 살아 돌아온 옛 프로세스. 자기가 아직 리더·유효한 줄 알아 split-brain을 일으킬 수 있어, epoch fencing으로 막는다. |
 
 ### Rebalancing
 
@@ -234,7 +244,9 @@ sequenceDiagram
 |----|------|
 | **Topic vs Partition** | Topic은 논리적 분류(주문, 결제), Partition은 Topic의 물리적 분할. 순서 보장은 Partition 단위 |
 | **Leader vs Follower** | Leader가 읽기/쓰기 담당, Follower는 Leader에게 Fetch 요청을 보내 복제 (Pull 모델). Leader 장애 시 ISR 중 Follower가 새 Leader |
-| **ISR vs OSR** | ISR은 Leader와 동기화 유지 중인 Replica, OSR은 뒤쳐진 Replica. Leader 선출은 ISR에서만 (기본) |
+| **ISR vs OSR** | ISR은 Leader와 동기화 유지 중인 Replica, OSR은 뒤쳐진 Replica. Leader 선출은 ISR에서만 (기본). 둘 다 같은 RF 복제본의 동적 분할이고 Leader는 늘 ISR |
+| **epoch vs fencing** | epoch는 "시대 번호"(데이터 자체), fencing은 "그 번호로 옛 리더·좀비를 막는 행위". 번호 ≠ 막는 동작 |
+| **leader epoch vs KRaft term vs producer epoch** | 셋 다 "시대를 번호로 구분해 유령을 펜싱"하는 같은 패턴. 계층만 다름 — 데이터 리더(leader epoch) / 메타데이터 리더(term) / 프로듀서 세대(producer epoch) |
 | **Offset vs Lag** | Offset은 Partition 내 Record의 위치, Lag은 LEO - Committed Offset = "Consumer가 얼마나 뒤쳐져 있는가" |
 | **acks vs min.insync.replicas** | acks는 "ISR 전체/리더만/안 기다림" (Producer 설정), min.insync.replicas는 "ISR이 이 수 미만이면 쓰기 거부" (Broker/Topic 설정). acks=all + min.insync.replicas=1이면 ISR 축소 시 acks=1로 퇴화 가능 |
 | **Auto Commit vs Manual Commit** | Auto는 poll() 시 일정 간격으로 자동 커밋 (편하지만 위험, Spring Kafka는 강제 비활성화), Manual은 처리 완료 후 명시적 커밋 (안전하지만 코드 필요) |

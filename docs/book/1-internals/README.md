@@ -175,14 +175,14 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **3.2 복제의 딜레마 — 완전 동기 vs 완전 비동기**
   - 완전 동기는 느린 한 대에 전체가 인질이 되고 완전 비동기는 내구성이 없어, Kafka는 그 사이 절충인 `ISR`을 택한다
 - **3.3 ISR — "지금 따라잡은 복제본만 기다린다"**
-  - `ISR`은 리더를 따라잡은 복제본 집합으로, pull(`Fetch`) 모델에서 `replica.lag.time.max.ms`를 못 맞추면 축출하며 뒤처진 놈은 빼 가용성을, 든 놈은 기다려 내구성을 지킨다
+  - `ISR`은 리더를 따라잡은 복제본 집합(리더 자신도 늘 포함, RF의 동적 부분집합)으로, pull(`Fetch`) 모델에서 `replica.lag.time.max.ms`를 못 맞추면 `OSR`로 축출하며 뒤처진 놈은 빼 가용성을, 든 놈은 기다려 내구성을 지킨다
 - **3.4 "커밋"이란 무엇인가 — High Watermark**
   - `HW`는 `ISR` 전체의 `LEO` 중 최소값이고 consumer는 `HW`까지만 읽으니, "커밋됐다 = `HW` 도달 = consumer에게 보인다"가 일관성의 정의다
 - **3.5 보장의 다이얼 — acks × min.insync.replicas × RF**
   - 내구성은 `acks`·`min.insync.replicas`·RF의 조합으로 서며, `acks=all`이라도 `min.insync.replicas=1`이면 `acks=1`로 퇴화해 의미 있는 조합은 RF=3 + `min.insync.replicas=2` + `acks=all`이다
   - `acks=all`은 *무손실 경계를 broker에 긋는* 것 — acks는 producer→broker 한 홉만 통제하고 그 앞(소스)은 acks 밖 best-effort다("보장엔 경계가 있다" 구조: 순서·offset도 동일)
 - **3.6 리더가 죽으면 — 선출과 unclean election**
-  - 컨트롤러가 `ISR` 안에서 새 리더를 뽑아 무손실이나, `ISR`이 전부 죽으면 `unclean.leader.election.enable`로 파티션 중단(안전) vs 밖 복제본 승격(손실 감수)을 가른다
+  - 컨트롤러가 `ISR` 안에서 새 리더를 뽑아 무손실이나, `ISR`이 전부 죽으면 `unclean.leader.election.enable`로 파티션 중단(안전) vs 밖 복제본(`OSR`) 승격(손실 감수)을 가른다
 - **3.7 로그가 어긋나지 않으려면 — Leader Epoch**
   - `HW` 기준 truncate만으론 리더 교체 시 로그가 영구히 분기하므로, 리더 교체마다 증가하는 leader epoch로 어느 리더 시대의 로그가 정당한지 펜싱한다
 - **3.8 복제는 합의(consensus)가 아니다**
