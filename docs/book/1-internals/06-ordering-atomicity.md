@@ -21,7 +21,7 @@ conventions: ../README.md
 >
 > **이 장의 보장(한 문장)**: *멱등 — 프로듀서 재시도로 인한 파티션 내 중복이 생기지 않는다. 순서 — 파티션 안에서 보낸 순서가 보장된다.*
 
-3장에서 `acks=all`로 "잃지 않게" 만들었다. 그런데 "잃지 않음"과 "중복되지 않음"은 다른 문제다. 네트워크는 ACK를 삼킬 수 있고, 그러면 프로듀서는 재시도하며 **같은 메시지를 두 번 쓴다**. 이 장은 그 중복과 순서 역전을 어떻게 막는가다.
+[3장](./03-replication.md)에서 `acks=all`로 "잃지 않게" 만들었다. 그런데 "잃지 않음"과 "중복되지 않음"은 다른 문제다. 네트워크는 ACK를 삼킬 수 있고, 그러면 프로듀서는 재시도하며 **같은 메시지를 두 번 쓴다**. 이 장은 그 중복과 순서 역전을 어떻게 막는가다.
 
 ---
 
@@ -84,10 +84,10 @@ sequenceDiagram
 멱등 프로듀서(`enable.idempotence=true`)는 각 메시지에 신원을 붙인다:
 
 - **PID(Producer ID)**: 브로커가 프로듀서에 발급하는 고유 id
-- **epoch**: 같은 PID의 세대 번호(좀비 차단용 — 7장)
+- **epoch**: 같은 PID의 세대 번호(좀비 차단용 — [7장](./07-transactions.md))
 - **sequence number**: 파티션별로 0,1,2,… 증가하는 일련번호
 
-브로커는 파티션별로 **직전 sequence 상태**를 들고 있다가, 재시도로 **같은 sequence가 또 오면 버리고**(중복 제거), 건너뛴 sequence가 오면 순서 오류로 거부한다. 단 이 보장은 **프로듀서→브로커 한 구간** 한정이다 — 컨슈머의 중복 *소비*는 별개이고, 종단(end-to-end) exactly-once는 트랜잭션이 필요하다(7장).
+브로커는 파티션별로 **직전 sequence 상태**를 들고 있다가, 재시도로 **같은 sequence가 또 오면 버리고**(중복 제거), 건너뛴 sequence가 오면 순서 오류로 거부한다. 단 이 보장은 **프로듀서→브로커 한 구간** 한정이다 — 컨슈머의 중복 *소비*는 별개이고, 종단(end-to-end) exactly-once는 트랜잭션이 필요하다([7장](./07-transactions.md)).
 
 > ★ 요구 조합(II권 함정의 원리): `enable.idempotence=true`는 `acks=all` · `max.in.flight.requests.per.connection ≤ 5` · `retries>0`을 전제한다. Kafka **3.0+** 부터 `enable.idempotence`가 **기본 true**라(그래서 `acks`도 기본값이 `all`이다), 멱등을 명시하지 않은 채 `acks=1`을 주면 멱등이 **에러 없이 조용히 꺼져**(INFO 로그뿐) 중복을 허용한다. 멱등을 `true`로 *명시*했다면 같은 충돌이 `ConfigException`으로 fail-fast한다. 이 조합 분기(silent disable vs 예외)는 → [II권 설정 조합 함정](../2-spring/08-config-combination-traps.md). `[KIP-98/679 · docs @3.9]`
 
@@ -97,7 +97,7 @@ sequenceDiagram
 
 멱등성은 **한 프로듀서 세션 안에서만** 보장된다. 프로듀서가 재시작하면 새 PID를 받고, 브로커 입장에선 "처음 보는 프로듀서"다. 그래서 **재시작 전에 보냈던 메시지를 다시 보내면 중복으로 저장된다.** 
 
-이 세션 한계를 넘어 "여러 세션·여러 파티션에 걸친" 보장이 필요할 때 → **트랜잭션**(7장)이 `transactional.id`로 PID를 영속화한다.
+이 세션 한계를 넘어 "여러 세션·여러 파티션에 걸친" 보장이 필요할 때 → **트랜잭션**([7장](./07-transactions.md))이 `transactional.id`로 PID를 영속화한다.
 
 ---
 

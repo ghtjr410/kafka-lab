@@ -21,7 +21,7 @@ conventions: ../README.md
 >
 > **이 장의 보장(한 문장)**: *여러 파티션에 걸친 쓰기(+consumer offset 커밋)가 전부 반영되거나 전부 무효가 된다(원자성). EOS = 멱등 + 트랜잭션 + read-process-write이며, 그 보장은 Kafka 내부에 한정된다.*
 
-6장의 멱등은 "한 세션·한 파티션 내 중복"을 막았다. 하지만 실무는 더 큰 단위를 원한다 — *여러 파티션에 동시에 쓰고, 그게 전부 되거나 전부 안 되거나*. 그리고 *읽고-처리하고-쓰는* 한 사이클을 원자적으로 묶고 싶다. 이 장이 그 답이고, **II권에서 배우는 `read_committed`의 밑바닥**이다.
+[6장](./06-ordering-atomicity.md)의 멱등은 "한 세션·한 파티션 내 중복"을 막았다. 하지만 실무는 더 큰 단위를 원한다 — *여러 파티션에 동시에 쓰고, 그게 전부 되거나 전부 안 되거나*. 그리고 *읽고-처리하고-쓰는* 한 사이클을 원자적으로 묶고 싶다. 이 장이 그 답이고, **II권에서 배우는 `read_committed`의 밑바닥**이다.
 
 ---
 
@@ -31,13 +31,13 @@ conventions: ../README.md
 - **다중 파티션 원자성**: 한 번의 처리가 P0·P1·P2에 모두 쓰는데, 일부만 쓰이고 죽으면 정합성이 깨진다.
 - **read-process-write**: "토픽에서 읽어 → 처리해 → 다른 토픽에 쓰고 → 읽은 offset을 커밋"하는 스트림 처리 사이클. 이게 원자적이지 않으면 중복 처리나 유실이 생긴다.
 
-트랜잭션은 6장 멱등 **위에** 쌓인다 — 멱등이 "한 파티션 중복 없음"이라면, 트랜잭션은 "여러 파티션을 한 단위로".
+트랜잭션은 [6장](./06-ordering-atomicity.md) 멱등 **위에** 쌓인다 — 멱등이 "한 파티션 중복 없음"이라면, 트랜잭션은 "여러 파티션을 한 단위로".
 
 ---
 
 ## 7.2 `transactional.id`와 좀비 펜싱
 
-트랜잭션 프로듀서는 `transactional.id`를 갖는다. 이게 6장의 PID를 **세션을 넘어 영속화**한다.
+트랜잭션 프로듀서는 `transactional.id`를 갖는다. 이게 [6장](./06-ordering-atomicity.md)의 PID를 **세션을 넘어 영속화**한다.
 
 ```mermaid
 graph LR
@@ -45,7 +45,7 @@ graph LR
     PID --> FENCE["같은 transactional.id로<br/>새 프로듀서 등장 시 epoch++<br/>→ 옛 프로듀서(좀비) 차단"]
 ```
 
-프로듀서가 죽었다 살아나거나 중복 실행되면(좀비), 같은 `transactional.id`에 대해 **epoch를 올려** 옛 인스턴스의 쓰기를 거부한다. → 3장 leader epoch, 4장 Raft term과 같은 **"번호로 유령 펜싱"** 패턴이다.
+프로듀서가 죽었다 살아나거나 중복 실행되면(좀비), 같은 `transactional.id`에 대해 **epoch를 올려** 옛 인스턴스의 쓰기를 거부한다. → [3장](./03-replication.md) leader epoch, [4장](./04-consensus.md) Raft term과 같은 **"번호로 유령 펜싱"** 패턴이다.
 
 > **서버측 방어 강화 (KIP-890)**: 위 펜싱은 원래 *프로듀서 수명당* epoch였다. KIP-890은 이를 **매 트랜잭션마다**로 강화한다 — 매 트랜잭션의 commit/abort marker에 **새 epoch**를 실어 각 트랜잭션을 `(producer id, epoch)`로 유일 식별한다. 그러면 이전 트랜잭션의 지연 메시지가 옛 epoch이라 펜싱되어 **hanging transaction**(LSO가 안 풀리는 문제)을 막는다. (4.0+에서 기본 활성 — baseline 3.9에선 아직 *프로듀서 수명당* epoch다.) `[KIP-890 · 4.x]`
 
@@ -53,7 +53,7 @@ graph LR
 
 ## 7.3 Transaction Coordinator와 `__transaction_state`
 
-트랜잭션 상태는 **Transaction Coordinator**(브로커 중 하나)가 관리하고, 그 상태 역시 **`__transaction_state`라는 내부 로그**에 저장된다(2장 "메타데이터도 로그"). 트랜잭션의 시작·진행·commit/abort가 전부 로그로 남아, 코디네이터가 죽어도 복구된다.
+트랜잭션 상태는 **Transaction Coordinator**(브로커 중 하나)가 관리하고, 그 상태 역시 **`__transaction_state`라는 내부 로그**에 저장된다([2장](./02-log-abstraction.md) "메타데이터도 로그"). 트랜잭션의 시작·진행·commit/abort가 전부 로그로 남아, 코디네이터가 죽어도 복구된다.
 
 ---
 
@@ -87,7 +87,7 @@ sequenceDiagram
 여기가 **low↔high 연결의 정점**이다. II권에서 *"`read_committed` consumer는 abort된 메시지를 못 본다"* 를 배운다. 그게 **어떻게** 구현되나?
 
 - **control record**: commit/abort 마커가 데이터 로그 안에 일반 레코드처럼 박힌다(단, consumer에겐 데이터로 안 보인다).
-- **LSO (Last Stable Offset)**: **min(HW, 가장 오래된 열린 트랜잭션의 첫 offset)**. 3장의 HW 위에 트랜잭션 경계를 더한 것으로, **LSO 미만은 결정(commit/abort)이 끝난 '안정' 구간**이고 **LSO 이상은 아직 열린 트랜잭션이 끼어 있어 — 그 위에 이미 commit된 메시지가 있더라도 — 통째로 보류되는 구간**이다. (7장에서 처음 정의 — 8장의 *log start offset*과 약어가 겹치니, 이 책에서 LSO는 항상 Last Stable Offset.)
+- **LSO (Last Stable Offset)**: **min(HW, 가장 오래된 열린 트랜잭션의 첫 offset)**. [3장](./03-replication.md)의 HW 위에 트랜잭션 경계를 더한 것으로, **LSO 미만은 결정(commit/abort)이 끝난 '안정' 구간**이고 **LSO 이상은 아직 열린 트랜잭션이 끼어 있어 — 그 위에 이미 commit된 메시지가 있더라도 — 통째로 보류되는 구간**이다. (7장에서 처음 정의 — [8장](./08-storage-engine.md)의 *log start offset*과 약어가 겹치니, 이 책에서 LSO는 항상 Last Stable Offset.)
 
 ```mermaid
 graph LR

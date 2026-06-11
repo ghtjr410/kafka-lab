@@ -131,8 +131,8 @@ graph LR
 ```
 
 - **poll() 루프**: 한 스레드가 `poll()`로 레코드를 가져와 처리하고 다시 `poll()`. 처리도 이 스레드에서 한다.
-- **heartbeat 스레드(백그라운드)**: 5장의 `session.timeout`을 위해 하트비트를 따로 보낸다. → "살아있음"(heartbeat)과 "처리 진행"(poll 간격=`max.poll.interval`)이 분리된 이유(5.7).
-- `max.poll.records`: 한 번 poll로 가져올 최대 레코드. 너무 크면 처리에 오래 걸려 `max.poll.interval` 초과 → 퇴출(5장 리밸런싱).
+- **heartbeat 스레드(백그라운드)**: [5장](./05-coordination.md)의 `session.timeout`을 위해 하트비트를 따로 보낸다. → "살아있음"(heartbeat)과 "처리 진행"(poll 간격=`max.poll.interval`)이 분리된 이유(5.7).
+- `max.poll.records`: 한 번 poll로 가져올 최대 레코드. 너무 크면 처리에 오래 걸려 `max.poll.interval` 초과 → 퇴출([5장](./05-coordination.md) 리밸런싱).
 
 → 그래서 "리스너 안에서 오래 걸리는 blocking 작업"은 퇴출·리밸런싱을 부른다. (Spring 컨테이너의 스레드 모델·동시성은 → II권.)
 
@@ -147,7 +147,7 @@ Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기�
 - **long-poll**: 데이터가 아직 없으면 브로커가 즉시 빈 응답을 주지 않고, **`fetch.min.bytes`가 모이거나 `fetch.max.wait.ms`가 지나면(둘 중 먼저)** 응답한다 → 빈 폴링을 줄이고 배치 효율을 높인다.
 - **응답 크기 상한**: `fetch.max.bytes`(응답 전체)·`max.partition.fetch.bytes`(파티션당)로 제한한다(둘 다 consumer 설정).
 - **incremental fetch session**(KIP-227): 파티션이 많을 때 매번 전체 목록을 주고받지 않고 **변한 것만** 주고받는다(세션으로 상태 유지).
-- **복제도 같은 fetch 프로토콜**: 3장에서 follower가 leader를 "fetch로 당겨간다"고 했는데, 그게 바로 이 프로토콜이다 — consumer fetch와 replica fetch는 동일 메커니즘이다.
+- **복제도 같은 fetch 프로토콜**: [3장](./03-replication.md)에서 follower가 leader를 "fetch로 당겨간다"고 했는데, 그게 바로 이 프로토콜이다 — consumer fetch와 replica fetch는 동일 메커니즘이다.
 - **fetch-from-follower**(KIP-392): 기본은 leader에서 읽지만, 가까운(같은 rack) follower에서 읽도록 허용할 수 있다(지연·비용 최적화). 설정·운영은 → III권이나, 동작 자체는 fetch 프로토콜의 일부다.
 
 `[KIP-227, KIP-392]`
@@ -162,7 +162,7 @@ Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기�
 - **DelayedFetch**: fetch 요청은 `fetch.min.bytes`가 모일 때까지(9.7) 보류된다.
 - 보류된 요청은 **timer wheel**(타임아웃 관리)과 **watcher**(조건 충족 감시)로 관리되다, 조건이 차거나 타임아웃되면 완료된다.
 
-→ 즉 3장의 `acks=all` 대기와 9.7의 long-poll이, broker 내부에선 **같은 purgatory 메커니즘**으로 구현된다. `[Tier 0]`
+→ 즉 [3장](./03-replication.md)의 `acks=all` 대기와 9.7의 long-poll이, broker 내부에선 **같은 purgatory 메커니즘**으로 구현된다. `[Tier 0]`
 
 ---
 

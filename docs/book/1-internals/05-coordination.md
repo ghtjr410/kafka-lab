@@ -21,7 +21,7 @@ conventions: ../README.md
 >
 > **이 장의 보장(한 문장)**: *한 Consumer Group 안에서 각 파티션은 정확히 하나의 consumer에게 배정된다(소비의 배타성). 멤버가 바뀌면 리밸런싱으로 이 불변식을 유지한다.*
 
-4장이 "클러스터 전체의 두뇌(컨트롤러)"였다면, 이 장은 **"Consumer Group 전담 관리자(코디네이터)"** 다. 둘은 이름이 비슷하지만 역할이 다르다.
+[4장](./04-consensus.md)이 "클러스터 전체의 두뇌(컨트롤러)"였다면, 이 장은 **"Consumer Group 전담 관리자(코디네이터)"** 다. 둘은 이름이 비슷하지만 역할이 다르다.
 
 ---
 
@@ -37,7 +37,7 @@ graph LR
     P3["P3"] --> CC["Consumer C"]
 ```
 
-여기서 1장의 결론이 다시 나온다 — **파티션 수 = 그룹 내 최대 병렬성**. consumer가 파티션보다 많으면 남는 consumer는 놀고(idle), 적으면 한 consumer가 여러 파티션을 맡는다. 그리고 멤버가 들고 날 때 이 배타성을 다시 맞추는 게 **리밸런싱**이다.
+여기서 [1장](./01-what-is-kafka.md)의 결론이 다시 나온다 — **파티션 수 = 그룹 내 최대 병렬성**. consumer가 파티션보다 많으면 남는 consumer는 놀고(idle), 적으면 한 consumer가 여러 파티션을 맡는다. 그리고 멤버가 들고 날 때 이 배타성을 다시 맞추는 게 **리밸런싱**이다.
 
 **리밸런싱은 언제 도는가.** 멤버 집합 M과 구독 파티션 집합 P는 **둘 다 동적**이다 — 어느 쪽이 바뀌어 기존 배정이 위 불변식을 더는 만족하지 못하면(stale) 다시 맞춘다. 즉 **리밸런싱 트리거 = 배타·완전 배정을 무효화하는 사건**이다. 그래서 리밸런싱은 **장애 복구가 아니다** — consumer 추가(scale-out)·롤링 배포·구독 파티션 증설도 전부 트리거이고, 장애(멤버 사망)는 그중 한 경우일 뿐이다. 트리거는 네 갈래다:
 
@@ -48,7 +48,7 @@ graph LR
 
 각 트리거의 **전수 경우의 수와 운영 대응**(억제·회피·비용)은 → [III권 운영](../3-operations/README.md).
 
-> ⚠️ (경계) 이 배타성과 "파티션 수 = 병렬성 상한"은 **consumer group 한정**이다. **share group**(10장)에선 한 파티션을 여러 consumer가 **공유** 소비해, consumer 수 > 파티션 수도 가능하다. `[KIP-932 · docs @4.2]`
+> ⚠️ (경계) 이 배타성과 "파티션 수 = 병렬성 상한"은 **consumer group 한정**이다. **share group**([10장](./10-share-groups.md))에선 한 파티션을 여러 consumer가 **공유** 소비해, consumer 수 > 파티션 수도 가능하다. `[KIP-932 · docs @4.2]`
 
 ---
 
@@ -67,7 +67,7 @@ graph LR
 - 어느 브로커가 코디네이터인지는 `hash(groupId) % __consumer_offsets 파티션 수`로 결정된다 — 즉 그룹이 쓰는 offset 토픽 파티션의 리더 브로커가 그 그룹의 코디네이터다.
 - 하는 일: 멤버 heartbeat 감시, 리밸런싱 조율, offset 커밋 저장.
 
-> **컨트롤러(4장) ≠ 코디네이터(5장)**: 컨트롤러는 클러스터 레벨(파티션 리더·메타데이터), 코디네이터는 그룹 레벨(멤버십·offset). 클러스터당 active 컨트롤러는 하나지만, 코디네이터는 그룹마다 다른 브로커일 수 있다.
+> **컨트롤러([4장](./04-consensus.md)) ≠ 코디네이터(5장)**: 컨트롤러는 클러스터 레벨(파티션 리더·메타데이터), 코디네이터는 그룹 레벨(멤버십·offset). 클러스터당 active 컨트롤러는 하나지만, 코디네이터는 그룹마다 다른 브로커일 수 있다.
 
 ---
 
@@ -147,7 +147,7 @@ graph LR
 
 ## 5.9 offset은 어디에 — `__consumer_offsets`
 
-consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(compacted)** 에 저장된다(2장의 "메타데이터도 로그"). `key=(group, topic, partition)`, `value=offset`. 코디네이터가 이 토픽을 관리하고, consumer 재시작 시 여기서 마지막 커밋 위치를 읽어 "어디부터 읽을지"를 안다.
+consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(compacted)** 에 저장된다([2장](./02-log-abstraction.md)의 "메타데이터도 로그"). `key=(group, topic, partition)`, `value=offset`. 코디네이터가 이 토픽을 관리하고, consumer 재시작 시 여기서 마지막 커밋 위치를 읽어 "어디부터 읽을지"를 안다.
 
 그 "진행 위치"는 사실 **세 곳에 따로** 있고, **consumer가 재시작하면** 무엇이 남는지가 다르다:
 
@@ -165,7 +165,7 @@ consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(co
 
 또 committed offset이 말해주는 건 **"어디까지 *읽었나*"뿐**이다 — 그 데이터를 앱이 *처리 완료*했는지, *외부 DB·API에 반영*했는지는 모른다. 커밋 직전 죽으면 같은 데이터가 재전달되므로, 종단 정합은 consumer의 **멱등 처리**가 맡는다(구현 → II권).
 
-→ offset 커밋의 *코드/AckMode 함정*은 II권, 이게 트랜잭션과 묶이는 read-process-write는 7장.
+→ offset 커밋의 *코드/AckMode 함정*은 II권, 이게 트랜잭션과 묶이는 read-process-write는 [7장](./07-transactions.md).
 
 ---
 

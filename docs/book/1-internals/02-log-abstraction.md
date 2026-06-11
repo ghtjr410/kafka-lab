@@ -23,7 +23,7 @@ conventions: ../README.md
 >
 > (정확히는 retention에 기댄 **설계 선택**이다 — 2.3.)
 
-1장에서 우리는 Kafka를 "큐가 아니라 로그"라고 불렀다. 이 장은 그 한 문장을 끝까지 밀어붙인다. **왜 하필 로그라는 자료구조였나**, 그리고 그 선택이 어떻게 Kafka의 거의 모든 동작을 결정하는가.
+[1장](./01-what-is-kafka.md)에서 우리는 Kafka를 "큐가 아니라 로그"라고 불렀다. 이 장은 그 한 문장을 끝까지 밀어붙인다. **왜 하필 로그라는 자료구조였나**, 그리고 그 선택이 어떻게 Kafka의 거의 모든 동작을 결정하는가.
 
 ---
 
@@ -41,11 +41,11 @@ graph LR
 
 세 성질이 각각 무엇을 가능하게 하는가:
 
-- **append-only**: 쓰기는 항상 로그의 끝에 붙는다. 중간을 고치지 않는다. → 순차 I/O만 발생하고(8장에서 이게 왜 빠른지 본다), 동시성 제어가 단순해진다(끝에만 쓰니까).
+- **append-only**: 쓰기는 항상 로그의 끝에 붙는다. 중간을 고치지 않는다. → 순차 I/O만 발생하고([8장](./08-storage-engine.md)에서 이게 왜 빠른지 본다), 동시성 제어가 단순해진다(끝에만 쓰니까).
 - **불변(immutable)**: offset 42의 레코드는 영원히 그대로다. → 누가 언제 읽어도 같은 값. **재생 가능성(replayability)** 의 토대다.
 - **단조 offset**: offset은 파티션 안에서 0부터 **단조 증가하고 유일하며 재사용되지 않는다** — 다만 반드시 **연속(contiguous)은 아니다.** compaction이 레코드를 지우거나 트랜잭션 control record가 자리를 차지하면 gap이 생긴다(그래서 "offset 차이 = 메시지 수"가 아니다). → offset은 단순한 "위치"이자 동시에 *그 파티션 안에서의* **논리적 시계(logical clock)** 다. "어디까지 읽었나"를 offset 하나로 표현할 수 있는 이유다.
 
-> 이 세 성질은 뒤의 모든 장으로 흘러간다. 복제(3장)는 "같은 로그를 여러 노드에 복사", 합의(4장)는 "메타데이터도 로그로", 트랜잭션(7장)은 "control record를 로그에 끼워넣기", 저장 엔진(8장)은 "이 로그를 디스크에 어떻게 놓나"다.
+> 이 세 성질은 뒤의 모든 장으로 흘러간다. 복제([3장](./03-replication.md))는 "같은 로그를 여러 노드에 복사", 합의([4장](./04-consensus.md))는 "메타데이터도 로그로", 트랜잭션([7장](./07-transactions.md))은 "control record를 로그에 끼워넣기", 저장 엔진([8장](./08-storage-engine.md))은 "이 로그를 디스크에 어떻게 놓나"다.
 
 ---
 
@@ -59,7 +59,7 @@ graph LR
 
 - 여러 소비자(그룹)가 같은 로그를 **독립적으로** 읽는다.
 - offset을 되감으면 **과거를 다시 읽는다**(replay).
-- 데이터의 수명은 소비 여부가 아니라 **retention 정책**이 정한다(8장).
+- 데이터의 수명은 소비 여부가 아니라 **retention 정책**이 정한다([8장](./08-storage-engine.md)).
 
 ### 테이블(table)과의 차이 — 무엇이 본체인가
 
@@ -94,7 +94,7 @@ graph TB
 ```
 
 - 같은 로그를 같은 (순수) 함수로 **같은 순서로** 접으면 **항상 같은 상태**가 나온다(결정성). 그 순서를 보장하는 게 파티션 내 offset이다(파티션을 가로지르면 전역 순서가 없어 fold 순서를 따로 정해야 한다).
-- 그래서 새 소비자가 "처음부터 다시 읽어" 자기만의 뷰(검색 인덱스·캐시·집계 테이블)를 만들 수 있다. → 이게 1장에서 본 **N×M 통합을 N+M으로** 바꾼 힘의 정체다.
+- 그래서 새 소비자가 "처음부터 다시 읽어" 자기만의 뷰(검색 인덱스·캐시·집계 테이블)를 만들 수 있다. → 이게 [1장](./01-what-is-kafka.md)에서 본 **N×M 통합을 N+M으로** 바꾼 힘의 정체다.
 
 > 단 "모든 뷰를 replay"는 **retention이 전제**다.
 > - retention이 충분하면 — 전체 이력이 남아 *임의 시점 뷰*("3일차 잔고는?")까지 재구성된다.
@@ -137,7 +137,7 @@ compaction은 이렇게 **eventual**이다 — active segment는 미압축이고
 
 > 여기서는 compaction의 **의미**(상태 스냅샷)만 다룬다. cleaner 스레드가 *어떻게* 세그먼트를 청소하는지의 **메커니즘**은 → [저장 엔진](./08-storage-engine.md). (의미와 메커니즘을 두 장으로 나누는 건 SSOT 원칙이다.)
 
-이 "로그=테이블" 성질은 Kafka 자신도 적극 활용한다. consumer offset을 저장하는 `__consumer_offsets`가 compacted 로그이고(5장), 클러스터 메타데이터 `__cluster_metadata`도 같은 "로그→테이블" 발상이되 메커니즘은 key 기반 compaction이 아니라 **KRaft snapshot**이다(4장).
+이 "로그=테이블" 성질은 Kafka 자신도 적극 활용한다. consumer offset을 저장하는 `__consumer_offsets`가 compacted 로그이고([5장](./05-coordination.md)), 클러스터 메타데이터 `__cluster_metadata`도 같은 "로그→테이블" 발상이되 메커니즘은 key 기반 compaction이 아니라 **KRaft snapshot**이다([4장](./04-consensus.md)).
 
 이처럼 compaction의 실제 쓰임새는 **상태를 여러 소비자에게 배포**하는 것이다. 단 Kafka는 임의 쿼리·JOIN·random access가 되는 **범용 DB가 아니다** — compacted 토픽은 "조회하는 DB"가 아니라 상태의 **배포 매체**이고, 조회는 각 소비자가 그 로그를 읽어 **로컬에 materialize**해서 한다. (외부 DB의 변경 행을 이렇게 배포하는 CDC는 → [IV권 Connect/CDC](../4-beyond-core/README.md).)
 
@@ -160,19 +160,19 @@ Kafka 설계의 일관성을 보여주는 대목: **Kafka는 자기 자신의 �
 
 | 무엇 | 어디에 | 다루는 장 |
 |------|--------|----------|
-| consumer 커밋 offset | `__consumer_offsets` (compacted) | 5장 |
-| 클러스터 메타데이터(토픽·리더·ISR) | `__cluster_metadata` (KRaft) | 4장 |
-| 트랜잭션 상태 | `__transaction_state` (compacted) | 7장 |
-| commit/abort 경계 | control record (데이터 로그 안에) | 7장 |
+| consumer 커밋 offset | `__consumer_offsets` (compacted) | [5장](./05-coordination.md) |
+| 클러스터 메타데이터(토픽·리더·ISR) | `__cluster_metadata` (KRaft) | [4장](./04-consensus.md) |
+| 트랜잭션 상태 | `__transaction_state` (compacted) | [7장](./07-transactions.md) |
+| commit/abort 경계 | control record (데이터 로그 안에) | [7장](./07-transactions.md) |
 
-"데이터를 로그로 다루자"는 발상을 메타데이터에까지 밀어붙인 것 — 이게 KRaft가 우아한 이유의 핵심이고, 4장에서 본격적으로 다룬다.
+"데이터를 로그로 다루자"는 발상을 메타데이터에까지 밀어붙인 것 — 이게 KRaft가 우아한 이유의 핵심이고, [4장](./04-consensus.md)에서 본격적으로 다룬다.
 
 ---
 
 ## 2.7 트레이드오프와 증명
 
 **트레이드오프**
-- 로그는 무한히 쌓인다 → retention(시간/크기 기반 삭제)이나 compaction으로 잘라야 한다(8장).
+- 로그는 무한히 쌓인다 → retention(시간/크기 기반 삭제)이나 compaction으로 잘라야 한다([8장](./08-storage-engine.md)).
 - "매번 처음부터 fold"는 비싸다 → 스냅샷/compaction으로 완화.
 - 불변성의 대가: 수정·삭제가 1급 시민이 아니다. 삭제(GDPR 등)는 **해당 key 전체**를 tombstone(`value=null`)으로 표시해 compaction 시점에 지우는 식으로 우회한다 — *레코드 단위가 아니라 key 단위*이고 *즉시가 아니라 eventual*이다(토픽이 그 대상으로 keying돼 있어야 한다).
 
