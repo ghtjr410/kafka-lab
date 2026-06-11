@@ -80,7 +80,29 @@ graph TB
 - **active controller**가 그 로그의 리더이고, standby와 브로커들은 로그를 따라 읽어(replay) 자기 메타데이터 캐시를 만든다.
 - 이건 정확히 2장의 "상태 = fold(로그)"다 — 클러스터 상태마저 로그를 접어 만든다.
 
-> **정통 Raft와의 차이 — pull 기반(KIP-595)**: 교과서 Raft는 리더가 팔로워에게 로그를 **push**한다. KRaft는 반대로 voter·observer가 리더에게 **`Fetch`로 당겨간다(pull)** — 이 fetch가 동시에 리더 liveness 체크도 겸한다. 즉 KRaft는 "Raft 그대로"가 아니라, **9장의 fetch·3장의 follower 복제와 같은 pull 모델로 통일한 변형**이다.
+> **정통 Raft와의 차이 — pull 기반(KIP-595)**: 교과서 Raft는 리더가 팔로워에게 로그를 **push**한다. KRaft는 반대로 voter·observer가 리더에게 **`Fetch`로 당겨간다(pull)**. 그리고 이 한 번의 `Fetch`가 **양방향 liveness**를 겸한다. 즉 KRaft는 "Raft 그대로"가 아니라, [9장](./09-client-runtime.md)의 fetch·[3장](./03-replication.md)의 follower 복제와 **같은 pull 모델로 통일한 변형**이다.
+
+```mermaid
+graph LR
+    subgraph PUSH["교과서 Raft — push"]
+        LP["리더"] -->|"로그·heartbeat 보냄<br/>(리더가 팔로워 다 챙김)"| FP["팔로워들"]
+    end
+    subgraph PULL["KRaft — pull (KIP-595)"]
+        FK["팔로워들<br/>voter·observer"] -->|"Fetch로 당겨감<br/>(팔로워는 리더만 알면 됨)"| LK["리더"]
+    end
+```
+
+같은 `Fetch` 하나가 *어느 쪽이 침묵하느냐*에 따라 양쪽 죽음을 다 드러낸다.
+
+```mermaid
+graph TB
+    FETCH["voter → 리더 : Fetch (pull)<br/>= 메타 로그 복제 + 양방향 liveness"]
+    FETCH -->|"정상"| OK["로그 복제 + 둘 다 살아있음 확인"]
+    FETCH -->|"응답이 안 옴"| LDEAD["팔로워(voter)가 '리더 죽음' 감지<br/>→ 새 리더 선거"]
+    FETCH -->|"요청이 안 옴"| FDEAD["리더가 'voter 비활성' 인지<br/>→ voter 명단은 고정(축출 아님)<br/>→ 과반만 살아있으면 진행 계속"]
+```
+
+> 단, 데이터 평면 ISR과 메타 평면 quorum은 *닮았지만 다르다*. ISR은 뒤처지면 빠지고 따라잡으면 드는 **동적** 집합이다([3장](./03-replication.md)). 반면 KRaft voter는 `controller.quorum.voters`로 박힌 **고정** 명단이다. 그래서 죽은 voter는 ISR처럼 *축출되는* 게 아니라 단지 **과반 계산에서 안 세질 뿐**이고, 과반만 살아 있으면 진행은 계속된다(4.2).
 
 ---
 

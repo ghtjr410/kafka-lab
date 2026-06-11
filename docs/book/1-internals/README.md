@@ -206,6 +206,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
   - Paxos는 이해가 어려워, Raft는 같은 안전성에 이해가능성을 설계 목표로 삼았고 강한 리더와 term(선거마다 증가)을 도입했다 — term은 3장 leader epoch과 같은 메커니즘이되 계층이 다르다(파티션 vs 메타데이터).
 - **4.4 KRaft — "메타데이터도 로그로"**
   - `KRaft`는 모든 메타데이터 변경을 `__cluster_metadata` 로그에 append하고 active controller가 그 리더이며, 정통 Raft의 push와 달리 voter·observer가 `Fetch`로 당겨가는 pull 모델이다.
+  - 그 한 번의 `Fetch`가 양방향 liveness를 겸한다 — 응답 부재=팔로워가 본 "리더 죽음"(→ 선거), 요청 부재=리더가 본 "voter 비활성"(voter 명단은 고정이라 축출이 아니라 과반 미달 여부)
 - **4.5 Controller Quorum · active controller · term**
   - voter들이 메타데이터 로그를 복제하며 Raft 과반 투표로 active controller를 뽑고, standby가 이미 로그를 따라 읽고 있어 active가 죽어도 거의 즉시 승계한다.
 - **4.6 파티션 리더 선출은 컨트롤러가 한다**
