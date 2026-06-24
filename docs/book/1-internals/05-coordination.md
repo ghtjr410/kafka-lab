@@ -100,6 +100,8 @@ Group Leader가 쓰는 배정 알고리즘(`partition.assignment.strategy`):
 - **Sticky**: 기존 배정을 최대한 유지해 **순(net) 재배정량**을 줄인다. 단 리밸런싱은 여전히 **eager**(전 파티션 revoke 후 재배정)라 stop-the-world는 남는다 — 무중단은 다음 절의 `CooperativeSticky`뿐이다.
 - **CooperativeSticky**: Sticky + 협력적 리밸런싱(다음 절).
 
+> 여기서의 Sticky(컨슈머가 갖던 파티션 배정에 달라붙기)는 프로듀서의 [Sticky Partitioner](./09-client-runtime.md)(key 없는 레코드를 한 파티션에 몰기)와 **이름만 같은 다른 것**이다.
+
 ---
 
 ## 5.6 리밸런싱 — classic의 두 모드, 그리고 KIP-848
@@ -119,6 +121,8 @@ graph TB
 - **cooperative 모드** `[KIP-429]`: 이동이 필요한 파티션만 내려놓는다. 2라운드지만 멈춤이 작다. 5.5의 `CooperativeStickyAssignor`를 고르면 이 모드가 켜진다.
   - ⚠️ 기본값 `partition.assignment.strategy`는 `[RangeAssignor, CooperativeStickyAssignor]`지만, **공통 최우선이 Range라 실제 기본 동작은 eager**다. cooperative로 가려면 리스트에서 Range를 빼는 **단일 rolling bounce**가 필요하다(둘을 함께 둔 이유가 이 무중단 전환 — 섞여 돌면 한쪽이 파티션을 안 내놓아 배타성이 깨질 수 있다). 전환 *절차*는 → III권. `[code @3.7]`
 - **KIP-848**(consumer 프로토콜): classic의 JoinGroup/SyncGroup **전역 동기화 장벽**(한 멤버가 느리면 전원 정지)을 없애고, 배정을 **서버(코디네이터)** 가 계산해(**target assignment**) 멤버별로 **증분 reconciliation**하며 **group epoch**로 세대를 매긴다 → 안정성·확장성↑(클라이언트가 얇아지는 건 부수 효과). 3.7 EA → **4.0 GA**, baseline 3.9에선 preview. `[KIP-848]`
+
+> 이 **group epoch**도 "번호로 유령 펜싱" 4형제 중 하나다 — [3장](./03-replication.md)의 leader epoch·[4장](./04-consensus.md)의 term·[producer epoch](./06-ordering-atomicity.md)와 같은 패턴이고 계층만 다르다(데이터 리더 / 메타 리더 / 프로듀서 / consumer group).
 
 ---
 

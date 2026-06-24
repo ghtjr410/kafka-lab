@@ -65,6 +65,8 @@ send() → 직렬화 → 파티션 결정 → RecordAccumulator에 적재 → (�
 > **key 없는 메시지는 어느 파티션으로?** key가 있으면 해시로 정해지지만, key가 없으면 **sticky** 방식이 한 파티션에 "달라붙어" **`batch.size` 바이트가 쌓이면** 다음 파티션으로 옮긴다(전환 기준은 바이트 양 — `linger.ms`는 전송 시점이지 전환 트리거가 아니다). 3.7 기본은 다음 파티션을 브로커 부하 반영해 고른다(adaptive) → 배치가 커져 처리량이 오른다(9.5). baseline 3.7 기본은 **strictly-uniform sticky**(KIP-794, 3.3+ — 옛 `DefaultPartitioner`/`UniformStickyPartitioner`는 deprecated)이고, KIP-480이 그 원조다. `[KIP-480, KIP-794]`
 >
 > 단 sticky는 **처리량(배치) 최적화일 뿐 순서 장치가 아니다** — 순서는 멱등(sequence)과 `max.in.flight` 조합이 정한다(→ [멱등·순서](./06-ordering-atomicity.md)). key 없는 메시지는 애초에 순서 보장 대상이 아니다.
+>
+> 이 프로듀서 sticky는 컨슈머의 [StickyAssignor](./05-coordination.md)(리밸런싱 때 파티션 소유권 유지)와 **이름만 같은 다른 것**이다.
 
 ---
 
