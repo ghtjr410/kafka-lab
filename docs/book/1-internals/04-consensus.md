@@ -129,6 +129,33 @@ graph TB
 
 > 단, 데이터 평면 ISR과 메타 평면 quorum은 *닮았지만 다르다*. ISR은 뒤처지면 빠지고 따라잡으면 드는 **동적** 집합이다([3장](./03-replication.md)). 반면 KRaft voter는 `controller.quorum.voters`로 박힌 **고정** 명단이다. 그래서 죽은 voter는 ISR처럼 *축출되는* 게 아니라 단지 **과반 계산에서 안 세질 뿐**이고, 과반만 살아 있으면 진행은 계속된다(4.2).
 
+<details>
+<summary>[의문] — 브로커가 수천 대면 합의 과정에서 병목이 생길까?</summary>
+
+**결론부터, 안 생긴다.** pull이라 follower가 리더에게 `Fetch`를 보내는 건 맞지만, 투표(합의)에 끼는 노드와 메타데이터를 따라 읽기만 하는 노드가 따로 있기 때문이다 `[KIP-595]`.
+
+- **voter** — `controller.quorum.voters`에 박아 둔 노드(보통 3대나 5대). 메타 로그를 커밋할 때 **과반**을 책임지고, active controller 선거에서 투표권을 가진다.
+- **observer** — voter 명단에 없는 나머지 노드(대부분 일반 브로커). `__cluster_metadata`를 **따라 읽기만(Fetch·replay)** 하고, 과반 계산이나 투표에는 끼지 않는다.
+
+그래서 active controller가 커밋 한 번마다 받아야 하는 **투표 ack 수**는 클러스터가 수백·수천 대로 불어나도 **voter 수 그대로(3·5대)**다. observer는 아무리 늘어도 메타 로그를 따라 읽기만 할 뿐이라 합의 비용에는 안 잡힌다. (observer가 보내는 `Fetch`는 합의가 아니라 그냥 로그 읽기 부하고, [3장](./03-replication.md)에서 follower가 리더 로그를 복제하던 것과 같은 종류다.)
+
+그럼 voter를 늘리면 더 안전해질까? 오히려 느려지기만 한다 — 커밋마다 기다려야 할 과반 ack가 늘기 때문이다. voter를 5대로 늘리면 2대까지 죽어도 버티지만, split-brain은 과반 규칙이 이미 막고 있어서(4.2) 데이터 정합성이 더 좋아지지는 않는다. 그래서 voter는 일부러 3대나 5대로 **작게 박아 둔다**.
+
+```mermaid
+graph TB
+    subgraph QUORUM["Controller Quorum — voter 고정(홀수 3·5)"]
+        AC["Active Controller<br/>메타 로그 리더"]
+        V1["voter"]
+        V2["voter"]
+        V1 -->|"Fetch + 과반 투표"| AC
+        V2 -->|"Fetch + 과반 투표"| AC
+    end
+    O1["observer = 일반 브로커"] -. "Fetch·replay만 (투표 X)" .-> AC
+    O2["observer"] -. "Fetch·replay만" .-> AC
+    O3["observer … 수백·수천 대도"] -. "Fetch·replay만" .-> AC
+```
+</details>
+
 ---
 
 ## 4.5 Controller Quorum · active controller · term

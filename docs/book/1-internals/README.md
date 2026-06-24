@@ -207,6 +207,7 @@ append-only 로그가 진실의 원천이고 상태는 그 로그의 fold 파생
 - **4.4 KRaft — "메타데이터도 로그로"**
   - `KRaft`는 모든 메타데이터 변경을 `__cluster_metadata` 로그에 append하고 active controller가 그 리더이며, 정통 Raft의 push와 달리 voter·observer가 `Fetch`로 당겨가는 pull 모델이다.
   - 그 한 번의 `Fetch`가 양방향 liveness를 겸한다 — 응답 부재=팔로워가 본 "리더 죽음"(→ 선거), 요청 부재=리더가 본 "voter 비활성"(voter 명단은 고정이라 축출이 아니라 과반 미달 여부)
+  - voter(3·5대)만 과반·투표에 들고 나머지 브로커는 observer로 `Fetch`·replay만 하므로, 리더가 커밋마다 받는 투표 ack는 클러스터 크기와 무관하게 voter 수에만 달렸다 — 그래서 voter는 일부러 작게 둔다.
 - **4.5 Controller Quorum · active controller · term**
   - voter들이 메타데이터 로그를 복제하며 Raft 과반 투표로 active controller를 뽑고, standby가 이미 로그를 따라 읽고 있어 active가 죽어도 거의 즉시 승계한다.
 - **4.6 파티션 리더 선출은 컨트롤러가 한다**
