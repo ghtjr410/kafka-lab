@@ -143,5 +143,3 @@ spring.kafka.consumer.properties:
 ---
 
 ← [II권 목차](./README.md) · 원리: [I권 트랜잭션·EOS](../1-internals/07-transactions.md)·[멱등·순서](../1-internals/06-ordering-atomicity.md) · 조합: [8.4](./08-config-combination-traps.md) · 코드 경계: [9.5](./09-code-order-traps.md) · 증명: [s06](../../../src/test/java/com/example/kafka/s06_eos/README.md)
-</content>
-</invoke>
