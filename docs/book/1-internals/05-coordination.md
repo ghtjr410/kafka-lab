@@ -1,12 +1,12 @@
 ---
 volume: I
 chapter: 5
-title: "조정 — Consumer Group은 어떻게 나눠 읽나"
+title: "조정: Consumer Group은 어떻게 나눠 읽나"
 prose: done
 proof:
   mode: self
   status: 미구현
-  method: "3-broker docker — eager/cooperative revoke · static membership · 퇴출 · 독립 offset"
+  method: "3-broker docker: eager/cooperative revoke · static membership · 퇴출 · 독립 offset"
   pending: ["eager vs cooperative revoke 범위", "group.instance.id 재접속 유지", "max.poll.interval 초과 퇴출", "두 그룹 독립 offset"]
   done: []
 upstream: ["04-consensus.md"]
@@ -15,7 +15,7 @@ baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../
 conventions: ../README.md
 ---
 
-# 5장. 조정 — Consumer Group은 어떻게 나눠 읽나
+# 5장. 조정: Consumer Group은 어떻게 나눠 읽나
 
 > 앞 장: [4장 합의(KRaft)](./04-consensus.md) · 다음 장: [6장 멱등·순서](./06-ordering-atomicity.md)
 >
@@ -27,7 +27,7 @@ conventions: ../README.md
 
 ## 5.1 배타 배정 불변식
 
-Consumer Group의 핵심 규칙: **그룹 안에서 각 파티션은 정확히 한 consumer에게 배정된다.** 한 파티션을 둘이 나눠 갖지도(no overlap), 구독된 파티션이 아무에게도 안 맡겨져 노는 일도(no gap) 없다 — 배타성과 완전성을 함께 만족하는 **배타적 완전 피복**이다(리밸런싱이 도는 동안은 일시적으로 깨졌다가 곧 재정합되는 *안정 상태 불변식*이다).
+Consumer Group의 핵심 규칙: **그룹 안에서 각 파티션은 정확히 한 consumer에게 배정된다.** 한 파티션을 둘이 나눠 갖지도(no overlap), 구독된 파티션이 아무에게도 안 맡겨져 노는 일도(no gap) 없다. 배타성과 완전성을 함께 만족하는 **배타적 완전 피복**이다(리밸런싱이 도는 동안은 일시적으로 깨졌다가 곧 재정합되는 *안정 상태 불변식*이다).
 
 ```mermaid
 graph LR
@@ -37,16 +37,68 @@ graph LR
     P3["P3"] --> CC["Consumer C"]
 ```
 
-여기서 [1장](./01-what-is-kafka.md)의 결론이 다시 나온다 — **파티션 수 = 그룹 내 최대 병렬성**. consumer가 파티션보다 많으면 남는 consumer는 놀고(idle), 적으면 한 consumer가 여러 파티션을 맡는다. 그리고 멤버가 들고 날 때 이 배타성을 다시 맞추는 게 **리밸런싱**이다.
+여기서 [1장](./01-what-is-kafka.md)의 결론이 다시 나온다: **파티션 수 = 그룹 내 최대 병렬성**. consumer가 파티션보다 많으면 남는 consumer는 놀고(idle), 적으면 한 consumer가 여러 파티션을 맡는다. 그리고 멤버가 들고 날 때 이 배타성을 다시 맞추는 게 **리밸런싱**이다.
 
-**리밸런싱은 언제 도는가.** 멤버 집합 M과 구독 파티션 집합 P는 **둘 다 동적**이다 — 어느 쪽이 바뀌어 기존 배정이 위 불변식을 더는 만족하지 못하면(stale) 다시 맞춘다. 즉 **리밸런싱 트리거 = 배타·완전 배정을 무효화하는 사건**이다. 그래서 리밸런싱은 **장애 복구가 아니다** — consumer 추가(scale-out)·롤링 배포·구독 파티션 증설도 전부 트리거이고, 장애(멤버 사망)는 그중 한 경우일 뿐이다. 트리거는 네 갈래다:
+### 리밸런싱은 언제 발생하는가?
 
-- **ⓐ 멤버 변화(M)** — 합류·이탈·강제 제거.
-- **ⓑ 생존 판정(liveness)** — heartbeat 실패나 `max.poll.interval` 초과로 죽었다고 보는 경우(§5.7).
-- **ⓒ 토폴로지(P)** — 구독 파티션 증가·패턴 구독에 새 토픽 매칭.
-- **ⓓ 코디네이터 이동** — 그룹의 코디네이터 브로커가 바뀌어 재합류.
+멤버 집합 M과 구독 파티션 집합 P는 **둘 다 동적**이다. 어느 쪽이 바뀌어 기존 배정이 위 불변식을 더는 만족하지 못하면(stale) 다시 맞춘다. 즉 **리밸런싱 트리거는 배타·완전 배정을 무효화하는 사건**이다.
+
+그래서 리밸런싱은 **장애 복구가 아니다.** consumer 추가(scale-out), 롤링 배포, 구독 파티션 증설이 전부 트리거이고, 장애(멤버 사망)는 그중 한 경우일 뿐이다.
+
+트리거는 네 갈래다:
+
+- **ⓐ 멤버 변화(M)**: 합류·이탈·강제 제거.
+- **ⓑ 생존 판정(liveness)**: heartbeat 실패나 `max.poll.interval` 초과로 죽었다고 보는 경우(§5.7).
+- **ⓒ 토폴로지(P)**: 구독 파티션 증가·패턴 구독에 새 토픽 매칭.
+- **ⓓ 코디네이터 이동**: 그룹의 코디네이터 브로커가 바뀌어 재합류.
 
 각 트리거의 **전수 경우의 수와 운영 대응**(억제·회피·비용)은 → [III권 운영](../3-operations/README.md).
+
+### 리밸런싱의 영향 범위 (blast radius)
+
+한 번의 리밸런싱이 클러스터 전체를 흔들지 않는다. 영향은 **그 토픽을 구독한 그룹들에만**, 그리고 **그룹마다 따로** 돈다. 파티션을 늘려도 다른 토픽만 보는 그룹은 영향이 0이고, 결제 그룹의 리밸런싱이 주문 그룹을 멈추지 않는다(코디네이터는 그룹마다 다를 수 있다 → 5.3).
+
+영향을 더 줄이는 1차 수단은 클러스터를 쪼개는 게 아니라 같은 토픽 안의 장치다. **cooperative 리밸런싱**(멈춤 최소화 5.6)과 **static membership**(불필요한 리밸런싱 억제 5.8)이 먼저고, 클러스터 분리는 그다음 레버다(→ [III권 운영](../3-operations/README.md)).
+
+### scale-out과 fan-out, 두 축
+
+지금까지는 *한* 그룹 안에서 파티션을 나눠 갖는 얘기였다. 이게 **scale-out**이다. 같은 `group.id`의 인스턴스들이 분담하고, 파티션 수가 병렬성 상한이다.
+
+그런데 **`group.id`가 다르면 얘기가 달라진다.** 다른 그룹은 같은 토픽을 *각자 전량* 독립 소비한다(**fan-out**). 두 축을 가르는 건 딱 하나, `group.id`가 같으냐 다르냐다.
+
+예로 `order-events` 토픽을 **결제 서버**(인스턴스 2대)와 **주문 서버**(인스턴스 2대)가 본다고 하자. 결제 서버 2대는 *한 그룹*이라 파티션을 나눠 갖고(scale-out), 결제 그룹과 주문 그룹은 *다른 그룹*이라 같은 메시지를 각자 자기 offset으로 전량 읽는다(fan-out).
+
+"파티션당 컨슈머 1:1이 효율적"은 *한 그룹 안* 얘기이고, "결제·주문 서버가 같은 데이터를 본다"는 *다른 그룹* 얘기다. 충돌하지 않는 다른 층위다.
+
+> **토픽 = 무슨 데이터냐 / 그룹 = 누가 어떤 정체성으로 읽나.**
+
+```mermaid
+graph TB
+    subgraph TOPIC["order-events 토픽 (디스크의 물리 파티션)"]
+        P0["P0"]
+        P1["P1"]
+        P2["P2"]
+        P3["P3"]
+    end
+    subgraph PAY["GROUP payment · 결제 서버 (offset 독립)"]
+        c1["consumer 1"]
+        c2["consumer 2"]
+    end
+    subgraph ORD["GROUP order · 주문 서버 (offset 독립)"]
+        cA["consumer A"]
+        cB["consumer B"]
+    end
+    P0 --> c1
+    P1 --> c1
+    P2 --> c2
+    P3 --> c2
+    P0 --> cA
+    P1 --> cA
+    P2 --> cB
+    P3 --> cB
+```
+
+> 한 토픽을 두 그룹이 **fan-out**으로 나눠 받고(payment·order는 서로 독립, offset 따로), 각 그룹 *안*에서는 파티션을 **scale-out**으로 분담한다(c1·c2가 P0~P3을 나눔). 인스턴스를 파티션보다 많이 띄우면 초과분은 논다(idle). 그 *운영 튜닝*(인스턴스 수 × concurrency)은 → II권·III권.
 
 > ⚠️ (경계) 이 배타성과 "파티션 수 = 병렬성 상한"은 **consumer group 한정**이다. **share group**([10장](./10-share-groups.md))에선 한 파티션을 여러 consumer가 **공유** 소비해, consumer 수 > 파티션 수도 가능하다. `[KIP-932 · docs @4.2]`
 
@@ -56,15 +108,15 @@ graph LR
 
 순진하게는 브로커가 "누가 무슨 파티션"을 다 계산할 수 있다. 하지만 Kafka는 **배정 계산을 그룹 안의 한 consumer(Group Leader)에게 위임**한다. 브로커(코디네이터)는 멤버십과 통신만 조율한다.
 
-이유는 **유연성과 얇은 브로커**다 — 배정 알고리즘을 클라이언트에 두면 브로커 재배포 없이 커스텀 assignor를 꽂을 수 있고, 브로커는 그룹 의미론에서 분리돼 얇게 유지된다(단일 그룹의 배정 계산 자체는 무겁지 않다). 단 이 "얇은 브로커" 선택은 클라이언트를 두껍게 만들어, 차세대(KIP-848)는 그 운영 부담 때문에 배정을 다시 서버로 가져간다 — 5.6.
+이유는 **유연성과 얇은 브로커**다. 배정 알고리즘을 클라이언트에 두면 브로커 재배포 없이 커스텀 assignor를 꽂을 수 있고, 브로커는 그룹 의미론에서 분리돼 얇게 유지된다(단일 그룹의 배정 계산 자체는 무겁지 않다). 단 이 "얇은 브로커" 선택은 클라이언트를 두껍게 만들어, 차세대(KIP-848)는 그 운영 부담 때문에 배정을 다시 서버로 가져간다(5.6).
 
 ---
 
-## 5.3 Group Coordinator — 컨트롤러와 다른 것
+## 5.3 Group Coordinator: 컨트롤러와 다른 것
 
 **Group Coordinator**는 *브로커 중 하나*가 특정 그룹을 위해 겸임하는 역할이다.
 
-- 어느 브로커가 코디네이터인지는 `hash(groupId) % __consumer_offsets 파티션 수`로 결정된다 — 즉 그룹이 쓰는 offset 토픽 파티션의 리더 브로커가 그 그룹의 코디네이터다.
+- 어느 브로커가 코디네이터인지는 `hash(groupId) % __consumer_offsets 파티션 수`로 결정된다. 즉 그룹이 쓰는 offset 토픽 파티션의 리더 브로커가 그 그룹의 코디네이터다.
 - 하는 일: 멤버 heartbeat 감시, 리밸런싱 조율, offset 커밋 저장.
 
 > **컨트롤러([4장](./04-consensus.md)) ≠ 코디네이터(5장)**: 컨트롤러는 클러스터 레벨(파티션 리더·메타데이터), 코디네이터는 그룹 레벨(멤버십·offset). 클러스터당 active 컨트롤러는 하나지만, 코디네이터는 그룹마다 다른 브로커일 수 있다.
@@ -73,7 +125,16 @@ graph LR
 
 ## 5.4 JoinGroup → SyncGroup
 
-리밸런싱은 2단계 프로토콜로 진행된다(classic 기준 — KIP-848은 이 2단계 자체를 없앤다, 5.6).
+그 전에 멘탈모델 하나: **컨슈머는 보통 자기가 읽을 파티션을 직접 고르지 않는다.** 토픽만 구독(`subscribe`)하면 카프카가 알아서 배정한다. 파티션을 콕 찍는 `assign`도 있지만 드물다.
+
+| 진입 | 누가 파티션을 정하나 | 리밸런싱 |
+|------|--------------------|---------|
+| `subscribe(토픽)` | 카프카가 자동 배정(아래 흐름) | 멤버 바뀌면 자동 재배정 |
+| `assign(파티션)` | 컨슈머가 직접 지정 | 안 씀(그룹 관리 밖) |
+
+(producer 쪽 "어느 파티션에 *쓸지*"는 key 해시·파티셔너 얘기로 [1장](./01-what-is-kafka.md)과 다른 문제다. 여기선 컨슈머가 "어느 파티션을 *읽을지*"를 정하는 두 길이다.)
+
+리밸런싱은 2단계 프로토콜로 진행된다(classic 기준이며, KIP-848은 이 2단계 자체를 없앤다 → 5.6).
 
 ```mermaid
 sequenceDiagram
@@ -97,14 +158,14 @@ sequenceDiagram
 Group Leader가 쓰는 배정 알고리즘(`partition.assignment.strategy`):
 
 - **Range** / **RoundRobin**: 고전적. 멤버 변동 시 배정이 크게 뒤섞인다.
-- **Sticky**: 기존 배정을 최대한 유지해 **순(net) 재배정량**을 줄인다. 단 리밸런싱은 여전히 **eager**(전 파티션 revoke 후 재배정)라 stop-the-world는 남는다 — 무중단은 다음 절의 `CooperativeSticky`뿐이다.
+- **Sticky**: 기존 배정을 최대한 유지해 **순(net) 재배정량**을 줄인다. 단 리밸런싱은 여전히 **eager**(전 파티션 revoke 후 재배정)라 stop-the-world는 남는다. 무중단은 다음 절의 `CooperativeSticky`뿐이다.
 - **CooperativeSticky**: Sticky + 협력적 리밸런싱(다음 절).
 
 > 여기서의 Sticky(컨슈머가 갖던 파티션 배정에 달라붙기)는 프로듀서의 [Sticky Partitioner](./09-client-runtime.md)(key 없는 레코드를 한 파티션에 몰기)와 **이름만 같은 다른 것**이다.
 
 ---
 
-## 5.6 리밸런싱 — classic의 두 모드, 그리고 KIP-848
+## 5.6 리밸런싱: classic의 두 모드, 그리고 KIP-848
 
 5.4의 JoinGroup/SyncGroup과 5.5의 클라이언트 assignor는 모두 **classic 프로토콜** 기준이다. 흔히 "eager → cooperative → KIP-848"을 한 줄 세대로 묶지만, **eager·cooperative는 별개 세대가 아니라 classic 안의 두 모드**(5.5의 assignor 선택으로 갈린다)이고, 진짜 프로토콜 단절은 **classic → KIP-848** 한 곳이다.
 
@@ -119,10 +180,10 @@ graph TB
 
 - **eager 모드**: 리밸런싱 때 *모든* consumer가 *모든* 파티션을 일단 내려놓고(revoke) 다시 받는다 → 그 사이 **전체 처리 정지(stop-the-world)**.
 - **cooperative 모드** `[KIP-429]`: 이동이 필요한 파티션만 내려놓는다. 2라운드지만 멈춤이 작다. 5.5의 `CooperativeStickyAssignor`를 고르면 이 모드가 켜진다.
-  - ⚠️ 기본값 `partition.assignment.strategy`는 `[RangeAssignor, CooperativeStickyAssignor]`지만, **공통 최우선이 Range라 실제 기본 동작은 eager**다. cooperative로 가려면 리스트에서 Range를 빼는 **단일 rolling bounce**가 필요하다(둘을 함께 둔 이유가 이 무중단 전환 — 섞여 돌면 한쪽이 파티션을 안 내놓아 배타성이 깨질 수 있다). 전환 *절차*는 → III권. `[code @3.7]`
+  - ⚠️ 기본값 `partition.assignment.strategy`는 `[RangeAssignor, CooperativeStickyAssignor]`지만, **공통 최우선이 Range라 실제 기본 동작은 eager**다. cooperative로 가려면 리스트에서 Range를 빼는 **단일 rolling bounce**가 필요하다(둘을 함께 둔 이유가 이 무중단 전환이다. 섞여 돌면 한쪽이 파티션을 안 내놓아 배타성이 깨질 수 있다). 전환 *절차*는 → III권. `[code @3.7]`
 - **KIP-848**(consumer 프로토콜): classic의 JoinGroup/SyncGroup **전역 동기화 장벽**(한 멤버가 느리면 전원 정지)을 없애고, 배정을 **서버(코디네이터)** 가 계산해(**target assignment**) 멤버별로 **증분 reconciliation**하며 **group epoch**로 세대를 매긴다 → 안정성·확장성↑(클라이언트가 얇아지는 건 부수 효과). 3.7 EA → **4.0 GA**, baseline 3.9에선 preview. `[KIP-848]`
 
-> 이 **group epoch**도 "번호로 유령 펜싱" 4형제 중 하나다 — [3장](./03-replication.md)의 leader epoch·[4장](./04-consensus.md)의 term·[producer epoch](./06-ordering-atomicity.md)와 같은 패턴이고 계층만 다르다(데이터 리더 / 메타 리더 / 프로듀서 / consumer group).
+> 이 **group epoch**도 "번호로 유령 펜싱" 4형제 중 하나다. [3장](./03-replication.md)의 leader epoch·[4장](./04-consensus.md)의 term·[producer epoch](./06-ordering-atomicity.md)와 같은 패턴이고 계층만 다르다(데이터 리더 / 메타 리더 / 프로듀서 / consumer group).
 
 ---
 
@@ -137,7 +198,7 @@ graph LR
 ```
 
 - `heartbeat.interval` < `session.timeout`: 하트비트는 백그라운드 스레드가 보낸다. session.timeout 안에 못 받으면 **프로세스 죽음/네트워크 단절**로 보고 퇴출.
-- `session.timeout` ≪ `max.poll.interval`: poll 간격이 이를 넘으면 **처리 로직이 너무 느린 것**으로 보고 퇴출. (살아있음 ≠ 처리 진행 — 그래서 둘을 분리했다.)
+- `session.timeout` ≪ `max.poll.interval`: poll 간격이 이를 넘으면 **처리 로직이 너무 느린 것**으로 보고 퇴출. (살아있음 ≠ 처리 진행. 그래서 둘을 분리했다.)
 
 → 이 타이밍을 Spring에서 어떻게 잡고 어디서 데이는지는 → II권. 리밸런싱 트리거 전수와 운영 대응은 → III권.
 
@@ -149,31 +210,51 @@ graph LR
 
 ---
 
-## 5.9 offset은 어디에 — `__consumer_offsets`
+## 5.9 offset은 어디에: `__consumer_offsets`
 
 consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(compacted)** 에 저장된다([2장](./02-log-abstraction.md)의 "메타데이터도 로그"). `key=(group, topic, partition)`, `value=offset`. 코디네이터가 이 토픽을 관리하고, consumer 재시작 시 여기서 마지막 커밋 위치를 읽어 "어디부터 읽을지"를 안다.
+
+```mermaid
+graph TB
+    subgraph BX["브로커 X (데이터 리더)"]
+        P0["order-events / P0<br/>… 151 152 153 154 …"]
+    end
+    subgraph BY["브로커 Y (코디네이터)<br/>hash(groupId) % 파티션수"]
+        OFF["__consumer_offsets (compacted)<br/>(payment, order-events, P0) = 153"]
+    end
+    subgraph G["GROUP payment"]
+        C1["consumer<br/>앱 객체 · 메모리(휘발성)"]
+    end
+    P0 -->|"① pull 읽기"| C1
+    C1 -->|"② commit 153"| OFF
+    OFF -->|"③ 재시작·재배정 시 복원"| C1
+```
+
+> consumer는 진행 위치를 **메모리(휘발성)**에 들고 읽다가(①), 처리한 데까지를 코디네이터 브로커의 `__consumer_offsets`에 **커밋**한다(②).
+> 죽거나 바뀌면 메모리의 미커밋분은 사라지지만, 커밋된 위치는 남아 재시작·재배정 때 거기서 복원된다(③). 멤버가 바뀌어도 **유실이 아니라 재배정**인 이유다.
+> 코디네이터 브로커는 `hash(groupId)`로 정해져 **데이터 브로커와 다를 수 있다**(5.3).
 
 그 "진행 위치"는 사실 **세 곳에 따로** 있고, **consumer가 재시작하면** 무엇이 남는지가 다르다:
 
 | 위치 | 누가 들고 있나 | consumer 재시작 후 |
 |------|---------------|-------|
-| broker log offset | 파티션 로그(브로커) | 남음 — 레코드의 물리 위치(단 데이터는 retention으로 삭제 가능 → [8장](./08-storage-engine.md)) |
-| **consumer 진행 위치** | consumer **메모리** | **사라짐** — 미커밋분은 유실된다 |
-| committed offset | `__consumer_offsets`(브로커) | 남음 — 그래서 재시작 시 메모리가 아니라 *이것*을 읽는다 |
+| broker log offset | 파티션 로그(브로커) | 남음. 레코드의 물리 위치(단 데이터는 retention으로 삭제 가능 → [8장](./08-storage-engine.md)) |
+| **consumer 진행 위치** | consumer **메모리** | **사라짐**. 미커밋분은 유실된다 |
+| committed offset | `__consumer_offsets`(브로커) | 남음. 그래서 재시작 시 메모리가 아니라 *이것*을 읽는다 |
 
 그런데 그 committed offset도 **사라지거나 무효가 될 수 있다** `[docs @3.9]`:
 
-1. **`__consumer_offsets` 복제 계수(RF)가 낮음** — 이 내부 토픽의 RF가 낮으면(예: 1) 브로커 장애 때 커밋이 통째로 유실된다(복제 원리가 메타 토픽에도 그대로 → [3장](./03-replication.md)).
-2. **offset 만료** — 비활성 그룹(멤버 0)의 커밋은 `offsets.retention.ms`(기본 7일)가 지나면 브로커가 지운다 → 재접속 시 "커밋 없음"으로 본다.
-3. **retention이 데이터를 추월** — 토픽 retention(→ [8장](./08-storage-engine.md))이 메시지를 지워 committed가 **로그 시작 offset(log start)** 보다 앞서면 `OffsetOutOfRange` → `auto.offset.reset`(earliest/latest, 미설정 시 예외)로 점프한다.
+1. **`__consumer_offsets` 복제 계수(RF)가 낮음**: 이 내부 토픽의 RF가 낮으면(예: 1) 브로커 장애 때 커밋이 통째로 유실된다(복제 원리가 메타 토픽에도 그대로 → [3장](./03-replication.md)).
+2. **offset 만료**: 비활성 그룹(멤버 0)의 커밋은 `offsets.retention.ms`(기본 7일)가 지나면 브로커가 지운다 → 재접속 시 "커밋 없음"으로 본다.
+3. **retention이 데이터를 추월**: 토픽 retention(→ [8장](./08-storage-engine.md))이 메시지를 지워 committed가 **로그 시작 offset(log start)** 보다 앞서면 `OffsetOutOfRange` → `auto.offset.reset`(earliest/latest, 미설정 시 예외)로 점프한다.
 
-또 committed offset이 말해주는 건 **"어디까지 *읽었나*"뿐**이다 — 그 데이터를 앱이 *처리 완료*했는지, *외부 DB·API에 반영*했는지는 모른다. 커밋 직전 죽으면 같은 데이터가 재전달되므로, 종단 정합은 consumer의 **멱등 처리**가 맡는다(구현 → II권).
+또 committed offset이 말해주는 건 **"어디까지 *읽었나*"뿐**이다. 그 데이터를 앱이 *처리 완료*했는지, *외부 DB·API에 반영*했는지는 모른다. 커밋 직전 죽으면 같은 데이터가 재전달되므로, 종단 정합은 consumer의 **멱등 처리**가 맡는다(구현 → II권).
 
 → offset 커밋의 *코드/AckMode 함정*은 II권, 이게 트랜잭션과 묶이는 read-process-write는 [7장](./07-transactions.md).
 
 ---
 
-## 5.10 증명 (executable — 3-broker · 미구현)
+## 5.10 증명 (executable · 3-broker · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
@@ -187,6 +268,6 @@ consumer가 커밋하는 offset은 **`__consumer_offsets`라는 내부 토픽(co
 ## 참조
 
 - `[KIP-429]` Incremental Cooperative Rebalancing · `[KIP-848]` 차세대 consumer group 프로토콜 · `[KIP-345]` Static Membership `[Tier 1]`
-- Kafka 공식 문서 — Consumer Group, `__consumer_offsets` `[docs @3.9]`
+- Kafka 공식 문서: Consumer Group, `__consumer_offsets` `[docs @3.9]`
 
 ← [4장 합의(KRaft)](./04-consensus.md) · [I권 목차](./README.md) · 다음: [6장 멱등·순서](./06-ordering-atomicity.md)
