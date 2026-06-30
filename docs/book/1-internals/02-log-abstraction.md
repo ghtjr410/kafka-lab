@@ -6,7 +6,7 @@ prose: done
 proof:
   mode: self
   status: 미구현
-  method: "멀티브로커 executable — compaction 토픽에 같은 key 반복 쓰기 후 cleaner 관측"
+  method: "멀티브로커 executable: compaction 토픽에 같은 key 반복 쓰기 후 cleaner 관측"
   pending: ["key별 최신만 남는지", "tombstone(value=null) key 삭제", "두 consumer group 동일 결과(결정성)"]
   done: []
 upstream: ["01-what-is-kafka.md"]
@@ -19,17 +19,17 @@ conventions: ../README.md
 
 > 앞 장: [1장 Kafka란 무엇인가](./01-what-is-kafka.md) · 다음 장: [3장 복제](./03-replication.md)
 >
-> **이 장의 보장(한 문장)**: *Kafka에서 상태는 로그의 파생물이다 — append-only 로그가 진실의 원천(source of truth)이고, 모든 뷰는 그 로그를 재생(replay)해 만든다.*
+> **이 장의 보장(한 문장)**: *Kafka에서 상태는 로그의 파생물이다. append-only 로그가 진실의 원천(source of truth)이고, 모든 뷰는 그 로그를 재생(replay)해 만든다.*
 >
-> (정확히는 retention에 기댄 **설계 선택**이다 — 2.3.)
+> (정확히는 retention에 기댄 **설계 선택**이다. 2.3.)
 
 [1장](./01-what-is-kafka.md)에서 우리는 Kafka를 "큐가 아니라 로그"라고 불렀다. 이 장은 그 한 문장을 끝까지 밀어붙인다. **왜 하필 로그라는 자료구조였나**, 그리고 그 선택이 어떻게 Kafka의 거의 모든 동작을 결정하는가.
 
 ---
 
-## 2.1 로그의 세 가지 성질 — append-only · 불변 · 단조 offset
+## 2.1 로그의 세 가지 성질: append-only · 불변 · 단조 offset
 
-Kafka의 로그는 우리가 흔히 말하는 "애플리케이션 로그(log4j가 찍는 텍스트)"가 아니다. 컴퓨터 과학에서 말하는 **commit log** — *추가만 되고(append-only), 한 번 쓰이면 바뀌지 않으며(immutable), 순서가 있는(ordered)* 레코드의 연속이다.
+Kafka의 로그는 우리가 흔히 말하는 "애플리케이션 로그(log4j가 찍는 텍스트)"가 아니다. 컴퓨터 과학에서 말하는 **commit log**: *추가만 되고(append-only), 한 번 쓰이면 바뀌지 않으며(immutable), 순서가 있는(ordered)* 레코드의 연속이다.
 
 ```mermaid
 graph LR
@@ -43,17 +43,17 @@ graph LR
 
 - **append-only**: 쓰기는 항상 로그의 끝에 붙는다. 중간을 고치지 않는다. → 순차 I/O만 발생하고([8장](./08-storage-engine.md)에서 이게 왜 빠른지 본다), 동시성 제어가 단순해진다(끝에만 쓰니까).
 - **불변(immutable)**: offset 42의 레코드는 영원히 그대로다. → 누가 언제 읽어도 같은 값. **재생 가능성(replayability)** 의 토대다.
-- **단조 offset**: offset은 파티션 안에서 0부터 **단조 증가하고 유일하며 재사용되지 않는다** — 다만 반드시 **연속(contiguous)은 아니다.** compaction이 레코드를 지우거나 트랜잭션 control record가 자리를 차지하면 gap이 생긴다(그래서 "offset 차이 = 메시지 수"가 아니다). → offset은 단순한 "위치"이자 동시에 *그 파티션 안에서의* **논리적 시계(logical clock)** 다. "어디까지 읽었나"를 offset 하나로 표현할 수 있는 이유다.
+- **단조 offset**: offset은 파티션 안에서 0부터 **단조 증가하고 유일하며 재사용되지 않는다**. 다만 반드시 **연속(contiguous)은 아니다.** compaction이 레코드를 지우거나 트랜잭션 control record가 자리를 차지하면 gap이 생긴다(그래서 "offset 차이 = 메시지 수"가 아니다). → offset은 단순한 "위치"이자 동시에 *그 파티션 안에서의* **논리적 시계(logical clock)** 다. "어디까지 읽었나"를 offset 하나로 표현할 수 있는 이유다.
 
 > 이 세 성질은 뒤의 모든 장으로 흘러간다. 복제([3장](./03-replication.md))는 "같은 로그를 여러 노드에 복사", 합의([4장](./04-consensus.md))는 "메타데이터도 로그로", 트랜잭션([7장](./07-transactions.md))은 "control record를 로그에 끼워넣기", 저장 엔진([8장](./08-storage-engine.md))은 "이 로그를 디스크에 어떻게 놓나"다.
 
 ---
 
-## 2.2 왜 로그인가 — 큐도 테이블도 아닌 이유
+## 2.2 왜 로그인가: 큐도 테이블도 아닌 이유
 
 로그의 의미는 **무엇이 아닌지**와 대비할 때 선명해진다.
 
-### 큐(queue)와의 차이 — 소비가 곧 삭제인가
+### 큐(queue)와의 차이: 소비가 곧 삭제인가
 
 전통 메시지 큐(RabbitMQ 등)에서 메시지는 소비되면 사라진다. 큐는 "전달 후 폐기"가 본질이다. Kafka는 소비해도 로그가 그대로 남고, **소비자는 자기 offset만 앞으로 옮긴다**. 그래서:
 
@@ -61,7 +61,7 @@ graph LR
 - offset을 되감으면 **과거를 다시 읽는다**(replay).
 - 데이터의 수명은 소비 여부가 아니라 **retention 정책**이 정한다([8장](./08-storage-engine.md)).
 
-### 테이블(table)과의 차이 — 무엇이 본체인가
+### 테이블(table)과의 차이: 무엇이 본체인가
 
 이게 더 근본적이다. 관계형 DB는 **테이블(현재 상태)이 본체**이고, 로그(redo/undo/binlog)는 그 상태를 지키거나 복제하기 위한 *보조*다.
 
@@ -97,8 +97,8 @@ graph TB
 - 그래서 새 소비자가 "처음부터 다시 읽어" 자기만의 뷰(검색 인덱스·캐시·집계 테이블)를 만들 수 있다. → 이게 [1장](./01-what-is-kafka.md)에서 본 **N×M 통합을 N+M으로** 바꾼 힘의 정체다.
 
 > 단 "모든 뷰를 replay"는 **retention이 전제**다.
-> - retention이 충분하면 — 전체 이력이 남아 *임의 시점 뷰*("3일차 잔고는?")까지 재구성된다.
-> - compaction만 걸리면 — key별 최신값만 남아 *현재-상태 뷰*만 재구성된다(중간 이벤트는 버려진다).
+> - retention이 충분하면, 전체 이력이 남아 *임의 시점 뷰*("3일차 잔고는?")까지 재구성된다.
+> - compaction만 걸리면, key별 최신값만 남아 *현재-상태 뷰*만 재구성된다(중간 이벤트는 버려진다).
 >
 > "로그가 진실의 원천"이라는 건 이만큼을 전제한 **설계 선택**이다.
 
@@ -106,13 +106,13 @@ graph TB
 
 ---
 
-## 2.4 Log Compaction의 "의미" — 로그를 상태 스냅샷으로
+## 2.4 Log Compaction의 "의미": 로그를 상태 스냅샷으로
 
 로그가 무한히 자라면 "처음부터 fold"는 점점 비싸진다. 여기서 **log compaction**이 등장한다.
 
 핵심 아이디어: **같은 key의 오래된 레코드를 버리고, key별로 최신 값만 남긴다.**
 
-이때 "최신 값"은 fold(2.3)의 *누적 계산* 결과가 아니다 — cleaner는 그 key로 **마지막에 쓰인 레코드를 그대로 보존**할 뿐, value를 더하거나 재계산하지 않는다(계산 0). fold는 앱이 모든 이벤트를 누적 적용해 상태를 *만들고*, compaction은 브로커가 key별 마지막 레코드만 *남긴다* — 결과가 둘 다 "key→값"이라 헷갈리지만 동작은 다르다.
+이때 "최신 값"은 fold(2.3)의 *누적 계산* 결과가 아니다. cleaner는 그 key로 **마지막에 쓰인 레코드를 그대로 보존**할 뿐, value를 더하거나 재계산하지 않는다(계산 0). fold는 앱이 모든 이벤트를 누적 적용해 상태를 *만들고*, compaction은 브로커가 key별 마지막 레코드만 *남긴다*. 결과가 둘 다 "key→값"이라 헷갈리지만 동작은 다르다.
 
 ```mermaid
 graph LR
@@ -124,22 +124,22 @@ graph LR
     end
 ```
 
-그 결과 compaction된 토픽은 (cleaner가 돌고 나면 *결국*) **"key→최신값"의 스냅샷**, 즉 *로그로 표현된 테이블*이 된다(active segment는 미압축이라 근사적이다). `value=null`로 쓰는 **tombstone**은 "이 key를 삭제하라"는 표식이다 — key는 *어느* key를 지울지 식별하므로 반드시 있어야 한다.
+그 결과 compaction된 토픽은 (cleaner가 돌고 나면 *결국*) **"key→최신값"의 스냅샷**, 즉 *로그로 표현된 테이블*이 된다(active segment는 미압축이라 근사적이다). `value=null`로 쓰는 **tombstone**은 "이 key를 삭제하라"는 표식이다. key는 *어느* key를 지울지 식별하므로 반드시 있어야 한다.
 
-compaction은 이렇게 **eventual**이다 — active segment는 미압축이고 cleaner가 도는 타이밍도 즉각적이지 않아, 같은 key가 물리적으로 여러 번 남아 있을 수 있다. 그래서 읽는 쪽은 "key당 레코드 하나"를 가정하면 안 되고, offset 순서로 **마지막 값으로 덮어쓰며**(last-write-wins) 자기 로컬 테이블을 만든다.
+compaction은 이렇게 **eventual**이다. active segment는 미압축이고 cleaner가 도는 타이밍도 즉각적이지 않아, 같은 key가 물리적으로 여러 번 남아 있을 수 있다. 그래서 읽는 쪽은 "key당 레코드 하나"를 가정하면 안 되고, offset 순서로 **마지막 값으로 덮어쓰며**(last-write-wins) 자기 로컬 테이블을 만든다.
 
-**★ 함정 — 레코드는 델타가 아니라 전체 상태여야 한다.** compaction은 계산하지 않고 마지막 레코드만 남기므로, 그 한 레코드가 key의 현재 상태를 **통째로 담고 있어야**(full snapshot) 안전하다.
+**★ 함정: 레코드는 델타가 아니라 전체 상태여야 한다.** compaction은 계산하지 않고 마지막 레코드만 남기므로, 그 한 레코드가 key의 현재 상태를 **통째로 담고 있어야**(full snapshot) 안전하다.
 
-- ❌ 델타(증분)형: `v="+1000"` → `v="-300"` — 마지막(`-300`)만 남아 `+1000`이 소실 → 잔고가 깨진다.
-- ✅ 전체 상태형: `v={잔고:1000}` → `v={잔고:700}` — 마지막(`{잔고:700}`)이 곧 현재 상태라 온전하다.
+- ❌ 델타(증분)형: `v="+1000"` → `v="-300"`. 마지막(`-300`)만 남아 `+1000`이 소실 → 잔고가 깨진다.
+- ✅ 전체 상태형: `v={잔고:1000}` → `v={잔고:700}`. 마지막(`{잔고:700}`)이 곧 현재 상태라 온전하다.
 
-그래서 compaction은 "마지막 한 방으로 현재 상태가 완성되는" 데이터에만 맞는다 — `__consumer_offsets`(마지막 커밋 offset), KTable changelog, DB 행 스냅샷(CDC 구현은 → [IV권](../4-beyond-core/README.md)) 같은.
+그래서 compaction은 "마지막 한 방으로 현재 상태가 완성되는" 데이터에만 맞는다: `__consumer_offsets`(마지막 커밋 offset), KTable changelog, DB 행 스냅샷(CDC 구현은 → [IV권](../4-beyond-core/README.md)) 같은.
 
 > 여기서는 compaction의 **의미**(상태 스냅샷)만 다룬다. cleaner 스레드가 *어떻게* 세그먼트를 청소하는지의 **메커니즘**은 → [저장 엔진](./08-storage-engine.md). (의미와 메커니즘을 두 장으로 나누는 건 SSOT 원칙이다.)
 
 이 "로그=테이블" 성질은 Kafka 자신도 적극 활용한다. consumer offset을 저장하는 `__consumer_offsets`가 compacted 로그이고([5장](./05-coordination.md)), 클러스터 메타데이터 `__cluster_metadata`도 같은 "로그→테이블" 발상이되 메커니즘은 key 기반 compaction이 아니라 **KRaft snapshot**이다([4장](./04-consensus.md)).
 
-이처럼 compaction의 실제 쓰임새는 **상태를 여러 소비자에게 배포**하는 것이다. 단 Kafka는 임의 쿼리·JOIN·random access가 되는 **범용 DB가 아니다** — compacted 토픽은 "조회하는 DB"가 아니라 상태의 **배포 매체**이고, 조회는 각 소비자가 그 로그를 읽어 **로컬에 materialize**해서 한다. (외부 DB의 변경 행을 이렇게 배포하는 CDC는 → [IV권 Connect/CDC](../4-beyond-core/README.md).)
+이처럼 compaction의 실제 쓰임새는 **상태를 여러 소비자에게 배포**하는 것이다. 단 Kafka는 임의 쿼리·JOIN·random access가 되는 **범용 DB가 아니다**. compacted 토픽은 "조회하는 DB"가 아니라 상태의 **배포 매체**이고, 조회는 각 소비자가 그 로그를 읽어 **로컬에 materialize**해서 한다. (외부 DB의 변경 행을 이렇게 배포하는 CDC는 → [IV권 Connect/CDC](../4-beyond-core/README.md).)
 
 ---
 
@@ -165,7 +165,7 @@ Kafka 설계의 일관성을 보여주는 대목: **Kafka는 자기 자신의 �
 | 트랜잭션 상태 | `__transaction_state` (compacted) | [7장](./07-transactions.md) |
 | commit/abort 경계 | control record (데이터 로그 안에) | [7장](./07-transactions.md) |
 
-"데이터를 로그로 다루자"는 발상을 메타데이터에까지 밀어붙인 것 — 이게 KRaft가 우아한 이유의 핵심이고, [4장](./04-consensus.md)에서 본격적으로 다룬다.
+"데이터를 로그로 다루자"는 발상을 메타데이터에까지 밀어붙인 것. 이게 KRaft가 우아한 이유의 핵심이고, [4장](./04-consensus.md)에서 본격적으로 다룬다.
 
 ---
 
@@ -174,9 +174,9 @@ Kafka 설계의 일관성을 보여주는 대목: **Kafka는 자기 자신의 �
 **트레이드오프**
 - 로그는 무한히 쌓인다 → retention(시간/크기 기반 삭제)이나 compaction으로 잘라야 한다([8장](./08-storage-engine.md)).
 - "매번 처음부터 fold"는 비싸다 → 스냅샷/compaction으로 완화.
-- 불변성의 대가: 수정·삭제가 1급 시민이 아니다. 삭제(GDPR 등)는 **해당 key 전체**를 tombstone(`value=null`)으로 표시해 compaction 시점에 지우는 식으로 우회한다 — *레코드 단위가 아니라 key 단위*이고 *즉시가 아니라 eventual*이다(토픽이 그 대상으로 keying돼 있어야 한다).
+- 불변성의 대가: 수정·삭제가 1급 시민이 아니다. 삭제(GDPR 등)는 **해당 key 전체**를 tombstone(`value=null`)으로 표시해 compaction 시점에 지우는 식으로 우회한다. *레코드 단위가 아니라 key 단위*이고 *즉시가 아니라 eventual*이다(토픽이 그 대상으로 keying돼 있어야 한다).
 
-**증명 (executable — 멀티브로커에서 · 미구현)**
+**증명 (executable · 멀티브로커에서 · 미구현)**
 - compaction 토픽에 같은 key를 여러 번 쓰고 cleaner 후 **key별 최신만 남는지** 확인 `[테스트 예정]`
 - `value=null`(tombstone) 발행 후 해당 key가 사라지는지
 - 같은 로그를 두 consumer group이 각자 처음부터 읽어 **동일 결과**(결정성)를 내는지
@@ -185,8 +185,8 @@ Kafka 설계의 일관성을 보여주는 대목: **Kafka는 자기 자신의 �
 
 ## 참조
 
-- Jay Kreps, *The Log: What every software engineer should know about real-time data's unifying abstraction* (2013) — 이 장의 사상적 출처 `[Tier 3]`
+- Jay Kreps, *The Log: What every software engineer should know about real-time data's unifying abstraction* (2013), 이 장의 사상적 출처 `[Tier 3]`
 - *Designing Data-Intensive Applications* (Kleppmann) 11장(스트림 처리)·3장(로그 구조 저장소) `[Tier 3]`
-- Kafka 공식 문서 — Log Compaction `[docs @3.9]`
+- Kafka 공식 문서: Log Compaction `[docs @3.9]`
 
 ← [1장](./01-what-is-kafka.md) · [I권 목차](./README.md) · 다음: [3장 복제](./03-replication.md)

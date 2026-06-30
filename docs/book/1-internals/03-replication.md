@@ -1,12 +1,12 @@
 ---
 volume: I
 chapter: 3
-title: "복제 — 데이터는 어떻게 살아남나"
+title: "복제: 데이터는 어떻게 살아남나"
 prose: done
 proof:
   mode: self
   status: 미구현
-  method: "3-broker docker — follower/leader stop · describeTopics · listOffsets(HW/LEO)"
+  method: "3-broker docker: follower/leader stop · describeTopics · listOffsets(HW/LEO)"
   pending: ["ISR 축소", "NotEnoughReplicasException", "HW 가시성", "리더 kill 후 승격·보존"]
   done: ["unclean.leader.election 동작 [docs @3.9]"]
 upstream: ["02-log-abstraction.md"]
@@ -15,11 +15,11 @@ baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../
 conventions: ../README.md
 ---
 
-# 3장. 복제 — 데이터는 어떻게 살아남나
+# 3장. 복제: 데이터는 어떻게 살아남나
 
 > 앞 장: [2장 로그라는 추상](./02-log-abstraction.md) · 다음 장: [4장 합의(KRaft)](./04-consensus.md)
 >
-> **이 장의 보장(한 문장)**: *커밋으로 인정된 메시지는 **최소** `min.insync.replicas`개의 복제본 로그에 존재한다 — 그 수보다 적은 수의 브로커 동시 장애까지 무손실이다.*
+> **이 장의 보장(한 문장)**: *커밋으로 인정된 메시지는 **최소** `min.insync.replicas`개의 복제본 로그에 존재한다. 그 수보다 적은 수의 브로커 동시 장애까지 무손실이다.*
 
 [2장](./02-log-abstraction.md)에서 로그는 "진실의 원천"이었다. 그런데 그 로그가 한 대의 브로커 디스크에만 있다면? 그 브로커가 죽는 순간 진실이 사라진다. 이 장은 **로그를 어떻게 죽지 않게 만드는가**, 그리고 그 과정에서 "커밋됐다"는 말이 정확히 무엇을 뜻하는가를 다룬다.
 
@@ -37,27 +37,27 @@ conventions: ../README.md
 
 ---
 
-## 3.2 복제의 딜레마 — 완전 동기 vs 완전 비동기
+## 3.2 복제의 딜레마: 완전 동기 vs 완전 비동기
 
 리더(leader) 복제본에 쓴 데이터를 팔로워(follower)들에게 복사한다고 하자. 리더는 **언제 프로듀서에게 "성공"이라고 답해야 하는가?**
 
 ```mermaid
 graph TB
     subgraph SYNC["완전 동기 (모든 복제본 기다림)"]
-        S1["안전 ↑ — 모두 받은 뒤 ACK"]
-        S2["가용성 ↓ — 느린 복제본 1대가<br/>전체 쓰기를 막는다"]
+        S1["안전 ↑ (모두 받은 뒤 ACK)"]
+        S2["가용성 ↓ (느린 복제본 1대가<br/>전체 쓰기를 막는다)"]
     end
     subgraph ASYNC["완전 비동기 (안 기다림)"]
-        A1["빠름 ↑ — 리더만 쓰고 ACK"]
-        A2["유실 위험 — 리더 죽으면<br/>못 복사된 데이터 증발"]
+        A1["빠름 ↑ (리더만 쓰고 ACK)"]
+        A2["유실 위험 (리더 죽으면<br/>못 복사된 데이터 증발)"]
     end
 ```
 
-두 극단 모두 실무에선 못 쓴다. 완전 동기는 가장 느린 한 대에 전체가 인질로 잡히고, 완전 비동기는 내구성 보장이 없다. Kafka의 답은 그 사이의 절충 — **ISR**이다.
+두 극단 모두 실무에선 못 쓴다. 완전 동기는 가장 느린 한 대에 전체가 인질로 잡히고, 완전 비동기는 내구성 보장이 없다. Kafka의 답은 그 사이의 절충인 **ISR**이다.
 
 ---
 
-## 3.3 ISR — "지금 따라잡은 복제본만 기다린다"
+## 3.3 ISR: "지금 따라잡은 복제본만 기다린다"
 
 **ISR(In-Sync Replicas)** 은 그 파티션의 RF개 복제본 중 *리더를 충분히 따라잡은 복제본들의 집합*이다. 리더는 ISR에 든 복제본까지만 기다리고 ACK한다. 두 가지를 못박아야 뒤에서 오독하지 않는다.
 
@@ -66,12 +66,12 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph POOL["RF=3 — 복제본 3개는 고정 (서로 다른 브로커)"]
+    subgraph POOL["RF=3 · 복제본 3개는 고정 (서로 다른 브로커)"]
         A["A (리더)"]
         B["B (팔로워)"]
         C["C (팔로워)"]
     end
-    A -->|"자기 로그가 기준 — 늘 in-sync"| ISR["ISR = 지금 따라잡은 집합<br/>{A, C}"]
+    A -->|"자기 로그가 기준 (늘 in-sync)"| ISR["ISR = 지금 따라잡은 집합<br/>{A, C}"]
     C -->|"따라잡음"| ISR
     B -->|"lag↑ 뒤처짐"| OSR["OSR = ISR 밖<br/>{B}"]
 ```
@@ -90,15 +90,15 @@ stateDiagram-v2
 
 핵심: ISR은 **뒤처진 놈은 빼서 가용성을 지키고, 들어와 있는 놈은 반드시 기다려 내구성을 지킨다**. 동기/비동기의 절충을 *런타임에 동적으로* 한다.
 
-> Kafka는 과반(quorum) 복제가 아니라 ISR 기반이다 — 같은 내구성을 **더 적은 복제본으로** 얻기 위한 선택이다(과반 합의는 f개 장애에 2f+1개, ISR은 f+1개면 된다).
+> Kafka는 과반(quorum) 복제가 아니라 ISR 기반이다. 같은 내구성을 **더 적은 복제본으로** 얻기 위한 선택이다(과반 합의는 f개 장애에 2f+1개, ISR은 f+1개면 된다).
 >
-> 대신 ISR은 현재 ISR 멤버 *전원*의 ACK를 기다린다 — 과반 방식이 무시할 가장 느린 복제본에 오히려 **더 민감**하다(지연 우위는 quorum 쪽이다). 이 민감성은 동적 축출(lag 초과 멤버 제외)로 방어한다.
+> 대신 ISR은 현재 ISR 멤버 *전원*의 ACK를 기다린다. 과반 방식이 무시할 가장 느린 복제본에 오히려 **더 민감**하다(지연 우위는 quorum 쪽이다). 이 민감성은 동적 축출(lag 초과 멤버 제외)로 방어한다.
 >
 > (왜 데이터 복제에 합의 알고리즘을 안 쓰는지는 3.8과 [4장](./04-consensus.md).)
 
 ---
 
-## 3.4 "커밋"이란 무엇인가 — High Watermark
+## 3.4 "커밋"이란 무엇인가: High Watermark
 
 이제 핵심 정의. 복제본마다 자기가 가진 로그의 끝이 다르다.
 
@@ -117,7 +117,7 @@ graph LR
 
 **consumer는 HW까지만 읽을 수 있다.** 왜? HW 이전은 ISR 전체가 가진 데이터라 "어느 한 대가 죽어도 살아남는" 데이터다. HW 이후는 아직 일부만 가진 데이터라, 리더가 죽으면 사라질 수 있다 → 그래서 **안 보여준다**. "안 보이는 데이터는 유실로 치지 않는다"가 일관성의 핵심이다.
 
-> 클라이언트 읽기는 기본적으로 **리더**가 처리한다 — 가까운 follower에서 읽는 fetch-from-follower는 rack-locality용 예외다. `[KIP-392]`
+> 클라이언트 읽기는 기본적으로 **리더**가 처리한다. 가까운 follower에서 읽는 fetch-from-follower는 rack-locality용 예외다. `[KIP-392]`
 
 > 단, 트랜잭션을 쓰는 경우 `read_committed` 소비자의 가시성 경계는 HW가 아니라 **LSO**까지다(LSO ≤ HW). 트랜잭션은 아직 안 배웠으니 여기선 HW로 단순화하고, 정확한 경계는 [7.5](./07-transactions.md)에서 다룬다.
 
@@ -125,7 +125,7 @@ graph LR
 
 ---
 
-## 3.5 보장의 다이얼 — acks × min.insync.replicas × RF
+## 3.5 보장의 다이얼: acks × min.insync.replicas × RF
 
 내구성은 세 설정의 **조합**으로 결정된다. 하나만으로는 보장이 안 선다.
 
@@ -149,22 +149,22 @@ graph TB
 
 이 lab의 docker-compose 기본값이 `RF=3 / min.insync.replicas=2`인 이유가 이것이다.
 
-> **acks = 무손실을 *어디까지* 통제하나.** `acks=all` + `min.insync.replicas=2`는 "broker가 ack한 순간부터 무손실"을 보장한다 — 즉 **신뢰의 선을 broker에 긋는** 것이다. 단 acks는 **producer→broker 구간만** 통제한다. producer를 *먹이는 쪽*(클라 앱·다른 서비스·CDC 등 무엇이든)은 acks 밖 = **best-effort**라 거기서 새는 건 acks로 못 막는다. 그래서 장애 분석도 "Kafka 안에서 샜나 / 들어오기 전에 샜나"로 갈린다.
+> **acks = 무손실을 *어디까지* 통제하나.** `acks=all` + `min.insync.replicas=2`는 "broker가 ack한 순간부터 무손실"을 보장한다. 즉 **신뢰의 선을 broker에 긋는** 것이다. 단 acks는 **producer→broker 구간만** 통제한다. producer를 *먹이는 쪽*(클라 앱·다른 서비스·CDC 등 무엇이든)은 acks 밖 = **best-effort**라 거기서 새는 건 acks로 못 막는다. 그래서 장애 분석도 "Kafka 안에서 샜나 / 들어오기 전에 샜나"로 갈린다.
 >
 > (이 "보장엔 *경계*가 있고 바깥은 별도 책임"은 순서 → [6장](./06-ordering-atomicity.md) · offset → [5장](./05-coordination.md)에서도 똑같이 나온다.)
 
 > ⚠️ **correctness 제약**(트레이드오프가 아니다):
-> - `min.insync.replicas`를 RF보다 크게 두면 — **Kafka가 막지 않는다** — `acks=all` 쓰기가 영구히 실패한다(ISR이 그 값에 도달 불가 → `NotEnoughReplicasException`).
+> - `min.insync.replicas`를 RF보다 크게 두면(**Kafka가 막지 않는다**) `acks=all` 쓰기가 영구히 실패한다(ISR이 그 값에 도달 불가 → `NotEnoughReplicasException`).
 > - `min.isr=RF`로 두면 단 1대 장애로 ISR이 `RF-1`로 떨어져 쓰기가 즉시 막힌다(가용성 절벽).
 > - 그래서 실질적으로 RF 이하여야 하며, 보통 `min.isr = RF-1`.
 >
-> 또한 이 무손실은 복제본이 **독립 장애 도메인**(AZ/랙)에 분산됐다는 전제 위에서 성립한다 — 셋이 같은 AZ에 몰리면 AZ 장애 한 번에 전손될 수 있다(배치 정책 → III권).
+> 또한 이 무손실은 복제본이 **독립 장애 도메인**(AZ/랙)에 분산됐다는 전제 위에서 성립한다. 셋이 같은 AZ에 몰리면 AZ 장애 한 번에 전손될 수 있다(배치 정책 → III권).
 
 > **경계**: 여기까지가 I권(원리 = 무엇을 보장하나). "내 SLO에서 min.isr를 2로 둘지 3으로 둘지"는 트레이드오프 판단이라 → III권 Operations. (correctness=I / 트레이드오프=III)
 
 ---
 
-## 3.6 리더가 죽으면 — 선출과 unclean election
+## 3.6 리더가 죽으면: 선출과 unclean election
 
 리더 브로커가 죽으면 컨트롤러가 **ISR 안에서 새 리더를 뽑는다**(→ [4장](./04-consensus.md)). ISR 안에서 뽑으니 새 리더는 HW까지의 데이터를 갖고 있다 → **무손실**. 문제는 그 ISR마저 *전부* 죽었을 때다. 한 파티션이 정상 선출에서 unclean 갈림길까지 어떻게 내려가는지 따라가 보자.
 
@@ -172,21 +172,21 @@ graph TB
 graph TB
     S0["정상: 복제본 A·B·C<br/>ISR = {A, B, C}"] -->|"B 느려짐 (GC·네트워크)"| S1["ISR = {A, C}<br/>B는 OSR (뒤처져 ISR 밖)"]
     S1 -->|"리더 A 죽음"| S2["정상 선출: ISR의 C를 리더로 승격<br/>C는 HW까지 가짐 → 무손실"]
-    S2 -->|"C마저 죽음"| S3["ISR = {} — 따라잡은 게 전멸<br/>살아남은 건 뒤처진 B뿐"]
-    S3 -->|"unclean=false (기본)"| F["파티션 중단<br/>(안전 — 손실 없음, 가용성 희생)"]
+    S2 -->|"C마저 죽음"| S3["ISR = {} · 따라잡은 게 전멸<br/>살아남은 건 뒤처진 B뿐"]
+    S3 -->|"unclean=false (기본)"| F["파티션 중단<br/>(안전 · 손실 없음, 가용성 희생)"]
     S3 -->|"unclean=true"| T["B 강제 리더 승격<br/>B가 못 받은 최신 데이터 영구 손실"]
 ```
 
 정상 경로(S0→S2)에선 ISR이 한 대라도 살아 있어 그 안에서 승격하니 무손실이다. ISR이 전멸(S3)해야 비로소 갈림길이 선다. 그 갈림을 가르는 스위치가 **`unclean.leader.election.enable`** (다이어그램의 `unclean=…`).
 
 - `false`(기본): 안전하지만 그 파티션은 ISR이 살아날 때까지 멈춘다.
-- `true`: 뒤처졌던 복제본(= ISR에서 빠진 **OSR**)이라도 리더로 올려 서비스를 잇는다 — 대신 그 복제본에 없던 데이터는 **영구 손실**.
+- `true`: 뒤처졌던 복제본(= ISR에서 빠진 **OSR**)이라도 리더로 올려 서비스를 잇는다. 대신 그 복제본에 없던 데이터는 **영구 손실**.
 
 이건 전형적인 **일관성 ↔ 가용성** 트레이드오프(CAP/PACELC)다. 어느 쪽을 켤지는 운영 판단(→ III권).
 
 ---
 
-## 3.7 로그가 어긋나지 않으려면 — Leader Epoch
+## 3.7 로그가 어긋나지 않으려면: Leader Epoch
 
 여기가 이 장에서 가장 미묘하고 중요한 부분이다.
 
@@ -204,7 +204,7 @@ sequenceDiagram
     Note over Old: epoch 경계 기준으로 정확히 truncate<br/>→ 로그 분기 없음
 ```
 
-> 이건 [4장](./04-consensus.md) KRaft의 **Raft term**과 정확히 같은 발상이다 — "시대를 번호로 구분해 옛 리더의 유령을 차단한다". `[KIP-101, KIP-279]`
+> 이건 [4장](./04-consensus.md) KRaft의 **Raft term**과 정확히 같은 발상이다. "시대를 번호로 구분해 옛 리더의 유령을 차단한다". `[KIP-101, KIP-279]`
 
 ---
 
@@ -222,14 +222,14 @@ graph LR
     end
 ```
 
-- **데이터 경로**(매 메시지)는 ISR primary-backup — Raft 같은 과반 투표를 안 쓴다.
+- **데이터 경로**(매 메시지)는 ISR primary-backup이다. Raft 같은 과반 투표를 안 쓴다.
 - **"누가 리더인가"** 같은 메타데이터만 KRaft(Raft 합의)로 정한다.
 
-왜 분리했나? 데이터 경로에까지 합의 다수결을 넣으면 처리량이 죽고, 같은 내구성에 복제본도 더 든다(과반 2f+1 vs ISR f+1). **"리더가 누구인지"만 비싸게 합의하고, 데이터는 그 리더가 싸게 복제**한다 — 이 분리가 Kafka 고성능의 핵심 설계다. 합의 쪽은 다음 장에서 본다.
+왜 분리했나? 데이터 경로에까지 합의 다수결을 넣으면 처리량이 죽고, 같은 내구성에 복제본도 더 든다(과반 2f+1 vs ISR f+1). **"리더가 누구인지"만 비싸게 합의하고, 데이터는 그 리더가 싸게 복제**한다. 이 분리가 Kafka 고성능의 핵심 설계다. 합의 쪽은 다음 장에서 본다.
 
 ---
 
-## 3.9 증명 (executable — 3-broker · 미구현)
+## 3.9 증명 (executable · 3-broker · 미구현)
 
 | 실험 | 관측/단언 | 라벨 |
 |------|----------|------|
@@ -245,8 +245,8 @@ graph LR
 
 ## 참조
 
-- `[KIP-101]` Leader Epoch (truncation 안전), `[KIP-279]` 후속 수정 — 3.7 절의 근거 `[Tier 1]`
+- `[KIP-101]` Leader Epoch (truncation 안전), `[KIP-279]` 후속 수정 (3.7 절의 근거) `[Tier 1]`
 - *Designing Data-Intensive Applications* 5장(복제)·9장(일관성과 합의) `[Tier 3]`
-- Kafka 공식 문서 — Replication, `unclean.leader.election.enable` 기본값 `[docs @3.9]`
+- Kafka 공식 문서: Replication, `unclean.leader.election.enable` 기본값 `[docs @3.9]`
 
 ← [2장 로그라는 추상](./02-log-abstraction.md) · [I권 목차](./README.md) · 다음: [4장 합의(KRaft)](./04-consensus.md)

@@ -5,7 +5,7 @@
 
 ---
 
-## 전체 아키텍처 — 용어가 어디에 있는가
+## 전체 아키텍처: 용어가 어디에 있는가
 
 ```mermaid
 graph TB
@@ -51,7 +51,7 @@ graph TB
 
 ---
 
-## 메시지의 여정 — 발행부터 소비까지
+## 메시지의 여정: 발행부터 소비까지
 
 ```mermaid
 sequenceDiagram
@@ -150,7 +150,7 @@ sequenceDiagram
 | **min.insync.replicas** | "ISR이 이 수 미만이면 쓰기를 거부하라"는 하한선. acks=all + min.insync.replicas=1이면 ISR 축소 시 acks=1로 퇴화할 수 있다 | **Broker/Topic 설정** (Producer 설정 아님) | Step 1 |
 | **Unclean Leader Election** | ISR이 없을 때 OSR에서도 Leader를 선출할지 여부. 데이터 유실 가능하지만 가용성 확보 | Broker 설정 | KAFKA-ARCHITECTURE.md |
 
-### Replication & HA — epoch · fencing · zombie (3장 §3.7)
+### Replication & HA: epoch · fencing · zombie (3장 §3.7)
 
 > "시대를 번호로 구분해 옛 리더의 유령을 차단하는" 패턴의 핵심어. leader epoch(데이터 리더 §3.7) · KRaft term(메타데이터 리더 4장) · producer epoch(프로듀서 세대 6·7장) · group epoch(consumer group 세대 §5.6)가 **모두 같은 패턴**이다(4형제, 계층만 다름).
 
@@ -167,10 +167,10 @@ sequenceDiagram
 | **Rebalancing** | Consumer Group 내 Partition 소유권을 재배정하는 과정. Consumer 추가/제거/장애 시 발생 | Consumer Group 레벨 | Step 4 |
 | **Eager Rebalancing** | 리밸런싱 시 모든 Consumer가 Partition을 반납한 뒤 재할당. Stop-the-world 발생 | Consumer Group 레벨 | Step 4 |
 | **Cooperative Rebalancing** | 이동이 필요한 Partition만 2라운드에 걸쳐 점진적으로 재할당. 소비 중단 최소화 | Consumer Group 레벨 | Step 4 |
-| **partition.assignment.strategy** | Group Leader가 파티션을 나눌 때 쓰는 **배정 전략(assignor)** 목록. 리밸런싱 *모드*(eager/cooperative)와는 **다른 축** — 전략은 "어떻게 나눌지", 모드는 "나누는 동안 멈추는지" | Consumer 설정 | §5.5 |
+| **partition.assignment.strategy** | Group Leader가 파티션을 나눌 때 쓰는 **배정 전략(assignor)** 목록. 리밸런싱 *모드*(eager/cooperative)와는 **다른 축**. 전략은 "어떻게 나눌지", 모드는 "나누는 동안 멈추는지" | Consumer 설정 | §5.5 |
 | **RangeAssignor / RoundRobinAssignor** | 고전 전략. 멤버가 바뀌면 배정이 크게 뒤섞인다. 기본 목록의 최우선이 Range라 CooperativeSticky를 같이 둬도 **실제 동작은 eager** | Consumer 설정 | §5.5·§5.6 |
 | **StickyAssignor** | 기존 배정을 최대한 유지해 **옮기는 파티션 수(순 재배정)를 줄인다**. 단 모드는 여전히 eager라 리밸런싱 중엔 전 파티션을 잠깐 반납 → stop-the-world는 남음 | Consumer 설정 | §5.5 |
-| **CooperativeStickyAssignor** | Sticky 전략 + cooperative 모드. 적게 옮기고(전략) 안 옮기는 파티션은 안 멈춘다(모드) — 둘 다 잡는 유일한 선택 | Consumer 설정 | §5.5·§5.6 |
+| **CooperativeStickyAssignor** | Sticky 전략 + cooperative 모드. 적게 옮기고(전략) 안 옮기는 파티션은 안 멈춘다(모드). 둘 다 잡는 유일한 선택 | Consumer 설정 | §5.5·§5.6 |
 | **Static Membership** | group.instance.id를 설정해서 Consumer 재시작 시 리밸런싱을 방지. 배포 시 유용 | Consumer 설정 | Step 4 |
 | **session.timeout.ms** | Consumer가 이 시간 동안 하트비트를 안 보내면 죽은 것으로 간주. 프로세스 죽음/네트워크 단절 감지 | Consumer 설정 | Step 4 |
 | **max.poll.interval.ms** | 두 번의 poll() 사이 최대 허용 시간. 초과 시 Consumer 강제 퇴출. 프로세스는 살아 있지만 처리가 느린 경우 감지 | Consumer 설정 | Step 4 |
@@ -202,13 +202,13 @@ sequenceDiagram
 | **Retention** | 메시지 보존 정책. retention.ms(시간 기반) 또는 retention.bytes(크기 기반). 이미 삭제된 데이터는 retention을 늘려도 복구 불가 | Topic/Broker 설정 | Step 10 |
 | **Log Compaction** | 같은 key의 마지막 값만 유지하는 정리 정책. cleanup.policy=compact | Topic 설정 | KAFKA-ARCHITECTURE.md |
 
-### Storage — 디스크·성능 기초 (8장 §8.1)
+### Storage: 디스크·성능 기초 (8장 §8.1)
 
 > 디스크가 왜 순차에 빠른지(8장 §8.1)의 토대 용어. 더 깊은 물리는 → 『데이터 중심 애플리케이션 설계』(DDIA) 3장.
 
 | 용어 | 정의 |
 |------|------|
-| <a id="seek-time"></a>**seek time** | HDD 헤드 arm을 목표 트랙으로 옮기는 시간(반지름 이동). 영어 "찾다"(`lseek`/`fseek`과 같은 어원) — 헤드가 트랙을 *찾아* 이동하는 것. |
+| <a id="seek-time"></a>**seek time** | HDD 헤드 arm을 목표 트랙으로 옮기는 시간(반지름 이동). 영어 "찾다"(`lseek`/`fseek`과 같은 어원). 헤드가 트랙을 *찾아* 이동하는 것. |
 | <a id="rotational-latency"></a>**rotational latency** | 원하는 섹터가 헤드 밑으로 회전해 올 때까지의 대기. 평균 ≈ ½회전(7200 RPM ≈ 4.17 ms). |
 | <a id="random-sequential-io"></a>**랜덤 / 순차 I/O** | 랜덤=흩어진 위치 접근(접근마다 위치잡기 = seek+회전). 순차=이어진 위치 연속 접근(첫 1회 뒤 ≈0으로 분할상환). |
 | <a id="write-amplification"></a>**write amplification** | SSD에서 호스트가 쓴 양보다 실제 NAND에 쓰이는 양이 부푸는 비율(GC가 valid page를 복사하는 탓; 작은 랜덤 쓰기가 트리거). |
@@ -250,7 +250,7 @@ sequenceDiagram
 | **Leader vs Follower** | Leader가 읽기/쓰기 담당, Follower는 Leader에게 Fetch 요청을 보내 복제 (Pull 모델). Leader 장애 시 ISR 중 Follower가 새 Leader |
 | **ISR vs OSR** | ISR은 Leader와 동기화 유지 중인 Replica, OSR은 뒤쳐진 Replica. Leader 선출은 ISR에서만 (기본). 둘 다 같은 RF 복제본의 동적 분할이고 Leader는 늘 ISR |
 | **epoch vs fencing** | epoch는 "시대 번호"(데이터 자체), fencing은 "그 번호로 옛 리더·좀비를 막는 행위". 번호 ≠ 막는 동작 |
-| **leader epoch vs KRaft term vs producer epoch vs group epoch** | 넷 다 "시대를 번호로 구분해 유령을 펜싱"하는 같은 패턴. 계층만 다름 — 데이터 리더(leader epoch) / 메타데이터 리더(term) / 프로듀서 세대(producer epoch) / consumer group 세대(group epoch §5.6) |
+| **leader epoch vs KRaft term vs producer epoch vs group epoch** | 넷 다 "시대를 번호로 구분해 유령을 펜싱"하는 같은 패턴. 계층만 다름: 데이터 리더(leader epoch) / 메타데이터 리더(term) / 프로듀서 세대(producer epoch) / consumer group 세대(group epoch §5.6) |
 | **Offset vs Lag** | Offset은 Partition 내 Record의 위치, Lag은 LEO - Committed Offset = "Consumer가 얼마나 뒤쳐져 있는가" |
 | **acks vs min.insync.replicas** | acks는 "ISR 전체/리더만/안 기다림" (Producer 설정), min.insync.replicas는 "ISR이 이 수 미만이면 쓰기 거부" (Broker/Topic 설정). acks=all + min.insync.replicas=1이면 ISR 축소 시 acks=1로 퇴화 가능 |
 | **Auto Commit vs Manual Commit** | Auto는 poll() 시 일정 간격으로 자동 커밋 (편하지만 위험, Spring Kafka는 강제 비활성화), Manual은 처리 완료 후 명시적 커밋 (안전하지만 코드 필요) |
@@ -261,5 +261,5 @@ sequenceDiagram
 | **session.timeout.ms vs max.poll.interval.ms** | session.timeout.ms는 heartbeat 기반 퇴출 (프로세스 죽음/네트워크 단절), max.poll.interval.ms는 poll 간격 기반 퇴출 (프로세스는 살아 있지만 처리 느림) |
 | **records-lag-max vs AdminClient Lag** | records-lag-max는 Consumer 자체 보고 (죽으면 사라짐), AdminClient Lag은 외부 관측 (죽어도 감지 가능) |
 | **concurrency vs 인스턴스 수** | concurrency는 한 인스턴스 내 Consumer 스레드 수, 인스턴스 수는 서버(Pod) 수. concurrency × 인스턴스 수 ≤ 파티션 수가 원칙 |
-| **Sticky(전략) vs Cooperative(모드)** | Sticky는 배정 전략(assignor)이라 옮기는 파티션 *수*를 줄이고(결과), Cooperative는 리밸런싱 모드라 리밸런싱 *중 멈춤*(stop-the-world)을 줄인다(과정). 다른 축이라 Sticky만(eager+sticky) 쓰면 적게 옮겨도 전 파티션을 잠깐 반납해 stop-the-world가 남는다 — 둘 다 잡으려면 CooperativeSticky |
+| **Sticky(전략) vs Cooperative(모드)** | Sticky는 배정 전략(assignor)이라 옮기는 파티션 *수*를 줄이고(결과), Cooperative는 리밸런싱 모드라 리밸런싱 *중 멈춤*(stop-the-world)을 줄인다(과정). 다른 축이라 Sticky만(eager+sticky) 쓰면 적게 옮겨도 전 파티션을 잠깐 반납해 stop-the-world가 남는다. 둘 다 잡으려면 CooperativeSticky |
 | **StickyAssignor vs Sticky Partitioner** | 같은 "Sticky"지만 별개다. StickyAssignor는 *컨슈머* 리밸런싱에서 파티션 소유권을 유지하고(§5.5), Sticky Partitioner는 *프로듀서*가 key 없는 레코드를 한 파티션에 몰아 배치 효율을 올린다(§9.2, key=null일 때만) |

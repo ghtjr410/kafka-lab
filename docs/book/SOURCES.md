@@ -1,7 +1,7 @@
-# SOURCES — Kafka를 엄밀하게 쓰기 위한 소스 계층
+# SOURCES: Kafka를 엄밀하게 쓰기 위한 소스 계층
 
 > 이 문서는 본문이 아니라 **검증 기준**이다.
-> "일반화된 블로그 정보"와 싸우기 위한 무기 — 모든 주장은 *어느 tier에 근거했는지* 와 *어느 버전인지* 를 밝힌다.
+> "일반화된 블로그 정보"와 싸우기 위한 무기다. 모든 주장은 *어느 tier에 근거했는지* 와 *어느 버전인지* 를 밝힌다.
 > 권 경계·결정 규칙 → [README](./README.md) · 집필 규약 → [CONVENTIONS](../CONVENTIONS.md)
 
 ---
@@ -13,12 +13,12 @@
 - 특정 문서 하나를 정답으로 못박지 않는다 (터널 비전·확증 편향). → ❌
 - 소스의 *우선순위*를 정하고, 주장마다 *근거 tier + 버전* 을 밝힌다. → ✅
 - 권위를 골라 믿는 대신 **트라이앵귤레이션**: KIP(왜) · docs(config) · 소스(구현) · 테스트(실제 동작).
-- executable book의 최종 심급은 어떤 문서도 아니다 — **돌아가는 테스트**다.
+- executable book의 최종 심급은 어떤 문서도 아니다. **돌아가는 테스트**다.
   - 문서는 *"이렇게 동작해야 한다(should)"* 를, 테스트는 *"실제로 이렇게 동작한다(does)"* 를 말한다.
 
 ---
 
-## 1. Tier 0 — 구현 그 자체 (최종 진실)
+## 1. Tier 0: 구현 그 자체 (최종 진실)
 
 | 자료 | 위치 | 무엇에 쓰나 | 주의점 |
 |------|------|------------|--------|
@@ -29,7 +29,7 @@
 
 ---
 
-## 2. Tier 1 — 설계 의도: KIP (가장 저평가된 금광)
+## 2. Tier 1. 설계 의도: KIP (가장 저평가된 금광)
 
 KIP에는 *문제 · 고려한 대안 · 기각된 설계 · 그 이유* 가 다 있다.
 → 책의 핵심 질문 **"왜 이렇게 설계할 수밖에 없었나"** 에 1:1 대응.
@@ -51,7 +51,7 @@ KIP에는 *문제 · 고려한 대안 · 기각된 설계 · 그 이유* 가 다
 
 ---
 
-## 3. Tier 2 — 공식 문서 + JavaDoc
+## 3. Tier 2: 공식 문서 + JavaDoc
 
 | 자료 | 위치 | 무엇에 쓰나 | 주의점 |
 |------|------|------------|--------|
@@ -62,20 +62,20 @@ KIP에는 *문제 · 고려한 대안 · 기각된 설계 · 그 이유* 가 다
 
 ---
 
-## 4. Tier 3 — 권위 있는 2차 (만든 사람들 / 분산시스템 원전)
+## 4. Tier 3: 권위 있는 2차 (만든 사람들 / 분산시스템 원전)
 
 | 자료 | 무엇에 쓰나 | 주의점 |
 |------|------------|--------|
-| Jay Kreps, *The Log* (2013) — `engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying` | "Kafka는 큐가 아니라 로그다"의 철학적 뿌리 (📘 I) | 철학이지 스펙이 아님 |
-| 원논문 *Kafka: a Distributed Messaging System for Log Processing* (Kreps·Narkhede·Rao, 2011) | 최초 설계 의도 | 현재 구현과 많이 다름 — 역사 맥락용 |
+| Jay Kreps, *The Log* (2013). `engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying` | "Kafka는 큐가 아니라 로그다"의 철학적 뿌리 (📘 I) | 철학이지 스펙이 아님 |
+| 원논문 *Kafka: a Distributed Messaging System for Log Processing* (Kreps·Narkhede·Rao, 2011) | 최초 설계 의도 | 현재 구현과 많이 다름. 역사 맥락용 |
 | *Kafka: The Definitive Guide* (2nd ed, O'Reilly) | 커미터들이 쓴 체계적 정리 (I~III 전반) | 책이라 lag 있음. 버전 확인 |
 | *Designing Data-Intensive Applications* (Kleppmann) | replication·로그·consistency의 분산시스템 일반 이론 (📘 I 토대) | Kafka 전용 아님 (그래서 더 좋음) |
-| Spring for Apache Kafka Reference — `docs.spring.io/spring-kafka/reference` | `@KafkaListener`·컨테이너·ack 모드·에러 핸들러 등 (📙 II) | Spring 추상이 *어떤 native config로 번역되는지* 항상 I권으로 역추적 |
-| Confluent Developer / 블로그 — `developer.confluent.io` | 깊이 있는 실전 설명 | **Apache Kafka vs Confluent Platform 구분 필수** |
+| Spring for Apache Kafka Reference. `docs.spring.io/spring-kafka/reference` | `@KafkaListener`·컨테이너·ack 모드·에러 핸들러 등 (📙 II) | Spring 추상이 *어떤 native config로 번역되는지* 항상 I권으로 역추적 |
+| Confluent Developer / 블로그. `developer.confluent.io` | 깊이 있는 실전 설명 | **Apache Kafka vs Confluent Platform 구분 필수** |
 
 ---
 
-## 5. Tier 4 — 검증 전엔 본문 금지
+## 5. Tier 4: 검증 전엔 본문 금지
 
 Medium · 개인 블로그 · StackOverflow.
 포인터·검색 진입점으로만. Tier 0~2 교차검증 전엔 본문에 넣지 않는다.
@@ -83,7 +83,7 @@ Medium · 개인 블로그 · StackOverflow.
 
 ---
 
-## 6. 실전 동선 — 한 주제를 팔 때
+## 6. 실전 동선: 한 주제를 팔 때
 
 ```mermaid
 graph LR
@@ -103,9 +103,9 @@ graph LR
 |------|------|
 | `[KIP-NNN]` | 설계 의도 / 대안 근거 |
 | `[docs @3.x]` / `[code @3.x]` | config 의미·기본값 (버전 핀 필수) |
-| `[통념·검증필요]` | 1차 소스 미확인 — lab에서 확인해야 함 |
-| `[테스트로 결정]` | 공식 문서가 **모호** — 어느 동작이 맞는지 실험이 심판한다 (검증 후 결론) |
-| `[테스트 예정]` | 증명 테스트가 아직 **미구현** — 방법은 정해졌으나 실행 전 (검증 ❌ · 계획) |
+| `[통념·검증필요]` | 1차 소스 미확인. lab에서 확인해야 함 |
+| `[테스트로 결정]` | 공식 문서가 **모호**. 어느 동작이 맞는지 실험이 심판한다 (검증 후 결론) |
+| `[테스트 예정]` | 증명 테스트가 아직 **미구현**. 방법은 정해졌으나 실행 전 (검증 ❌ · 계획) |
 
 > 목표: 독자(미래의 나 포함)가 *사실*과 *추측*을 한눈에 가려내고, 버전 stale을 잡아낼 수 있게.
 

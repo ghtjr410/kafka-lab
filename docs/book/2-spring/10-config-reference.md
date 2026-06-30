@@ -21,7 +21,7 @@ conventions: ../README.md
 >
 > **이 장의 성격**: *새 설명이 아니라 인덱스다.* 각 설정의 *의미*는 본편·[설정 조합의 함정](./08-config-combination-traps.md)·[코드 구조·순서의 함정](./09-code-order-traps.md)이 단일 진실(SSOT)이고, 여기서는 "어디서 다루나 + 검증된 기본값"만 모은다. 같은 설명을 두 번 적지 않는다(드리프트 방지).
 
-> ⚠️ **기본값 검증 정책**: 아래 기본값 중 **`✓` 표시만 1차 소스(KIP/공식 docs/`*Config.java`)로 확인됨.** 나머지(`?`)는 **검증 대기**다 — 추정값을 사실처럼 쓰지 않기 위해 별도 라운드에서 확정한다. (이 책 [SOURCES](./../SOURCES.md) 규율)
+> ⚠️ **기본값 검증 정책**: 아래 기본값 중 **`✓` 표시만 1차 소스(KIP/공식 docs/`*Config.java`)로 확인됨.** 나머지(`?`)는 **검증 대기**다. 추정값을 사실처럼 쓰지 않기 위해 별도 라운드에서 확정한다. (이 책 [SOURCES](./../SOURCES.md) 규율)
 >
 > 🧭 **이 표는 "무엇이 기본값인가"의 인덱스다. "언제 어느 값으로 돌리는 게 유리한가(trade-off)"는** → [III권 의사결정 트리(CAP·PACELC)](../3-operations/10-config-decision-tree.md). 특히 `acks` · `linger.ms` · `max.block.ms`.
 
@@ -31,11 +31,11 @@ conventions: ../README.md
 
 값을 정확히 알고 yml에 적었는데도 안 먹는다.
 
-**[고민]** *"`spring.kafka.consumer.무엇`에 적으면 다 매핑되는 것 아닌가?"* — 표의 키들은 *"무엇이 기본값인가"* 이전에 **"어디에 어떻게 넣어야 먹는가"** 가 먼저다. 값만 알아선 안 먹을 수 있다.
+**[고민]** *"`spring.kafka.consumer.무엇`에 적으면 다 매핑되는 것 아닌가?"* 표의 키들은 *"무엇이 기본값인가"* 이전에 **"어디에 어떻게 넣어야 먹는가"** 가 먼저다. 값만 알아선 안 먹을 수 있다.
 
-**[본질]** `spring.kafka.*`는 Kafka 설정을 **전부 매핑하지 않는다.** Spring Boot가 아는 일부 키만 전용 프로퍼티(`spring.kafka.consumer.group-id`·`isolation-level` 등)로 노출되고, **전용 키가 없는 설정은 `spring.kafka.consumer.properties.*`(또는 `producer.properties.*`) 맵**으로 넘겨야 한다(예: `partition.assignment.strategy`). 전용 키가 없는 설정을 `spring.kafka.consumer.무엇`처럼 적으면 (relaxed binding이 모르는 키라) **조용히 무시**된다 — 에러도 없다. *"설정했는데 왜 안 먹지?"* 의 정체다. [직렬화 & 스키마](./07-serialization.md)의 `spring.jackson.*`가 `JsonDeserializer`에 미적용인 것도 같은 결의 함정이다.
+**[본질]** `spring.kafka.*`는 Kafka 설정을 **전부 매핑하지 않는다.** Spring Boot가 아는 일부 키만 전용 프로퍼티(`spring.kafka.consumer.group-id`·`isolation-level` 등)로 노출되고, **전용 키가 없는 설정은 `spring.kafka.consumer.properties.*`(또는 `producer.properties.*`) 맵**으로 넘겨야 한다(예: `partition.assignment.strategy`). 전용 키가 없는 설정을 `spring.kafka.consumer.무엇`처럼 적으면 (relaxed binding이 모르는 키라) **조용히 무시**된다. 에러도 없다. *"설정했는데 왜 안 먹지?"* 의 정체다. [직렬화 & 스키마](./07-serialization.md)의 `spring.jackson.*`가 `JsonDeserializer`에 미적용인 것도 같은 결의 함정이다.
 
-**[해결]** precedence를 기억한다 — 커스텀 `ConsumerFactory`/`@Bean`을 정의하면 yml 기반 자동구성을 **대체**한다(병합 아님 — yml 일부만 반영되는 게 아니라 아예 안 탄다). 둘을 섞지 말고 **한 곳에서** 설정하라.
+**[해결]** precedence를 기억한다. 커스텀 `ConsumerFactory`/`@Bean`을 정의하면 yml 기반 자동구성을 **대체**한다(병합 아님, yml 일부만 반영되는 게 아니라 아예 안 탄다). 둘을 섞지 말고 **한 곳에서** 설정하라.
 
 ---
 
@@ -52,7 +52,7 @@ conventions: ../README.md
 | `max.block.ms` | 60000 | ✓ `[code @3.7]` | [본편](../../../src/test/java/com/example/kafka/s01_producer/README.md) · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
 | `delivery.timeout.ms` | 120000 | ✓ `[KIP-91]` | [본편](../../../src/test/java/com/example/kafka/s01_producer/README.md) · [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
 | `transaction.timeout.ms` | 60000 | ✓ | [I권 트랜잭션](../1-internals/07-transactions.md) |
-| `transactional.id` / Spring `transaction-id-prefix` | (없음, 인스턴스별 고유 필수) | — | [본편](../../../src/test/java/com/example/kafka/s06_eos/README.md) |
+| `transactional.id` / Spring `transaction-id-prefix` | (없음, 인스턴스별 고유 필수) | - | [본편](../../../src/test/java/com/example/kafka/s06_eos/README.md) |
 
 > `min.insync.replicas`는 **프로듀서 설정이 아니다**(토픽·브로커 레벨). → [I권 복제](../1-internals/03-replication.md) / 운영 기준 → III권.
 
@@ -73,7 +73,7 @@ conventions: ../README.md
 | `max.poll.records` | 500 | ✓ `[code @3.7]` | [설정 조합의 함정](./08-config-combination-traps.md) · [코드 구조·순서의 함정](./09-code-order-traps.md) |
 | `fetch.min.bytes` | 1 | ✓ `[code @3.7]` | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) (9.7 fetch) |
 | `fetch.max.wait.ms` | 500 | ✓ `[code @3.7]` | [I권 클라이언트 런타임](../1-internals/09-client-runtime.md) |
-| `group.instance.id` (static membership) | (없음) | — | [본편](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) · [I권 조정](../1-internals/05-coordination.md) |
+| `group.instance.id` (static membership) | (없음) | - | [본편](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) · [I권 조정](../1-internals/05-coordination.md) |
 | `partition.assignment.strategy` | `[RangeAssignor, CooperativeStickyAssignor]` (3.x) | ✓ `[code @3.7]` | [본편](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) · [I권 조정](../1-internals/05-coordination.md) |
 
 **[증명]** [s02 consumer](../../../src/test/java/com/example/kafka/s02_consumer/README.md) · [s04 rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) · [s06 EOS](../../../src/test/java/com/example/kafka/s06_eos/README.md)
@@ -93,10 +93,10 @@ conventions: ../README.md
 
 ---
 
-## 10.5 기본값 검증 — 완료 ✅
+## 10.5 기본값 검증: 완료 ✅
 
 표의 모든 기본값을 **kafka-clients 3.7.0 `ProducerConfig`/`ConsumerConfig`로 verbatim 확인**했다(`✓ [code @3.7]`). 특이:
-- `session.timeout.ms=45000` — `[KIP-735]`로 `10000`→`45000`(3.0+).
+- `session.timeout.ms=45000`: `[KIP-735]`로 `10000`→`45000`(3.0+).
 - `partition.assignment.strategy` = `[RangeAssignor, CooperativeStickyAssignor]`(Range 우선 · cooperative 자동 전환은 → [리밸런싱 & 배포](./04-rebalancing.md)).
 - 라벨 `[code @3.7]`은 **클라이언트(kafka-clients 3.7) 기준**이다. 브로커 baseline은 MSK 3.9 → 버전 매트릭스는 [CHARTER](../../CHARTER.md).
 
@@ -106,7 +106,7 @@ conventions: ../README.md
 
 위 표·본편 아웃라인이 *설정 → 장* 방향이라면, 이건 **증상 → 원인** 역방향이다. 장애 한가운데서 "무슨 증상 → 어디를 펴라"로 쓴다.
 
-> 🔒 각 행은 본편 *보장/착각* 줄과 [설정 조합의 함정](./08-config-combination-traps.md)·[코드 구조·순서의 함정](./09-code-order-traps.md)에서 **도출**된 것이다 — 새 사실을 정의하지 않는 순수 네비게이션. 본문이 바뀌면 이 표가 아니라 본문을 따른다.
+> 🔒 각 행은 본편 *보장/착각* 줄과 [설정 조합의 함정](./08-config-combination-traps.md)·[코드 구조·순서의 함정](./09-code-order-traps.md)에서 **도출**된 것이다. 새 사실을 정의하지 않는 순수 네비게이션. 본문이 바뀌면 이 표가 아니라 본문을 따른다.
 
 | 증상 | 가장 흔한 원인 → 어디 |
 |------|----------------------|

@@ -22,15 +22,15 @@ conventions: ../README.md
 
 8장이 "설정들의 조합"이었다면, 이 장은 **코드의 순서·위치·경계**다. 같은 컴포넌트를 어느 순서로 두느냐, ack를 어디서 하느냐, blocking을 어디서 하느냐에 따라 멀쩡한 설정이 무너진다.
 
-> **resilience4j 비유 (이 권의 핵심)**: `retry`가 앞단, `circuitbreaker`가 뒷단이면 — 1번 실패할 것을 retry가 N번 재시도하고, 그 N번이 *전부* 서킷에 집계되어 서킷이 잘못 열린다. **레이어 순서 하나가 전체 동작을 뒤집는다.** Kafka 에러 처리에도 똑같은 형태가 있다(9.1). (형제 [resilience4j-lab](../../../../resilience4j-lab/))
+> **resilience4j 비유 (이 권의 핵심)**: `retry`가 앞단, `circuitbreaker`가 뒷단이면, 1번 실패할 것을 retry가 N번 재시도하고, 그 N번이 *전부* 서킷에 집계되어 서킷이 잘못 열린다. **레이어 순서 하나가 전체 동작을 뒤집는다.** Kafka 에러 처리에도 똑같은 형태가 있다(9.1). (형제 [resilience4j-lab](../../../../resilience4j-lab/))
 
 ---
 
-## 9.1 ErrorHandler — retry ↔ DLQ 순서, non-retryable 분류
+## 9.1 ErrorHandler: retry ↔ DLQ 순서, non-retryable 분류
 
 가장 직접적인 "순서 함정". Spring의 `DefaultErrorHandler`는 **retry(BackOff) → 소진 후 DLQ(recoverer)** 순으로 동작한다.
 
-**[고민]** 핸들러가 알아서 재시도하고 안 되면 DLQ로 보내준다는데 — 그럼 무엇이든 일단 재시도에 태우면 되는 것 아닌가?
+**[고민]** 핸들러가 알아서 재시도하고 안 되면 DLQ로 보내준다는데, 그럼 무엇이든 일단 재시도에 태우면 되는 것 아닌가?
 
 **[본질]** 문제는 **무엇을 재시도하면 안 되는지 분류**다. 역직렬화 실패(`DeserializationException`) 같은 건 재시도해도 **절대 성공 못 한다(poison-pill)**. 게다가 역직렬화는 **리스너에 들어오기도 전(컨버터 단계)** 에 터지므로, `ErrorHandlingDeserializer`로 감싸지 않으면 같은 레코드에서 무한 반복하며 컨슈머가 막힌다.
 
@@ -41,7 +41,7 @@ graph LR
     Q -->|"분류 함 ✅"| DLQ["즉시 DLQ로"]
 ```
 
-`ErrorHandlingDeserializer`로 감싼 뒤에도 분류 안 하면 `DefaultErrorHandler` 기본 BackOff만큼(기본 **총 10회 = 1 + 9 retry**) 헛재시도하고 그제야 DLQ로 간다. 이게 정확히 resilience4j의 "retry-앞·서킷-뒤"와 같은 형태 — *재시도하면 안 되는 걸 재시도*해서 비용·지연·집계를 낭비한다.
+`ErrorHandlingDeserializer`로 감싼 뒤에도 분류 안 하면 `DefaultErrorHandler` 기본 BackOff만큼(기본 **총 10회 = 1 + 9 retry**) 헛재시도하고 그제야 DLQ로 간다. 이게 정확히 resilience4j의 "retry-앞·서킷-뒤"와 같은 형태다. *재시도하면 안 되는 걸 재시도*해서 비용·지연·집계를 낭비한다.
 
 **[해결]** `addNotRetryableExceptions(...)`로 non-retryable을 분류 → 즉시 DLQ.
 
@@ -49,7 +49,7 @@ graph LR
 
 ---
 
-## 9.2 commit 위치 — 처리 *전* vs *후*
+## 9.2 commit 위치: 처리 *전* vs *후*
 
 offset을 **언제 커밋하느냐**가 유실/중복을 가른다.
 
@@ -62,7 +62,7 @@ offset을 **언제 커밋하느냐**가 유실/중복을 가른다.
 | 처리 *전* commit → 처리 중 실패 | **유실** (이미 offset 넘어감) |
 | 처리 *후* commit + 비멱등 처리 + 재시도 | **중복** (처리는 됐는데 commit 전 죽으면 재처리) |
 
-**[해결]** 안전한 기본은 **처리 후 커밋**(at-least-once). 그러면 중복 가능성이 남으므로 **처리를 멱등하게** 짜야 한다(멱등키). Spring `AckMode`(BATCH·RECORD·MANUAL)가 이 "커밋 시점"을 정한다 — 기본 BATCH에서 예외를 삼키면 offset이 커밋되어 **메시지가 영원히 유실**된다(→ [Consumer & Offset](./02-consumer-offset.md)의 핵심 함정).
+**[해결]** 안전한 기본은 **처리 후 커밋**(at-least-once). 그러면 중복 가능성이 남으므로 **처리를 멱등하게** 짜야 한다(멱등키). Spring `AckMode`(BATCH·RECORD·MANUAL)가 이 "커밋 시점"을 정한다. 기본 BATCH에서 예외를 삼키면 offset이 커밋되어 **메시지가 영원히 유실**된다(→ [Consumer & Offset](./02-consumer-offset.md)의 핵심 함정).
 
 **[증명]** → [s02 Consumer](../../../src/test/java/com/example/kafka/s02_consumer/README.md) `ConsumerAckModeTest`·`ConsumerAutoCommitTrapTest` · **왜** → [I권 조정](../1-internals/05-coordination.md) (offset 커밋과 `__consumer_offsets`)
 
@@ -83,28 +83,28 @@ graph LR
     OVER --> EVICT["⚠️ 컨슈머 퇴출 → 리밸런싱"]
 ```
 
-**[해결]** 무거운 일은 **별도 executor로 넘기거나**, `max.poll.records`를 줄여 배치 처리 시간을 짧게. **백프레셔의 정답은 `Thread.sleep`이 아니다** — 일부러 처리를 늦춰야 하면 리스너를 막지 말고 **컨테이너를 `pause()`/`resume()`** 하라(`MessageListenerContainer`). pause는 다음 `poll()`부터 적용되고, 그 동안에도 poll 루프는 계속 돌아(heartbeat 유지) 레코드 *전달*만 멈추므로 `max.poll.interval`을 안 넘긴다. 컨테이너 시작·중지는 `KafkaListenerEndpointRegistry`로, 기동 시 자동 시작을 막으려면 `autoStartup=false`. (리스너 안 `sleep`은 곧 이 절의 함정 그 자체.)
+**[해결]** 무거운 일은 **별도 executor로 넘기거나**, `max.poll.records`를 줄여 배치 처리 시간을 짧게. **백프레셔의 정답은 `Thread.sleep`이 아니다**. 일부러 처리를 늦춰야 하면 리스너를 막지 말고 **컨테이너를 `pause()`/`resume()`** 하라(`MessageListenerContainer`). pause는 다음 `poll()`부터 적용되고, 그 동안에도 poll 루프는 계속 돌아(heartbeat 유지) 레코드 *전달*만 멈추므로 `max.poll.interval`을 안 넘긴다. 컨테이너 시작·중지는 `KafkaListenerEndpointRegistry`로, 기동 시 자동 시작을 막으려면 `autoStartup=false`. (리스너 안 `sleep`은 곧 이 절의 함정 그 자체.)
 
 **[증명]** → [s04 Rebalancing](../../../src/test/java/com/example/kafka/s04_rebalancing/README.md) `MaxPollIntervalTest` · **왜** → [I권 클라이언트 런타임](../1-internals/09-client-runtime.md)(단일 poll 루프) + 8.3 타이밍
 
 ---
 
-## 9.4 `@RetryableTopic` — non-blocking retry, 그리고 blocking과의 곱셈
+## 9.4 `@RetryableTopic`: non-blocking retry, 그리고 blocking과의 곱셈
 
 재시도는 두 종류다:
 
-- **blocking retry**: `DefaultErrorHandler`의 BackOff로 **그 자리에서** 같은 레코드를 재전달 — 재시도 동안 그 파티션이 막힌다(9.3 위험).
-- **non-blocking retry** (`@RetryableTopic`): 실패 레코드를 **retry 토픽**으로 *전달*해 별도 리스너가 나중에 재처리 — 원래 파티션은 안 막힌다.
+- **blocking retry**: `DefaultErrorHandler`의 BackOff로 **그 자리에서** 같은 레코드를 재전달한다. 재시도 동안 그 파티션이 막힌다(9.3 위험).
+- **non-blocking retry** (`@RetryableTopic`): 실패 레코드를 **retry 토픽**으로 *전달*해 별도 리스너가 나중에 재처리한다. 원래 파티션은 안 막힌다.
 
 **기본 동작** `[code @spring-kafka 3.3]`:
 - `attempts` 기본 **3**(최초 1회 + 재시도 2회 → retry 토픽 2개), backoff 기본 **fixed `1000ms`**.
 - retry 토픽 명명: 기본 suffix **`-retry`**. 시도별로 분리돼 `{topic}-retry-0`·`-retry-1`…(고정 간격 재사용이면 단일 `{topic}-retry`, 지수 백오프면 지연값 suffix). 소진 후 DLT는 **`{topic}-dlt`** ([에러 처리 & DLQ](./05-error-handling-dlq.md)의 DLT 네이밍과 동일).
 
-**[고민]** blocking으로도 막고 non-blocking으로도 막으면 더 튼튼한 것 아닌가 — 같은 예외를 양쪽에 다 분류하면?
+**[고민]** blocking으로도 막고 non-blocking으로도 막으면 더 튼튼한 것 아닌가, 같은 예외를 양쪽에 다 분류하면?
 
-**[본질]** 같은 예외를 **blocking BackOff와 non-blocking 양쪽에** 분류하면, 각 non-blocking 단계(원본 + retry 토픽 N개)가 다시 blocking으로 B회 재시도되어 **총 ≈ N × B회**가 된다(예: non-blocking 4 × `FixedBackOff(50,3)` → ~12회 — 의도한 4회가 아니다). 두 레이어가 곱해지는 것이다.
+**[본질]** 같은 예외를 **blocking BackOff와 non-blocking 양쪽에** 분류하면, 각 non-blocking 단계(원본 + retry 토픽 N개)가 다시 blocking으로 B회 재시도되어 **총 ≈ N × B회**가 된다(예: non-blocking 4 × `FixedBackOff(50,3)` → ~12회, 의도한 4회가 아니다). 두 레이어가 곱해지는 것이다.
 
-**[해결]** 프레임워크는 보통 retry-topic이 처리하는 예외를 blocking에서 *제외*해 막는다 — **같은 예외를 양쪽에 명시 분류하는 게 곱셈의 방아쇠**다(의도적 결합은 `configureBlockingRetries(...)`, 2.8.4+). 하나를 기본으로: 처리량 민감하면 non-blocking, 순서 민감하면 blocking(단 9.3). 결합은 의도할 때만.
+**[해결]** 프레임워크는 보통 retry-topic이 처리하는 예외를 blocking에서 *제외*해 막는다. **같은 예외를 양쪽에 명시 분류하는 게 곱셈의 방아쇠**다(의도적 결합은 `configureBlockingRetries(...)`, 2.8.4+). 하나를 기본으로: 처리량 민감하면 non-blocking, 순서 민감하면 blocking(단 9.3). 결합은 의도할 때만.
 
 **[증명]** → 🧩 곱셈 동작은 통합테스트 필요(실패·재시도·전달이 겹쳐야 발현)
 
@@ -124,7 +124,7 @@ DB 트랜잭션과 Kafka 발행을 **한 메서드에 섞었다.**
 
 ---
 
-## 9.6 배치 리스너 — 1건 실패가 N건을 재처리시킨다
+## 9.6 배치 리스너: 1건 실패가 N건을 재처리시킨다
 
 `spring.kafka.listener.type=batch`로 `List<ConsumerRecord>`를 한 번에 받으면 처리량은 오른다. 1~9.5장이 암묵적으로 *단일 레코드*를 가정했다면, 배치는 그 가정이 깨지는 지점이다.
 
@@ -132,13 +132,13 @@ DB 트랜잭션과 Kafka 발행을 **한 메서드에 섞었다.**
 
 **[본질]** 배치 안 **한 건**이 실패했는데 그냥 예외를 던지면 → `DefaultErrorHandler`는 **배치 전체를 재시도**한다. 이미 처리된 멀쩡한 N-1건이 **중복 처리**된다(비멱등 처리면 그대로 사고). *배치인데 단일 레코드처럼 짠* 코드의 전형이다.
 
-**[해결]** **`BatchListenerFailedException(message, index)`** 로 *실패한 인덱스를 지목*하면, 그 레코드 직전까지 커밋하고 **그 한 건만** recoverer(DLQ)로 보낸다 — 나머지는 안 건드린다. 인덱스를 안 넘기거나 일반 예외를 던지면 이 단건 복구가 **작동하지 않는다.** 트레이드오프는 **처리량↑ vs 에러 처리 복잡도↑**: 단건 모드는 프레임워크가 실패를 격리해 주지만, 배치는 "빠른 대신 실패 격리를 직접 코딩"해야 한다.
+**[해결]** **`BatchListenerFailedException(message, index)`** 로 *실패한 인덱스를 지목*하면, 그 레코드 직전까지 커밋하고 **그 한 건만** recoverer(DLQ)로 보낸다. 나머지는 안 건드린다. 인덱스를 안 넘기거나 일반 예외를 던지면 이 단건 복구가 **작동하지 않는다.** 트레이드오프는 **처리량↑ vs 에러 처리 복잡도↑**: 단건 모드는 프레임워크가 실패를 격리해 주지만, 배치는 "빠른 대신 실패 격리를 직접 코딩"해야 한다.
 
 **[증명]** → ⬜ 위임(s05 DLQ 단건 경로) · 🧩 배치 단건 복구는 통합테스트 필요 · **왜** → 커밋·offset 원리는 [I권 조정](../1-internals/05-coordination.md) · "어디까지 커밋되나"는 9.2 commit 위치의 배치판
 
 ---
 
-## 9.7 정리 — 코드 순서 체크리스트
+## 9.7 정리: 코드 순서 체크리스트
 
 | 함정 | 잘못된 순서/위치 | 올바른 형태 |
 |------|----------------|------------|
@@ -149,7 +149,7 @@ DB 트랜잭션과 Kafka 발행을 **한 메서드에 섞었다.**
 | retry 혼용 | blocking + non-blocking 동시 | 하나만 |
 | 트랜잭션 경계 | DB+Kafka를 한 메서드에 | Outbox(→ messaging-lab) |
 
-> 핵심: 이 함정들은 **설정 검증으로도, 단위 테스트로도 잘 안 잡힌다.** "코드를 어느 순서로 배치했나"의 문제라, 통합 시나리오에서만 드러난다 — 그래서 II권에만 있다.
+> 핵심: 이 함정들은 **설정 검증으로도, 단위 테스트로도 잘 안 잡힌다.** "코드를 어느 순서로 배치했나"의 문제라, 통합 시나리오에서만 드러난다. 그래서 II권에만 있다.
 
 ---
 

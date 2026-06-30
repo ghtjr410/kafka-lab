@@ -1,7 +1,7 @@
 ---
 volume: I
 chapter: 9
-title: "클라이언트 런타임 — Producer/Consumer는 내부에서 어떻게 도나"
+title: "클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나"
 prose: done
 proof:
   mode: self
@@ -15,17 +15,17 @@ baseline: { broker: "Kafka 3.9 (MSK)", client: "kafka-clients 3.7", ref: "../../
 conventions: ../README.md
 ---
 
-# 9장. 클라이언트 런타임 — Producer/Consumer는 내부에서 어떻게 도나
+# 9장. 클라이언트 런타임: Producer/Consumer는 내부에서 어떻게 도나
 
 > 앞 장: [8장 저장 엔진](./08-storage-engine.md) · [I권 목차](./README.md)
 >
-> **이 장의 보장/관점(한 문장)**: *`send()`는 비동기다 — 사용자 스레드와 IO 스레드가 분리돼 있고, 그 경계를 모르면 콜백 한 줄로 전체 처리량을 무너뜨린다.*
+> **이 장의 보장/관점(한 문장)**: *`send()`는 비동기다. 사용자 스레드와 IO 스레드가 분리돼 있고, 그 경계를 모르면 콜백 한 줄로 전체 처리량을 무너뜨린다.*
 
 지금까지는 브로커 쪽(로그·복제·합의·저장)이었다. 이 장은 **클라이언트(Producer/Consumer) 라이브러리 내부**다. 여기를 모르면 II권의 코드 함정(`whenComplete`에서 blocking, `max.block.ms` 타임아웃)이 "왜 그런지" 설명이 안 된다.
 
 ---
 
-## 9.1 Producer 스레드 모델 — 두 개의 스레드
+## 9.1 Producer 스레드 모델: 두 개의 스레드
 
 `KafkaProducer.send()`는 **즉시 브로커로 보내지 않는다.** 두 종류의 스레드가 일한다:
 
@@ -62,17 +62,17 @@ send() → 직렬화 → 파티션 결정 → RecordAccumulator에 적재 → (�
 
 → 그래서 파티션을 늘리면 consumer 병렬성은 오르지만(→ [5장](./05-coordination.md)), 한 프로듀서의 메시지가 더 많은 파티션으로 흩어져 **파티션당 배치가 작아진다** → 압축률·요청당 효율↓. partition 수는 그 둘(병렬성 ↔ 배치 효율)의 트레이드오프다(*얼마로 정할지*는 → [III권 운영](../3-operations/README.md)).
 
-> **key 없는 메시지는 어느 파티션으로?** key가 있으면 해시로 정해지지만, key가 없으면 **sticky** 방식이 한 파티션에 "달라붙어" **`batch.size` 바이트가 쌓이면** 다음 파티션으로 옮긴다(전환 기준은 바이트 양 — `linger.ms`는 전송 시점이지 전환 트리거가 아니다). 3.7 기본은 다음 파티션을 브로커 부하 반영해 고른다(adaptive) → 배치가 커져 처리량이 오른다(9.5). baseline 3.7 기본은 **strictly-uniform sticky**(KIP-794, 3.3+ — 옛 `DefaultPartitioner`/`UniformStickyPartitioner`는 deprecated)이고, KIP-480이 그 원조다. `[KIP-480, KIP-794]`
+> **key 없는 메시지는 어느 파티션으로?** key가 있으면 해시로 정해지지만, key가 없으면 **sticky** 방식이 한 파티션에 "달라붙어" **`batch.size` 바이트가 쌓이면** 다음 파티션으로 옮긴다(전환 기준은 바이트 양, `linger.ms`는 전송 시점이지 전환 트리거가 아니다). 3.7 기본은 다음 파티션을 브로커 부하 반영해 고른다(adaptive) → 배치가 커져 처리량이 오른다(9.5). baseline 3.7 기본은 **strictly-uniform sticky**(KIP-794, 3.3+. 옛 `DefaultPartitioner`/`UniformStickyPartitioner`는 deprecated)이고, KIP-480이 그 원조다. `[KIP-480, KIP-794]`
 >
-> 단 sticky는 **처리량(배치) 최적화일 뿐 순서 장치가 아니다** — 순서는 멱등(sequence)과 `max.in.flight` 조합이 정한다(→ [멱등·순서](./06-ordering-atomicity.md)). key 없는 메시지는 애초에 순서 보장 대상이 아니다.
+> 단 sticky는 **처리량(배치) 최적화일 뿐 순서 장치가 아니다.** 순서는 멱등(sequence)과 `max.in.flight` 조합이 정한다(→ [멱등·순서](./06-ordering-atomicity.md)). key 없는 메시지는 애초에 순서 보장 대상이 아니다.
 >
 > 이 프로듀서 sticky는 컨슈머의 [StickyAssignor](./05-coordination.md)(리밸런싱 때 파티션 소유권 유지)와 **이름만 같은 다른 것**이다.
 
 ---
 
-## 9.3 콜백은 누가 실행하나 — 그리고 그게 왜 위험한가
+## 9.3 콜백은 누가 실행하나: 그리고 그게 왜 위험한가
 
-★ 이 장의 핵심. **`send(record, callback)`에 넘긴 kafka-clients `Callback`은 Sender(IO) 스레드에서 실행된다.** (raw `send()`는 `Future`만 돌려줘 `whenComplete`가 없다 — `whenComplete`는 II권 Spring `KafkaTemplate`의 `CompletableFuture` 것이고, 그 future도 이 `Callback` 안에서 완료되므로 같은 Sender 스레드에서 돈다. → 어느 경로든 위험은 동일.)
+★ 이 장의 핵심. **`send(record, callback)`에 넘긴 kafka-clients `Callback`은 Sender(IO) 스레드에서 실행된다.** (raw `send()`는 `Future`만 돌려줘 `whenComplete`가 없다. `whenComplete`는 II권 Spring `KafkaTemplate`의 `CompletableFuture` 것이고, 그 future도 이 `Callback` 안에서 완료되므로 같은 Sender 스레드에서 돈다. → 어느 경로든 위험은 동일.)
 
 ```mermaid
 sequenceDiagram
@@ -90,7 +90,7 @@ sequenceDiagram
 
 ---
 
-## 9.4 Backpressure — `buffer.memory`와 `max.block.ms`
+## 9.4 Backpressure: `buffer.memory`와 `max.block.ms`
 
 버퍼(RecordAccumulator)는 무한하지 않다(`buffer.memory`). 프로듀서가 브로커보다 빠르게 만들어내면 버퍼가 찬다. 그러면?
 
@@ -103,15 +103,15 @@ graph LR
 ```
 
 - 버퍼가 차면 `send()`는 **블록**된다(메타데이터 대기에도 블록). 즉 비동기인 `send()`가 이 순간엔 사용자 스레드를 멈춘다.
-- `max.block.ms` 안에 자리가 안 나면 `TimeoutException`. → 이게 **backpressure**다 — **브로커/네트워크가 버퍼를 못 비워**(Sender가 못 따라가) 생산 측을 눌러주는 것이지, 다운스트림 컨슈머 lag와는 무관하다.
+- `max.block.ms` 안에 자리가 안 나면 `TimeoutException`. → 이게 **backpressure**다. **브로커/네트워크가 버퍼를 못 비워**(Sender가 못 따라가) 생산 측을 눌러주는 것이지, 다운스트림 컨슈머 lag와는 무관하다.
 
-> `max.block.ms`는 *버퍼에 들어가기까지*의 한도일 뿐이다. 그 뒤 **전송+재시도까지 포함한 전체 상한**은 별도로 `delivery.timeout.ms`(KIP-91, 기본 **120000ms=2분**)가 정한다 — `send()` 호출부터 성공/최종 실패까지의 총 시계다. `[KIP-91 · docs @3.9]`
+> `max.block.ms`는 *버퍼에 들어가기까지*의 한도일 뿐이다. 그 뒤 **전송+재시도까지 포함한 전체 상한**은 별도로 `delivery.timeout.ms`(KIP-91, 기본 **120000ms=2분**)가 정한다. `send()` 호출부터 성공/최종 실패까지의 총 시계다. `[KIP-91 · docs @3.9]`
 
 ---
 
-## 9.5 설정 조합 — 처리량·지연·역압의 삼각형
+## 9.5 설정 조합: 처리량·지연·역압의 삼각형
 
-이 네 설정이 **함께** 처리량/지연/역압을 결정한다(개별이 아니라 조합 — II권 함정의 원리):
+이 네 설정이 **함께** 처리량/지연/역압을 결정한다(개별이 아니라 조합, II권 함정의 원리):
 
 | 설정 | 올리면 |
 |------|--------|
@@ -124,7 +124,7 @@ graph LR
 
 ## 9.6 Consumer 런타임
 
-Consumer는 Producer와 다르게 **단일 스레드 poll 루프**가 기본이다(**classic 프로토콜** 기준 — 아래 heartbeat 스레드 포함). KIP-848 새 consumer 프로토콜은 **멤버십·할당 계산을 서버(코디네이터) 주도**로 옮기고, JoinGroup/SyncGroup 대신 **하트비트가 할당까지 나르는 control plane**이 되어 이 그림을 바꾼다 → [조정](./05-coordination.md).
+Consumer는 Producer와 다르게 **단일 스레드 poll 루프**가 기본이다(**classic 프로토콜** 기준, 아래 heartbeat 스레드 포함). KIP-848 새 consumer 프로토콜은 **멤버십·할당 계산을 서버(코디네이터) 주도**로 옮기고, JoinGroup/SyncGroup 대신 **하트비트가 할당까지 나르는 control plane**이 되어 이 그림을 바꾼다 → [조정](./05-coordination.md).
 
 ```mermaid
 graph LR
@@ -140,23 +140,23 @@ graph LR
 
 ---
 
-## 9.7 Consumer/Replica는 어떻게 읽나 — fetch 프로토콜
+## 9.7 Consumer/Replica는 어떻게 읽나: fetch 프로토콜
 
 (9.7~9.8은 클라이언트 요청이 **broker에서 어떻게 다뤄지나**를 보려 잠깐 broker 쪽으로 넘어간다.)
 
-Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기기)** 이다 — `Fetch` 요청으로 브로커에서 데이터를 가져온다.
+Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기기)** 이다. `Fetch` 요청으로 브로커에서 데이터를 가져온다.
 
 - **long-poll**: 데이터가 아직 없으면 브로커가 즉시 빈 응답을 주지 않고, **`fetch.min.bytes`가 모이거나 `fetch.max.wait.ms`가 지나면(둘 중 먼저)** 응답한다 → 빈 폴링을 줄이고 배치 효율을 높인다.
 - **응답 크기 상한**: `fetch.max.bytes`(응답 전체)·`max.partition.fetch.bytes`(파티션당)로 제한한다(둘 다 consumer 설정).
 - **incremental fetch session**(KIP-227): 파티션이 많을 때 매번 전체 목록을 주고받지 않고 **변한 것만** 주고받는다(세션으로 상태 유지).
-- **복제도 같은 fetch 프로토콜**: [3장](./03-replication.md)에서 follower가 leader를 "fetch로 당겨간다"고 했는데, 그게 바로 이 프로토콜이다 — consumer fetch와 replica fetch는 동일 메커니즘이다.
+- **복제도 같은 fetch 프로토콜**: [3장](./03-replication.md)에서 follower가 leader를 "fetch로 당겨간다"고 했는데, 그게 바로 이 프로토콜이다. consumer fetch와 replica fetch는 동일 메커니즘이다.
 - **fetch-from-follower**(KIP-392): 기본은 leader에서 읽지만, 가까운(같은 rack) follower에서 읽도록 허용할 수 있다(지연·비용 최적화). 설정·운영은 → III권이나, 동작 자체는 fetch 프로토콜의 일부다.
 
 `[KIP-227, KIP-392]`
 
 ---
 
-## 9.8 broker가 요청을 보류하는 법 — purgatory
+## 9.8 broker가 요청을 보류하는 법: purgatory
 
 `acks=all` produce나 long-poll fetch처럼, 브로커가 **"아직 응답할 수 없는" 요청을 잠시 보류**해야 할 때가 있다. 이 보류를 관리하는 장치가 **purgatory**다.
 
@@ -181,8 +181,8 @@ Producer는 push(보내기)지만, **Consumer와 Replica는 둘 다 pull(당기�
 
 ## 참조
 
-- Kafka 공식 문서 — Producer/Consumer Configs (`buffer.memory`·`max.block.ms`·`linger.ms`·`max.poll.interval.ms`) `[docs @3.9]`
-- `KafkaProducer` / `KafkaConsumer` JavaDoc — `send()`·`poll()`의 정확한 계약 `[Tier 2]`
-- Kafka 소스 `clients/` — RecordAccumulator·Sender 구현 `[Tier 0]`
+- Kafka 공식 문서: Producer/Consumer Configs (`buffer.memory`·`max.block.ms`·`linger.ms`·`max.poll.interval.ms`) `[docs @3.9]`
+- `KafkaProducer` / `KafkaConsumer` JavaDoc: `send()`·`poll()`의 정확한 계약 `[Tier 2]`
+- Kafka 소스 `clients/`: RecordAccumulator·Sender 구현 `[Tier 0]`
 
 ← [8장 저장 엔진](./08-storage-engine.md) · [I권 목차](./README.md) · 다음: [10장 공유 소비](./10-share-groups.md)
